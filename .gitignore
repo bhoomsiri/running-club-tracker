@@ -1,0 +1,38 @@
+# Secrets — never commit these. Only .env.example, which holds placeholders.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials.json
+service-account*.json
+
+# Local Claude Code settings: machine-specific paths, not project config.
+# .claude/skills/ and CLAUDE.md ARE committed — they are project instructions.
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Editors & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.bak
+*.swp

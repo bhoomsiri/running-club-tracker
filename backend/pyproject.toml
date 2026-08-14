@@ -1,0 +1,59 @@
+[project]
+name = "running-club-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+# Only what this step needs. Web/storage/AI deps are added when the layer that
+# uses them is built (FastAPI at the router step, boto3 at the storage step...).
+dependencies = [
+    "fastapi>=0.110",
+    "python-multipart>=0.0.9",
+    "uvicorn[standard]>=0.29",
+    "pyjwt[crypto]>=2.8",
+    "svix>=1.20",
+    "slowapi>=0.1.9",
+    "boto3>=1.34",
+    "pillow>=10.3",
+    "google-genai>=1.0",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.1",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+    "piexif>=1.1.3",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+# extend-exclude, not exclude: `exclude` would replace ruff's defaults (.venv etc.)
+extend-exclude = ["app/alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = []
+exclude = "app/alembic/"
+
+# These ship no type information. Their call sites are wrapped by our own typed
+# adapters, so the untyped surface stays behind a port.
+[[tool.mypy.overrides]]
+module = ["boto3.*", "botocore.*", "piexif.*", "slowapi.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: needs a real PostgreSQL (uses DATABASE_URL); skipped when absent",
+]

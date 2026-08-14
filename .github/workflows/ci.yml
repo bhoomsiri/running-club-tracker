@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: club
+          POSTGRES_PASSWORD: club
+          POSTGRES_DB: running_club
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U club -d running_club"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+      minio:
+        image: minio/minio:edge-cicd
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports: ["9000:9000"]
+
+    env:
+      DATABASE_URL: postgresql+psycopg://club:club@localhost:5432/running_club
+      S3_ENDPOINT_URL: http://localhost:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e ".[dev]"
+
+      # The same gate as the local one in CLAUDE.md — `tests` is type-checked too, so an
+      # LSP break between a fake and a real repository fails here.
+      - name: ruff
+        run: ruff check .
+      - name: mypy
+        run: mypy app tests
+      - name: pytest
+        run: pytest
+
+      # Migrations run as their own step, never on app startup.
+      - name: alembic upgrade head
+        run: alembic upgrade head
+      - name: alembic downgrade base (migration is reversible)
+        run: alembic downgrade base
+
+      - name: pip-audit
+        run: pip install pip-audit && pip-audit
