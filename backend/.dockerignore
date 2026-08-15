@@ -1,0 +1,22 @@
+# Keep secrets and local clutter out of the build context. `.env` in particular would
+# otherwise be baked into a layer and travel with the image to the registry.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+tests/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+Dockerfile
+.dockerignore
