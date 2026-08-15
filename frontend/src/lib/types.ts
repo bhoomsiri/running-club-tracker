@@ -94,7 +94,9 @@ export type SaveHealthRequest = {
 };
 
 export type RunSource = "app_screenshot" | "manual_photo";
-export type ReviewStatus = "pending" | "approved" | "rejected";
+/** Matches app/domain/entities.py exactly. "flagged" means awaiting a decision — a
+ * flagged run still counts toward progress; only "rejected" earns nothing. */
+export type ReviewStatus = "ok" | "flagged" | "rejected";
 
 export type Run = {
   id: string;
@@ -230,3 +232,37 @@ export type ClubOverview = {
   campaigns: Campaign[];
   members: MemberOverview[];
 };
+
+export type MemberProgress = {
+  member: Member;
+  total_distance_km: string;
+  run_count: number;
+  pending_review_count: number;
+  campaigns: CampaignProgress[];
+  redemptions: Redemption[];
+};
+
+/** Sensitive. Only ever arrives from the audited endpoint, one member at a time. */
+export type MemberContact = {
+  subject: Member;
+  birth_year: number | null;
+  sex: Sex | null;
+  phone: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+};
+
+/** Sensitive, audited. */
+export type MemberScreening = {
+  subject: Member;
+  screening: Screening | null;
+};
+
+/** Sensitive, audited. */
+export type MemberHealth = {
+  subject: Member;
+  health: HealthComparison[];
+};
+
+/** What POST /admin/runs/{id}/review accepts — the same three values. */
+export type ReviewDecision = ReviewStatus;

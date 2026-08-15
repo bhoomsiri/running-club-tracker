@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui";
@@ -137,7 +138,10 @@ function MemberRow({
   rank: number | null;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-3">
+    <Link
+      href={`/admin/members/${member.member_id}`}
+      className="block rounded-xl border border-border bg-surface p-3 hover:border-brand"
+    >
       <div className="flex items-start gap-3">
         {rank !== null ? (
           <span className="w-6 shrink-0 pt-0.5 text-sm text-muted tabular-nums">
@@ -189,7 +193,7 @@ function MemberRow({
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
