@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.adapters.persistence import models
 from app.adapters.persistence.mappers import member_to_domain, member_to_orm
-from app.domain.entities import Member, MemberRole
+from app.domain.entities import Member, MemberProfile, MemberRole
 from app.domain.errors import MemberAlreadyExists
 
 
@@ -56,6 +56,25 @@ class SqlAlchemyMemberRepository:
             sa.update(models.Member)
             .where(models.Member.id == member_id)
             .values(display_name=display_name, updated_at=sa.func.now())
+        )
+        self._session.flush()
+
+    def set_profile(self, member_id: UUID, profile: MemberProfile) -> None:
+        """Profile only. `role` is not reachable from here on purpose — it is written by
+        the verified webhook or the bootstrap setting, never by anything a member sends.
+        """
+        self._session.execute(
+            sa.update(models.Member)
+            .where(models.Member.id == member_id)
+            .values(
+                full_name_th=profile.full_name_th,
+                birth_year=profile.birth_year,
+                sex=profile.sex.value if profile.sex else None,
+                phone=profile.phone,
+                emergency_contact_name=profile.emergency_contact_name,
+                emergency_contact_phone=profile.emergency_contact_phone,
+                updated_at=sa.func.now(),
+            )
         )
         self._session.flush()
 

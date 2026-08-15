@@ -1,7 +1,7 @@
 from typing import Protocol
 from uuid import UUID
 
-from app.domain.entities import Member, MemberRole
+from app.domain.entities import Member, MemberProfile, MemberRole
 
 
 class MemberRepository(Protocol):
@@ -26,3 +26,7 @@ class MemberRepository(Protocol):
         ...
 
     def set_display_name(self, member_id: UUID, display_name: str) -> None: ...
+
+    def set_profile(self, member_id: UUID, profile: MemberProfile) -> None:
+        """The member's own details. Never touches `role`."""
+        ...

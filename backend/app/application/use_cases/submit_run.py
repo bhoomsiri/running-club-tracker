@@ -31,6 +31,7 @@ from app.application.services.points_reconciliation import (
     reconcile_all_campaigns,
     valid_runs_of,
 )
+from app.domain.calendar import club_today
 from app.domain.entities import ReviewStatus, RunEntry, RunSource
 from app.domain.errors import DuplicateEvidence, InvalidRunError, NotAuthorized
 from app.domain.evidence import digest_from_key, is_owned_by
@@ -67,7 +68,7 @@ class SubmitRun:
             active = uow.campaigns.list_active()
             # A run has to belong to something. The windows come from the campaign rows,
             # never from a hardcoded date, so next year's activity needs no code change.
-            if cmd.run_date > now.date():
+            if cmd.run_date > club_today(now):
                 raise InvalidRunError("run_date cannot be in the future")
             if not any(campaign.contains(cmd.run_date) for campaign in active):
                 raise InvalidRunError(

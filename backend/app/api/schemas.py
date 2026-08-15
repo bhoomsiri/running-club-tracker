@@ -19,14 +19,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.application.ports.run_extractor import RunDraft
 from app.application.use_cases.get_my_summary import CampaignSummary, MemberSummary
+from app.application.use_cases.get_onboarding_status import OnboardingStatus
 from app.application.use_cases.list_rewards import CampaignRewards
 from app.application.use_cases.list_runs import RunWithEvidence
 from app.application.use_cases.view_member_health import MemberHealthView
 from app.domain.campaign import Campaign, CampaignType
 from app.domain.consent import Consent
-from app.domain.entities import Member, ReviewStatus, RunEntry, RunSource
+from app.domain.entities import Member, ReviewStatus, RunEntry, RunSource, Sex
 from app.domain.health import HealthComparison, HealthPhase, HealthRecord
 from app.domain.redemption import Redemption, Reward
+from app.domain.screening import Screening
 
 
 class MemberResponse(BaseModel):
@@ -403,3 +405,91 @@ class AdminRewardResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+# ------------------------------------------------------------- profile & onboarding
+
+
+class UpdateProfileRequest(BaseModel):
+    """No member_id: the profile is always the caller's own. No role either — that is
+    written by the verified webhook, never by a client."""
+
+    full_name_th: str = Field(min_length=1, max_length=200)
+    birth_year: int
+    sex: Sex
+    phone: str = Field(min_length=9, max_length=16)
+    emergency_contact_name: str = Field(min_length=1, max_length=200)
+    emergency_contact_phone: str = Field(min_length=9, max_length=16)
+
+
+class MemberProfileResponse(BaseModel):
+    """The caller's own profile.
+
+    Sensitive: `sex` and the emergency contact are personal data the club holds for
+    safety, not for display. This shape is returned to the member themselves and to an
+    audited admin path — never from the plain admin member list.
+    """
+
+    full_name_th: str | None
+    birth_year: int | None
+    sex: str | None
+    phone: str | None
+    emergency_contact_name: str | None
+    emergency_contact_phone: str | None
+    complete: bool
+
+    @classmethod
+    def from_entity(cls, member: Member) -> MemberProfileResponse:
+        profile = member.profile
+        return cls(
+            full_name_th=profile.full_name_th,
+            birth_year=profile.birth_year,
+            sex=profile.sex.value if profile.sex else None,
+            phone=profile.phone,
+            emergency_contact_name=profile.emergency_contact_name,
+            emergency_contact_phone=profile.emergency_contact_phone,
+            complete=profile.is_complete,
+        )
+
+
+class OnboardingStatusResponse(BaseModel):
+    complete: bool
+    # Named steps, in the order the wizard asks for them.
+    missing: list[str]
+
+    @classmethod
+    def from_status(cls, status: OnboardingStatus) -> OnboardingStatusResponse:
+        return cls(complete=status.complete, missing=list(status.missing))
+
+
+# ------------------------------------------------------------------------ screening
+
+
+class SaveScreeningRequest(BaseModel):
+    """No member_id. `answers` must carry all eleven questions — the domain rejects a
+    partial set rather than reading a missing answer as "no"."""
+
+    answers: dict[str, bool]
+    risk_acknowledged: bool
+    screened_on: date
+
+
+class ScreeningResponse(BaseModel):
+    version: str
+    answers: dict[str, bool]
+    risk_acknowledged: bool
+    screened_on: date
+    updated_at: datetime
+    # Derived, so the UI does not decide for itself what counts as a risk.
+    needs_medical_advice: bool
+
+    @classmethod
+    def from_entity(cls, screening: Screening) -> ScreeningResponse:
+        return cls(
+            version=screening.version,
+            answers=dict(screening.answers),
+            risk_acknowledged=screening.risk_acknowledged,
+            screened_on=screening.screened_on,
+            updated_at=screening.updated_at,
+            needs_medical_advice=screening.needs_medical_advice,
+        )

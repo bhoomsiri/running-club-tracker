@@ -22,7 +22,16 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.api import limiter as rate_limiting
 from app.api.errors import register_error_handlers
 from app.api.origin_guard import CloudflareOriginGuard
-from app.api.routers import admin, consent, health, me, rewards, runs, webhooks
+from app.api.routers import (
+    admin,
+    consent,
+    health,
+    me,
+    rewards,
+    runs,
+    screening,
+    webhooks,
+)
 from app.config import Settings, get_settings, missing_production_settings
 
 
@@ -95,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(me.router)
     app.include_router(consent.router)
     app.include_router(health.router)
+    app.include_router(screening.router)
     app.include_router(runs.router)
     app.include_router(rewards.router)
     app.include_router(admin.router)

@@ -8,9 +8,10 @@ from datetime import date
 from uuid import UUID
 
 from app.domain.campaign import Campaign
-from app.domain.entities import Member, MemberRole, ReviewStatus, RunEntry
+from app.domain.entities import Member, MemberProfile, MemberRole, ReviewStatus, RunEntry
 from app.domain.errors import MemberAlreadyExists
 from app.domain.health import HealthRecord
+from app.domain.screening import Screening
 
 
 class FakeMemberRepository:
@@ -45,6 +46,22 @@ class FakeMemberRepository:
 
     def set_display_name(self, member_id: UUID, display_name: str) -> None:
         self._items[member_id] = replace(self._items[member_id], display_name=display_name)
+
+    def set_profile(self, member_id: UUID, profile: MemberProfile) -> None:
+        self._items[member_id] = replace(self._items[member_id], profile=profile)
+
+
+class FakeScreeningRepository:
+    def __init__(self, screenings: list[Screening] | None = None) -> None:
+        self._items: dict[UUID, Screening] = {s.member_id: s for s in screenings or []}
+
+    def get_for_member(self, member_id: UUID) -> Screening | None:
+        return self._items.get(member_id)
+
+    def upsert(self, screening: Screening) -> Screening:
+        # member_id is unique in the real table, so one per member here too.
+        self._items[screening.member_id] = screening
+        return screening
 
 
 class FakeRunRepository:

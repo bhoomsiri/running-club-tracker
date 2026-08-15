@@ -4,12 +4,13 @@ so validation lives in exactly one place."""
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID, uuid4
 
+from app.domain.calendar import club_today
 from app.domain.errors import InvalidMemberError, InvalidRunError
 
 MAX_DISPLAY_NAME = 120
@@ -40,6 +41,46 @@ class MemberRole(StrEnum):
         return self is MemberRole.SUPERUSER
 
 
+class Sex(StrEnum):
+    """Recorded because it changes how exercise risk is read, not for anything else.
+    Sensitive: it is never part of a response an admin can reach without an audit row."""
+
+    MALE = "male"
+    FEMALE = "female"
+
+
+@dataclass(frozen=True)
+class MemberProfile:
+    """What the club needs in order to run an activity safely.
+
+    All optional on the entity, because a member exists from their first authenticated
+    request and fills this in afterwards — `is_complete` is what the onboarding gate
+    asks. The emergency contact is the reason this is collected at all: someone has to
+    be reachable if a member collapses on a run.
+    """
+
+    full_name_th: str | None = None
+    birth_year: int | None = None
+    sex: Sex | None = None
+    phone: str | None = None
+    emergency_contact_name: str | None = None
+    emergency_contact_phone: str | None = None
+
+    @property
+    def is_complete(self) -> bool:
+        return all(
+            value is not None
+            for value in (
+                self.full_name_th,
+                self.birth_year,
+                self.sex,
+                self.phone,
+                self.emergency_contact_name,
+                self.emergency_contact_phone,
+            )
+        )
+
+
 @dataclass(frozen=True)
 class Member:
     id: UUID
@@ -47,7 +88,18 @@ class Member:
     display_name: str
     role: MemberRole
     created_at: datetime
+    profile: MemberProfile = field(default_factory=MemberProfile)
     deleted_at: datetime | None = None
+
+    @property
+    def preferred_name(self) -> str:
+        """What to show wherever a member is named.
+
+        The Thai full name once they have given it, because that is what the club calls
+        them and what belongs on a screening form. `display_name` — which comes from
+        Clerk — is the fallback until then.
+        """
+        return self.profile.full_name_th or self.display_name
 
     @classmethod
     def create(
@@ -65,6 +117,75 @@ class Member:
             role=role,
             created_at=now,
         )
+
+    def with_profile(self, profile: MemberProfile) -> Member:
+        return replace(self, profile=profile)
+
+
+MAX_FULL_NAME = 200
+MAX_CONTACT_NAME = 200
+MIN_BIRTH_YEAR = 1900
+# Nobody younger than this is running a club activity unaccompanied; it also catches a
+# birth year typed where the current year was meant.
+MIN_AGE_YEARS = 10
+
+_PHONE_RE = re.compile(r"^0\d{8,9}$")
+
+
+def build_profile(
+    *,
+    full_name_th: str,
+    birth_year: int,
+    sex: Sex,
+    phone: str,
+    emergency_contact_name: str,
+    emergency_contact_phone: str,
+    now: datetime,
+) -> MemberProfile:
+    """The one place a profile is validated, whichever path builds it."""
+    return MemberProfile(
+        full_name_th=_required_text("full_name_th", full_name_th, MAX_FULL_NAME),
+        birth_year=_validate_birth_year(birth_year, now),
+        sex=sex,
+        phone=_validate_phone("phone", phone),
+        emergency_contact_name=_required_text(
+            "emergency_contact_name", emergency_contact_name, MAX_CONTACT_NAME
+        ),
+        emergency_contact_phone=_validate_phone(
+            "emergency_contact_phone", emergency_contact_phone
+        ),
+    )
+
+
+def _required_text(field_name: str, value: str, limit: int) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        raise InvalidMemberError(f"{field_name} cannot be empty")
+    if len(cleaned) > limit:
+        raise InvalidMemberError(f"{field_name} cannot exceed {limit} characters")
+    return cleaned
+
+
+def _validate_birth_year(year: int, now: datetime) -> int:
+    if not (MIN_BIRTH_YEAR <= year <= now.year - MIN_AGE_YEARS):
+        raise InvalidMemberError(
+            f"birth_year must be between {MIN_BIRTH_YEAR} and {now.year - MIN_AGE_YEARS}"
+        )
+    return year
+
+
+def _validate_phone(field_name: str, value: str) -> str:
+    """Stored as digits only, so the same number typed three ways is one number.
+
+    An emergency contact that cannot be dialled is worse than none — it looks like the
+    club has one.
+    """
+    digits = re.sub(r"[\s-]", "", value.strip())
+    if not _PHONE_RE.match(digits):
+        raise InvalidMemberError(
+            f"{field_name} must be a Thai phone number, e.g. 0812345678"
+        )
+    return digits
 
 
 def validate_display_name(name: str) -> str:
@@ -132,7 +253,7 @@ class RunEntry:
             raise InvalidRunError(f"distance_km must be between 0 and {MAX_DISTANCE_KM}")
         if duration_seconds <= 0 or duration_seconds > MAX_DURATION_SECONDS:
             raise InvalidRunError(f"duration_seconds must be between 0 and {MAX_DURATION_SECONDS}")
-        if run_date > now.date():
+        if run_date > club_today(now):
             raise InvalidRunError("run_date cannot be in the future")
         if not evidence_key.strip():
             raise InvalidRunError("evidence_key is required")

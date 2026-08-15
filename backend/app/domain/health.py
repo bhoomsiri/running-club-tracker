@@ -18,6 +18,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 from uuid import UUID, uuid4
 
+from app.domain.calendar import club_today
 from app.domain.errors import InvalidHealthRecordError
 
 BMI_PRECISION = Decimal("0.1")
@@ -82,7 +83,7 @@ class HealthRecord:
         _check("resting_hr", resting_hr)
         _check("systolic", systolic)
         _check("diastolic", diastolic)
-        if measured_on > now.date():
+        if measured_on > club_today(now):
             raise InvalidHealthRecordError("measured_on cannot be in the future")
 
         return cls(

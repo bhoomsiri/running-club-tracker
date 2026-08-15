@@ -40,6 +40,9 @@ from app.adapters.persistence.sqlalchemy_redemption_repository import (
 )
 from app.adapters.persistence.sqlalchemy_reward_repository import SqlAlchemyRewardRepository
 from app.adapters.persistence.sqlalchemy_run_repository import SqlAlchemyRunRepository
+from app.adapters.persistence.sqlalchemy_screening_repository import (
+    SqlAlchemyScreeningRepository,
+)
 from app.adapters.persistence.unit_of_work import SqlAlchemyUnitOfWork
 from app.adapters.storage.pillow_image_sanitizer import PillowImageSanitizer
 from app.adapters.storage.s3_image_storage import S3ImageStorage
@@ -49,7 +52,9 @@ from app.application.ports.token_verifier import TokenVerifier
 from app.application.use_cases.ensure_member import EnsureMember
 from app.application.use_cases.extract_run_draft import ExtractRunDraft
 from app.application.use_cases.get_my_consent import GetMyConsent
+from app.application.use_cases.get_my_screening import GetMyScreening
 from app.application.use_cases.get_my_summary import GetMySummary
+from app.application.use_cases.get_onboarding_status import GetOnboardingStatus
 from app.application.use_cases.grant_consent import GrantConsent
 from app.application.use_cases.list_members import ListMembers
 from app.application.use_cases.list_rewards import ListRewards
@@ -60,8 +65,10 @@ from app.application.use_cases.manage_rewards import CreateReward, UpdateReward
 from app.application.use_cases.redeem_reward import RedeemReward
 from app.application.use_cases.review_run import ReviewRun
 from app.application.use_cases.save_health_record import SaveHealthRecord
+from app.application.use_cases.save_my_screening import SaveMyScreening
 from app.application.use_cases.submit_run import SubmitRun
 from app.application.use_cases.sync_member_from_clerk import SyncMemberFromClerk
+from app.application.use_cases.update_my_profile import UpdateMyProfile
 from app.application.use_cases.upload_evidence import UploadEvidence
 from app.application.use_cases.view_member_health import ViewMemberHealth
 from app.application.use_cases.withdraw_consent import WithdrawConsent
@@ -239,6 +246,45 @@ def get_save_health_uc(
         clock=clock,
         consent_version=settings.consent_version,
         retention_days=settings.health_retention_days,
+    )
+
+
+def get_update_profile_uc(
+    session: Annotated[Session, Depends(get_session)],
+    clock: Annotated[SystemClock, Depends(get_clock)],
+) -> UpdateMyProfile:
+    return UpdateMyProfile(SqlAlchemyMemberRepository(session), clock)
+
+
+def get_my_screening_uc(
+    session: Annotated[Session, Depends(get_session)],
+) -> GetMyScreening:
+    return GetMyScreening(SqlAlchemyScreeningRepository(session))
+
+
+def get_save_screening_uc(
+    session: Annotated[Session, Depends(get_session)],
+    clock: Annotated[SystemClock, Depends(get_clock)],
+    settings: Annotated[Settings, Depends(get_settings_dep)],
+) -> SaveMyScreening:
+    return SaveMyScreening(
+        consents=SqlAlchemyConsentRepository(session),
+        screenings=SqlAlchemyScreeningRepository(session),
+        clock=clock,
+        consent_version=settings.consent_version,
+    )
+
+
+def get_onboarding_status_uc(
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings_dep)],
+) -> GetOnboardingStatus:
+    return GetOnboardingStatus(
+        members=SqlAlchemyMemberRepository(session),
+        consents=SqlAlchemyConsentRepository(session),
+        screenings=SqlAlchemyScreeningRepository(session),
+        health=SqlAlchemyHealthRepository(session),
+        consent_version=settings.consent_version,
     )
 
 

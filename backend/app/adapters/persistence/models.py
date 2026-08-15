@@ -69,6 +69,16 @@ class Member(Base):
     display_name: Mapped[str] = mapped_column(sa.String(120), nullable=False)
     # Synced from Clerk publicMetadata via the verified webhook — never from the client.
     role: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default="member")
+    # Profile, filled in during onboarding. Nullable because a member row exists from
+    # their first authenticated request, before any of this has been asked for.
+    # sex and the emergency contact are sensitive: they must not appear in a response an
+    # admin can reach without an audit row.
+    full_name_th: Mapped[str | None] = mapped_column(sa.String(200))
+    birth_year: Mapped[int | None] = mapped_column(sa.SmallInteger)
+    sex: Mapped[str | None] = mapped_column(sa.String(6))
+    phone: Mapped[str | None] = mapped_column(sa.String(16))
+    emergency_contact_name: Mapped[str | None] = mapped_column(sa.String(200))
+    emergency_contact_phone: Mapped[str | None] = mapped_column(sa.String(16))
     created_at: Mapped[datetime] = _created_at()
     updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
@@ -78,6 +88,11 @@ class Member(Base):
 
     __table_args__ = (
         sa.CheckConstraint("role IN ('member', 'admin', 'superuser')", name="role_valid"),
+        sa.CheckConstraint("sex IS NULL OR sex IN ('male', 'female')", name="sex_valid"),
+        sa.CheckConstraint(
+            "birth_year IS NULL OR birth_year BETWEEN 1900 AND 2200",
+            name="birth_year_range",
+        ),
         # There can be only one superuser, enforced by the database rather than by
         # convention. `role` is only ever written by the verified Clerk webhook or the
         # bootstrap config (settings.superuser_clerk_user_id) — never by a client.
@@ -281,6 +296,47 @@ class PointsLedger(Base):
         ),
         # The balance query: SUM(delta) for one member in one campaign.
         sa.Index("ix_points_ledger_member_id_campaign_id", "member_id", "campaign_id"),
+    )
+
+
+# ------------------------------------------------------------------------- screening
+
+
+class Screening(Base):
+    """PAR-Q+ pre-exercise screening — sensitive personal data under PDPA (มาตรา 26).
+
+    One row per member, replaced when they answer again: this records what is true now,
+    and keeping every past draft of someone's cardiac history would be a liability
+    rather than an asset. Held behind the same consent as health_record, and readable by
+    an admin only through an audited path.
+
+    The answers are one JSONB object rather than eleven columns, matching how
+    campaign.config is handled: the question set belongs to the instrument, and `version`
+    says which instrument was answered, so a future revision does not silently change
+    what an old row meant.
+    """
+
+    __tablename__ = "screening"
+
+    id: Mapped[uuid.UUID] = _pk()
+    member_id: Mapped[uuid.UUID] = mapped_column(
+        sa.ForeignKey("member.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    version: Mapped[str] = mapped_column(sa.String(32), nullable=False)
+    answers: Mapped[dict[str, bool]] = mapped_column(JSONB, nullable=False)
+    risk_acknowledged: Mapped[bool] = mapped_column(sa.Boolean, nullable=False)
+    screened_on: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+    )
+
+    __table_args__ = (
+        # Shape only. Completeness — all eleven questions answered — is checked in the
+        # domain, because a CHECK constraint cannot contain the subquery that counting
+        # JSONB keys would need. A record with a gap in it would read as a clean result
+        # for the question nobody answered, so that rule has tests of its own.
+        sa.CheckConstraint("jsonb_typeof(answers) = 'object'", name="answers_is_object"),
     )
 
 

@@ -28,6 +28,9 @@ from app.adapters.persistence.sqlalchemy_redemption_repository import (
 )
 from app.adapters.persistence.sqlalchemy_reward_repository import SqlAlchemyRewardRepository
 from app.adapters.persistence.sqlalchemy_run_repository import SqlAlchemyRunRepository
+from app.adapters.persistence.sqlalchemy_screening_repository import (
+    SqlAlchemyScreeningRepository,
+)
 from app.adapters.persistence.unit_of_work import SqlAlchemyUnitOfWork
 from app.application.ports.audit_repository import AuditRepository
 from app.application.ports.campaign_repository import CampaignRepository
@@ -39,6 +42,7 @@ from app.application.ports.points_ledger_repository import PointsLedgerRepositor
 from app.application.ports.redemption_repository import RedemptionRepository
 from app.application.ports.reward_repository import RewardRepository
 from app.application.ports.run_repository import RunRepository
+from app.application.ports.screening_repository import ScreeningRepository
 from app.application.ports.unit_of_work import UnitOfWork
 from tests.fakes.fake_health_uow import (
     FakeAuditRepository,
@@ -56,6 +60,7 @@ from tests.fakes.repositories import (
     FakeHealthRepository,
     FakeMemberRepository,
     FakeRunRepository,
+    FakeScreeningRepository,
 )
 
 
@@ -139,6 +144,14 @@ def _fake_members(repo: FakeMemberRepository) -> MemberRepository:
     return repo
 
 
+def _real_screenings(repo: SqlAlchemyScreeningRepository) -> ScreeningRepository:
+    return repo
+
+
+def _fake_screenings(repo: FakeScreeningRepository) -> ScreeningRepository:
+    return repo
+
+
 def _real_health(repo: SqlAlchemyHealthRepository) -> HealthRepository:
     return repo
 
@@ -151,3 +164,4 @@ def test_every_port_has_a_fake_and_a_real_implementation() -> None:
     """The conformance itself is checked by mypy; this keeps pytest honest about the
     file being imported."""
     assert _fake_members(FakeMemberRepository()) is not None
+    assert _fake_screenings(FakeScreeningRepository()) is not None

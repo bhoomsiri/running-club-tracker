@@ -15,7 +15,15 @@ from app.adapters.persistence import models
 from app.domain.audit import AuditAction, AuditEntry
 from app.domain.campaign import Campaign, CampaignType
 from app.domain.consent import Consent, ConsentPurpose
-from app.domain.entities import Member, MemberRole, ReviewStatus, RunEntry, RunSource
+from app.domain.entities import (
+    Member,
+    MemberProfile,
+    MemberRole,
+    ReviewStatus,
+    RunEntry,
+    RunSource,
+    Sex,
+)
 from app.domain.health import HealthPhase, HealthRecord
 from app.domain.redemption import (
     LedgerReason,
@@ -24,6 +32,7 @@ from app.domain.redemption import (
     RedemptionStatus,
     Reward,
 )
+from app.domain.screening import Screening
 
 # --------------------------------------------------------------------------- member
 
@@ -35,6 +44,14 @@ def member_to_domain(row: models.Member) -> Member:
         display_name=row.display_name,
         role=MemberRole(row.role),
         created_at=row.created_at,
+        profile=MemberProfile(
+            full_name_th=row.full_name_th,
+            birth_year=row.birth_year,
+            sex=Sex(row.sex) if row.sex else None,
+            phone=row.phone,
+            emergency_contact_name=row.emergency_contact_name,
+            emergency_contact_phone=row.emergency_contact_phone,
+        ),
         deleted_at=row.deleted_at,
     )
 
@@ -265,4 +282,30 @@ def health_to_orm(record: HealthRecord) -> models.HealthRecord:
         diastolic=record.diastolic,
         retention_until=record.retention_until,
         created_at=record.created_at,
+    )
+
+
+def screening_to_domain(row: models.Screening) -> Screening:
+    return Screening(
+        id=row.id,
+        member_id=row.member_id,
+        version=row.version,
+        answers=dict(row.answers),
+        risk_acknowledged=row.risk_acknowledged,
+        screened_on=row.screened_on,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def screening_to_orm(screening: Screening) -> models.Screening:
+    return models.Screening(
+        id=screening.id,
+        member_id=screening.member_id,
+        version=screening.version,
+        answers=dict(screening.answers),
+        risk_acknowledged=screening.risk_acknowledged,
+        screened_on=screening.screened_on,
+        created_at=screening.created_at,
+        updated_at=screening.updated_at,
     )

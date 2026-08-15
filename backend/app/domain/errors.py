@@ -21,6 +21,11 @@ class InvalidHealthRecordError(DomainError):
     """A health measurement is outside the plausible range."""
 
 
+class InvalidScreeningError(DomainError):
+    """A pre-exercise screening is incomplete or malformed. Never carries an answer —
+    the message names the questions, not what was said about them."""
+
+
 class InvalidCampaignError(DomainError):
     """A campaign is malformed, or its config is missing a value its policy needs."""
 
