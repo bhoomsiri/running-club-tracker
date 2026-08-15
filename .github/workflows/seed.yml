@@ -1,0 +1,30 @@
+name: Seed
+
+# Manual only. Seeding writes the settings members' points are derived from, so it is
+# never something a push should trigger — it runs when someone decides to run it.
+on:
+  workflow_dispatch:
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e .
+
+      # Campaigns only: SEED_REWARDS is left unset, so the placeholder catalogue in
+      # seed.py stays out of production. Rewards are the club's decision and belong to
+      # the superuser endpoints. The script inserts only what is missing, so a second
+      # run is a no-op rather than a duplicate.
+      - name: seed prod data (campaigns only)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m app.seed

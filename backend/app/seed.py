@@ -1,8 +1,14 @@
-"""Seed this year's activities and the reward catalogue.
+"""Seed this year's activities, and optionally the reward catalogue.
 
 Run once against a fresh database, after `alembic upgrade head`:
 
-    cd backend && python -m app.seed
+    cd backend && python -m app.seed                    # campaigns only
+    cd backend && SEED_REWARDS=true python -m app.seed  # campaigns + rewards
+
+Campaigns are seeded every time; rewards are opt-in because their names, costs and
+stock are the club's decision and are meant to be set by a superuser through the API
+rather than fixed here. The placeholder catalogue below is for a demo or a fresh local
+database — seeding it into production would publish prizes nobody agreed to.
 
 Idempotent: campaigns are matched by `code` and rewards by (campaign, name), so running
 it twice changes nothing. It only ever inserts — it will not overwrite a campaign that
@@ -12,6 +18,7 @@ silently changing them would rewrite history.
 
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -58,7 +65,7 @@ REWARDS = [
 REWARD_CAMPAIGN_CODE = "daily-10km-2026"
 
 
-def seed(session: Session) -> None:
+def seed(session: Session, *, include_rewards: bool = False) -> None:
     campaign_ids: dict[str, uuid.UUID] = {}
 
     for spec in CAMPAIGNS:
@@ -84,6 +91,13 @@ def seed(session: Session) -> None:
         session.flush()
         campaign_ids[str(spec["code"])] = campaign.id
         print(f"campaign {spec['code']}: created")
+
+    if not include_rewards:
+        # Commit what has been done before leaving, or the campaigns roll back with the
+        # session and the run achieves nothing.
+        session.commit()
+        print("rewards: skipped (set SEED_REWARDS=true to seed them too)")
+        return
 
     created = 0
     skipped = 0
@@ -117,8 +131,9 @@ def seed(session: Session) -> None:
 
 
 def main() -> None:
+    include_rewards = os.getenv("SEED_REWARDS", "false").lower() == "true"
     with get_session_factory()() as session:
-        seed(session)
+        seed(session, include_rewards=include_rewards)
     print("seed complete")
 
 
