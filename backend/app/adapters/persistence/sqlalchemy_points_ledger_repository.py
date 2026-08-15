@@ -45,6 +45,17 @@ class SqlAlchemyPointsLedgerRepository:
         ).scalar_one()
         return Decimal(total)
 
+    def balances_for_campaign(self, campaign_id: UUID) -> dict[UUID, Decimal]:
+        rows = self._session.execute(
+            sa.select(
+                models.PointsLedger.member_id,
+                sa.func.coalesce(sa.func.sum(models.PointsLedger.delta), 0),
+            )
+            .where(models.PointsLedger.campaign_id == campaign_id)
+            .group_by(models.PointsLedger.member_id)
+        ).all()
+        return {member_id: Decimal(total) for member_id, total in rows}
+
     def credited_total(self, member_id: UUID, campaign_id: UUID) -> Decimal:
         total = self._session.execute(
             sa.select(sa.func.coalesce(sa.func.sum(models.PointsLedger.delta), 0)).where(

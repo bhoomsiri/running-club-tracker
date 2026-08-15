@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, status
 
 from app.api.deps import (
     get_cancel_redemption_uc,
+    get_club_overview_uc,
     get_create_campaign_uc,
     get_create_reward_uc,
     get_current_admin,
@@ -23,6 +24,7 @@ from app.api.deps import (
 from app.api.schemas import (
     AdminRewardResponse,
     CampaignResponse,
+    ClubOverviewResponse,
     CreateCampaignRequest,
     CreateRewardRequest,
     MemberHealthResponse,
@@ -33,6 +35,7 @@ from app.api.schemas import (
     UpdateCampaignRequest,
     UpdateRewardRequest,
 )
+from app.application.use_cases.get_club_overview import GetClubOverview
 from app.application.use_cases.list_members import ListMembers
 from app.application.use_cases.manage_campaigns import (
     CreateCampaign,
@@ -59,6 +62,20 @@ from app.application.use_cases.view_member_health import (
 from app.domain.entities import Member
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+@router.get("/overview", response_model=ClubOverviewResponse)
+def club_overview(
+    boss: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[GetClubOverview, Depends(get_club_overview_uc)],
+) -> ClubOverviewResponse:
+    """Everyone's standing on one screen.
+
+    No health data, no screening answers, none of the sensitive profile fields. Reading
+    those is an audited act about one named member; a table cannot do it for a hundred
+    people at once and still mean anything.
+    """
+    return ClubOverviewResponse.from_overview(use_case.execute(boss.id))
 
 
 @router.get("/members", response_model=list[MemberResponse])

@@ -33,6 +33,12 @@ class SqlAlchemyRunRepository:
         )
         self._session.flush()
 
+    def list_all(self) -> list[RunEntry]:
+        rows = self._session.execute(
+            sa.select(models.RunEntry).order_by(models.RunEntry.run_date.desc())
+        ).scalars()
+        return [run_to_domain(r) for r in rows]
+
     def count_in_window(self, start: date, end: date) -> int:
         return int(
             self._session.execute(

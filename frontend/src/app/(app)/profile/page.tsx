@@ -26,11 +26,8 @@ export default async function ProfilePage() {
 
       <div className="space-y-4">
         <Card>
-          {/* The Thai name is what the club calls them; display_name from Clerk is the
-              fallback until they have given one. */}
-          <p className="text-lg font-medium">
-            {profile.full_name_th ?? summary.member.display_name}
-          </p>
+          {/* Already resolved by the backend: full_name_th when there is one. */}
+          <p className="text-lg font-medium">{summary.member.name}</p>
           <p className="mt-1">
             <Badge tone={summary.member.role === "member" ? "neutral" : "brand"}>
               {ROLE_LABELS[summary.member.role]}

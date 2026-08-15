@@ -74,6 +74,9 @@ class FakeRunRepository:
     def get(self, run_id: UUID) -> RunEntry | None:
         return next((r for r in self._items if r.id == run_id), None)
 
+    def list_all(self) -> list[RunEntry]:
+        return list(self._items)
+
     def set_review_status(self, run_id: UUID, status: ReviewStatus) -> None:
         self._items = [
             replace(r, review_status=status) if r.id == run_id else r for r in self._items

@@ -51,6 +51,7 @@ from app.application.ports.run_extractor import RunExtractor
 from app.application.ports.token_verifier import TokenVerifier
 from app.application.use_cases.ensure_member import EnsureMember
 from app.application.use_cases.extract_run_draft import ExtractRunDraft
+from app.application.use_cases.get_club_overview import GetClubOverview
 from app.application.use_cases.get_my_consent import GetMyConsent
 from app.application.use_cases.get_my_screening import GetMyScreening
 from app.application.use_cases.get_my_summary import GetMySummary
@@ -285,6 +286,17 @@ def get_onboarding_status_uc(
         screenings=SqlAlchemyScreeningRepository(session),
         health=SqlAlchemyHealthRepository(session),
         consent_version=settings.consent_version,
+    )
+
+
+def get_club_overview_uc(
+    session: Annotated[Session, Depends(get_session)],
+) -> GetClubOverview:
+    return GetClubOverview(
+        members=SqlAlchemyMemberRepository(session),
+        runs=SqlAlchemyRunRepository(session),
+        campaigns=SqlAlchemyCampaignRepository(session),
+        ledger=SqlAlchemyPointsLedgerRepository(session),
     )
 
 

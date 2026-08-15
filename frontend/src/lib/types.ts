@@ -12,6 +12,9 @@ export type Role = "member" | "admin" | "superuser";
 
 export type Member = {
   id: string;
+  /** What to show: full_name_th once given, else display_name. Use this everywhere. */
+  name: string;
+  /** What Clerk holds. Kept because the two can differ; rarely the one to display. */
   display_name: string;
   role: Role;
 };
@@ -194,4 +197,36 @@ export type Screening = {
   updated_at: string;
   /** Derived by the backend, so the UI never decides for itself what counts as a risk. */
   needs_medical_advice: boolean;
+};
+
+/** One member's standing in the club-wide table.
+ *
+ * Note what is not here: health, screening, sex, phone, emergency contact. Reading those
+ * is an audited act about one named member, so they arrive through a drill-down and
+ * never through this list. */
+export type MemberOverview = {
+  member_id: string;
+  /** full_name_th when the member has given one, else their Clerk display name. */
+  name: string;
+  role: Role;
+  total_distance_km: string;
+  run_count: number;
+  pending_review_count: number;
+  campaigns: CampaignProgress[];
+};
+
+export type Campaign = {
+  id: string;
+  code: string;
+  name: string;
+  type: string;
+  starts_on: string;
+  ends_on: string;
+  config: Record<string, unknown>;
+  is_active: boolean;
+};
+
+export type ClubOverview = {
+  campaigns: Campaign[];
+  members: MemberOverview[];
 };

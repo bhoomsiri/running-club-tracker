@@ -107,6 +107,14 @@ class FakePointsLedgerRepository:
             start=Decimal("0"),
         )
 
+    def balances_for_campaign(self, campaign_id: UUID) -> dict[UUID, Decimal]:
+        totals: dict[UUID, Decimal] = {}
+        for entry in self._items:
+            if entry.campaign_id == campaign_id:
+                totals[entry.member_id] = totals.get(entry.member_id, Decimal("0")) + entry.delta
+        # Members with no rows are absent, exactly as the GROUP BY leaves them.
+        return totals
+
     def credited_total(self, member_id: UUID, campaign_id: UUID) -> Decimal:
         return sum(
             (

@@ -20,6 +20,14 @@ class RunRepository(Protocol):
         these into each campaign's window, so there is no per-campaign query here."""
         ...
 
+    def list_all(self) -> list[RunEntry]:
+        """Every run in the club, for the one view that is about everybody at once.
+
+        A club-wide screen would otherwise call list_by_member once per member — a
+        hundred round trips to build one table, growing with the membership.
+        """
+        ...
+
     def count_in_window(self, start: date, end: date) -> int:
         """How many runs (from anyone) fall inside these dates."""
         ...

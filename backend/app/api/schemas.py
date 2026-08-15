@@ -18,6 +18,11 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.application.ports.run_extractor import RunDraft
+from app.application.use_cases.get_club_overview import (
+    ClubOverview,
+    MemberCampaignProgress,
+    MemberOverview,
+)
 from app.application.use_cases.get_my_summary import CampaignSummary, MemberSummary
 from app.application.use_cases.get_onboarding_status import OnboardingStatus
 from app.application.use_cases.list_rewards import CampaignRewards
@@ -35,6 +40,10 @@ class MemberResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    # What to show: the Thai full name once the member has given one, else the name
+    # Clerk supplied. Every screen uses this, so one member is called one thing.
+    name: str
+    # Kept as well, because it is what Clerk holds and the two can differ.
     display_name: str
     role: str
 
@@ -42,7 +51,12 @@ class MemberResponse(BaseModel):
     def from_entity(cls, member: Member) -> MemberResponse:
         # No email, no clerk_user_id: the client already knows who it is, and neither
         # belongs in a response body.
-        return cls(id=member.id, display_name=member.display_name, role=member.role.value)
+        return cls(
+            id=member.id,
+            name=member.preferred_name,
+            display_name=member.display_name,
+            role=member.role.value,
+        )
 
 
 class CampaignProgressResponse(BaseModel):
@@ -492,4 +506,77 @@ class ScreeningResponse(BaseModel):
             screened_on=screening.screened_on,
             updated_at=screening.updated_at,
             needs_medical_advice=screening.needs_medical_advice,
+        )
+
+
+# ------------------------------------------------------------------- club overview
+
+
+class MemberCampaignProgressResponse(BaseModel):
+    campaign_id: UUID
+    code: str
+    name: str
+    value: Decimal
+    unit: str
+    target: Decimal | None
+    percent: Decimal | None
+    completed: bool
+    points_balance: Decimal | None
+
+    @classmethod
+    def from_progress(cls, row: MemberCampaignProgress) -> MemberCampaignProgressResponse:
+        return cls(
+            campaign_id=row.campaign.id,
+            code=row.campaign.code,
+            name=row.campaign.name,
+            value=row.progress.value,
+            unit=row.progress.unit,
+            target=row.progress.target,
+            percent=row.progress.percent,
+            completed=row.progress.completed,
+            points_balance=row.points_balance,
+        )
+
+
+class MemberOverviewResponse(BaseModel):
+    """One member's standing.
+
+    Note what is absent: health, screening, sex, phone, emergency contact. Reading those
+    is an audited act about one named member, not something a table loads for a hundred
+    people at once.
+    """
+
+    member_id: UUID
+    name: str
+    role: str
+    total_distance_km: Decimal
+    run_count: int
+    pending_review_count: int
+    campaigns: list[MemberCampaignProgressResponse]
+
+    @classmethod
+    def from_overview(cls, row: MemberOverview) -> MemberOverviewResponse:
+        return cls(
+            member_id=row.member.id,
+            # The Thai full name once given, else the name Clerk supplied.
+            name=row.member.preferred_name,
+            role=row.member.role.value,
+            total_distance_km=row.total_distance_km,
+            run_count=row.run_count,
+            pending_review_count=row.pending_review_count,
+            campaigns=[
+                MemberCampaignProgressResponse.from_progress(c) for c in row.campaigns
+            ],
+        )
+
+
+class ClubOverviewResponse(BaseModel):
+    campaigns: list[CampaignResponse]
+    members: list[MemberOverviewResponse]
+
+    @classmethod
+    def from_overview(cls, overview: ClubOverview) -> ClubOverviewResponse:
+        return cls(
+            campaigns=[CampaignResponse.from_entity(c) for c in overview.campaigns],
+            members=[MemberOverviewResponse.from_overview(m) for m in overview.members],
         )

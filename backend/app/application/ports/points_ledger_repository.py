@@ -32,6 +32,15 @@ class PointsLedgerRepository(Protocol):
         """SUM(delta) for this member in this campaign. Always computed, never cached."""
         ...
 
+    def balances_for_campaign(self, campaign_id: UUID) -> dict[UUID, Decimal]:
+        """Every member's balance in this campaign, in one query.
+
+        Same SUM(delta) as `balance`, grouped instead of filtered — for the club-wide
+        view, which would otherwise ask per member per campaign. Members with no ledger
+        rows are absent rather than zero; the caller decides what nothing means.
+        """
+        ...
+
     def credited_total(self, member_id: UUID, campaign_id: UUID) -> Decimal:
         """SUM(delta) over EARNING rows only — run_earned and reversal.
 

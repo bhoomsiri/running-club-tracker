@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Badge, Card, EmptyState, ProgressBar } from "@/components/ui";
 import { apiServer } from "@/lib/api-server";
 import { barWidth, formatDate, formatDecimal, unitLabel } from "@/lib/format";
@@ -29,7 +31,7 @@ export default async function DashboardPage() {
       <header className="mb-6">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">
-            สวัสดี {summary.member.display_name}
+            สวัสดี {summary.member.name}
           </h1>
           {summary.member.role !== "member" ? (
             <Badge tone="brand">{ROLE_LABELS[summary.member.role]}</Badge>
@@ -37,6 +39,21 @@ export default async function DashboardPage() {
         </div>
         <p className="mt-1 text-sm text-muted">ความคืบหน้ากิจกรรมของคุณ</p>
       </header>
+
+      {/* The only way into the admin screens, and only the superuser sees it. The page
+          itself checks again, and the backend refuses regardless — this link is
+          navigation, not access control. */}
+      {summary.member.role === "superuser" ? (
+        <Link
+          href="/admin"
+          className="mb-6 flex items-center justify-between rounded-xl border border-brand/40 bg-brand/5 px-4 py-3 text-sm"
+        >
+          <span className="font-medium text-brand">ภาพรวมสมาชิกทั้งชมรม</span>
+          <span aria-hidden className="text-brand">
+            ›
+          </span>
+        </Link>
+      ) : null}
 
       <Card className="mb-6 text-center">
         <p className="text-sm text-muted">ระยะสะสมรวม</p>
