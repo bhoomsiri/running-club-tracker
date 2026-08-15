@@ -101,6 +101,13 @@ project `running-club-505603` (number `473776200408`) · billing `013659-38A823-
 - [ ] custom domain frontend → อัปเดต backend `FRONTEND_URL` (CORS) + Clerk allowed origins ให้ตรง
 
 ## Phase 8 — ยืนยัน placeholder (นโยบาย/PDPA) 🖱️
+> 🔴 **ต้องผ่าน PDPA officer / DPO ของโรงพยาบาลโพธารามก่อน launch** — ข้อมูลสุขภาพเป็น
+> sensitive personal data ตาม PDPA มาตรา 26 ทั้ง 3 อย่างนี้ต้องให้ DPO ตรวจ:
+> ค่า `HEALTH_RETENTION_DAYS` · `AUDIT_RETENTION_DAYS` · ถ้อยคำใน `frontend/src/lib/consent-text.ts`
+>
+> ถ้อยคำปัจจุบันเขียนให้ **ตรงกับสิ่งที่ระบบทำได้จริงตอนนี้**: บอกว่าผู้ดูแลจะลบเมื่อครบกำหนด
+> (ไม่อ้างว่าอัตโนมัติ เพราะ purge job ยังไม่มี) และให้ติดต่อผู้ดูแลถ้าจะขอลบก่อนกำหนด
+> (ยังไม่มี use case erasure) — ถ้าสร้าง 2 อย่างนั้นเมื่อไหร่ ค่อยแก้ข้อความให้สัญญามากขึ้นได้
 - [ ] `CONSENT_VERSION` = v1 — โอเคไหม
 - [ ] `HEALTH_RETENTION_DAYS` = 730 — ยืนยันกับนโยบาย
 - [ ] `AUDIT_RETENTION_DAYS` = 1825 — ยืนยัน
