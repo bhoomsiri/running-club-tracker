@@ -1,9 +1,10 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+  # Called by deploy.yml as its test gate, so main is tested by exactly one workflow
+  # instead of two running the same suite side by side.
+  workflow_call:
 
 jobs:
   backend:

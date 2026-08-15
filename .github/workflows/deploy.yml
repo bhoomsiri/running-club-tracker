@@ -1,0 +1,122 @@
+name: Deploy
+
+# Production deploys, triggered by a push to main. The order is deliberate:
+#   test gate  →  build + push image  →  deploy Cloud Run  →  alembic upgrade head
+# Nothing reaches production that has not passed ruff, mypy and pytest first.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time. Two overlapping runs could push images in one order and reach
+# `gcloud run deploy` in the other, leaving production on the older commit.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  REGION: asia-southeast1 # Singapore: nearest region, and comfortable for PDPA residency
+  SERVICE: running-club-api
+  REPOSITORY: running-club # Artifact Registry repository
+
+jobs:
+  # The same gate CI runs on pull requests, called rather than copied so the two can
+  # never drift apart.
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # mints the OIDC token for Workload Identity Federation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keyless: GitHub proves its identity to Google directly. No service-account JSON
+      # key exists to be committed, copied or leaked.
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+
+      - name: Build and push the image
+        env:
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          BASE="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$SERVICE"
+          # Tagged with the commit sha, so what is running is always traceable back to
+          # a commit — and a rollback is `gcloud run deploy --image ...:<old sha>`.
+          docker build -t "$BASE:${{ github.sha }}" -t "$BASE:latest" backend
+          docker push "$BASE:${{ github.sha }}"
+          docker push "$BASE:latest"
+          echo "IMAGE=$BASE:${{ github.sha }}" >> "$GITHUB_ENV"
+
+      - name: Deploy to Cloud Run
+        run: |
+          set -euo pipefail
+          # No --set-env-vars here on purpose: the service's environment (DATABASE_URL,
+          # Clerk, R2, GEMINI_API_KEY, CF_ORIGIN_SECRET...) is configured once on the
+          # service itself, so secrets never pass through a workflow log. gcloud updates
+          # only the fields named below and leaves that configuration untouched.
+          #
+          # --allow-unauthenticated because Cloudflare, not IAM, is the front door; what
+          # keeps the raw *.run.app URL shut is the CF_ORIGIN_SECRET guard in the app.
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --platform managed \
+            --min-instances 1 \
+            --max-instances 4 \
+            --concurrency 40 \
+            --cpu 1 \
+            --memory 512Mi \
+            --timeout 60s \
+            --allow-unauthenticated \
+            --quiet
+
+      - name: Show the deployed revision
+        run: |
+          gcloud run services describe "$SERVICE" --region "$REGION" \
+            --format 'value(status.latestReadyRevisionName,status.url)'
+
+  # A separate job, never part of application startup: Cloud Run runs several instances
+  # and they would race each other on the schema.
+  #
+  # This runs AFTER the deploy, as specified. That is safe for additive migrations, but
+  # it does mean a migration the new code *requires* is missing for the few seconds in
+  # between. Keep schema changes expand-then-contract (add the new column in one release,
+  # stop using the old one in a later release) and that window costs nothing. For a
+  # change that cannot be expressed additively, move this job before `deploy` for that
+  # release.
+  migrate:
+    needs: deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -e .
+
+      - name: alembic upgrade head
+        env:
+          # The Neon connection string, from GitHub Secrets. If Neon's IP allow-list is
+          # enabled it has to permit GitHub's runners, whose addresses are not fixed.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: alembic upgrade head
