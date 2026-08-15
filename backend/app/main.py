@@ -10,6 +10,8 @@ instances starting at once would race on the schema.
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,16 +23,40 @@ from app.api import limiter as rate_limiting
 from app.api.errors import register_error_handlers
 from app.api.origin_guard import CloudflareOriginGuard
 from app.api.routers import admin, consent, health, me, rewards, runs, webhooks
-from app.config import Settings, get_settings
+from app.config import Settings, get_settings, missing_production_settings
 
 
 def _too_many_requests(request: Request, exc: Exception) -> Response:
     return JSONResponse(status_code=429, content={"detail": "rate limit exceeded"})
 
 
+def _lifespan(settings: Settings) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
+    """Refuse to start production with a hole in its configuration.
+
+    Nothing here reads the environment lazily: an empty CLERK_JWKS_URL is not a problem
+    until the first authenticated request, at which point it is a 500 for every member at
+    once, on a revision already serving traffic. Failing at boot instead means the
+    container never becomes ready, Cloud Run keeps the previous revision, and the deploy
+    fails cleanly with the missing names in the log.
+    """
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        missing = missing_production_settings(settings)
+        if missing:
+            # The names only — never the values that are present.
+            raise RuntimeError(
+                "refusing to start: APP_ENV=production but these are unset or empty: "
+                + ", ".join(missing)
+            )
+        yield
+
+    return lifespan
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
-    app = FastAPI(title="Running Club API", version="0.1.0")
+    app = FastAPI(title="Running Club API", version="0.1.0", lifespan=_lifespan(settings))
 
     # One shared limiter, so the global default and the per-route limit on
     # /runs/extract come from the same instance (slowapi enforces via app.state).

@@ -82,3 +82,38 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()  # type: ignore[call-arg]  # values come from env
+
+
+# Everything production cannot run correctly without. Most of these have a harmless
+# default for local work (an empty Clerk issuer, no Gemini key), which is exactly why
+# they need checking: a missing one does not announce itself at boot, it surfaces later
+# as a 500 on every authenticated request, or a webhook that silently verifies nothing.
+REQUIRED_IN_PRODUCTION = (
+    "database_url",
+    "clerk_issuer",
+    "clerk_jwks_url",
+    "clerk_webhook_secret",
+    "superuser_clerk_user_id",
+    "frontend_url",
+    "s3_bucket",
+    "s3_endpoint_url",
+    "s3_access_key",
+    "s3_secret_key",
+    "gemini_api_key",
+    "cf_origin_secret",
+)
+
+
+def missing_production_settings(settings: Settings) -> list[str]:
+    """The env vars production needs and hasn't been given, by the name an operator sets.
+
+    Only ever non-empty when APP_ENV=production: local and CI run with several of these
+    blank on purpose.
+    """
+    if settings.app_env != "production":
+        return []
+    return [
+        name.upper()
+        for name in REQUIRED_IN_PRODUCTION
+        if not str(getattr(settings, name) or "").strip()
+    ]
