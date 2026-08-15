@@ -6,8 +6,14 @@ import { useState } from "react";
 import { Card } from "@/components/ui";
 import { ApiError, messageFor } from "@/lib/api";
 import { useApi } from "@/lib/api-client";
+import { formatDate } from "@/lib/format";
 import { todayLocal } from "@/lib/run-form";
-import type { CampaignProgress, HealthPhase, HealthRecord } from "@/lib/types";
+import type {
+  CampaignProgress,
+  HealthComparison,
+  HealthPhase,
+  HealthRecord,
+} from "@/lib/types";
 
 /**
  * Recording one set of measurements.
@@ -41,7 +47,13 @@ const PHASES: { value: HealthPhase; label: string; hint: string }[] = [
   { value: "after", label: "หลังกิจกรรม", hint: "วัดตอนกิจกรรมจบ" },
 ];
 
-export function HealthForm({ campaigns }: { campaigns: CampaignProgress[] }) {
+export function HealthForm({
+  campaigns,
+  comparisons,
+}: {
+  campaigns: CampaignProgress[];
+  comparisons: HealthComparison[];
+}) {
   const api = useApi();
   const router = useRouter();
 
@@ -64,7 +76,13 @@ export function HealthForm({ campaigns }: { campaigns: CampaignProgress[] }) {
   }
 
   const filled = VITALS.filter((vital) => (values[vital.key] ?? "").trim() !== "");
-  const canSave = campaignId !== "" && measuredOn !== "" && filled.length > 0 && !busy;
+  const orderProblem = checkOrder(comparisons, campaignId, phase, measuredOn);
+  const canSave =
+    campaignId !== "" &&
+    measuredOn !== "" &&
+    filled.length > 0 &&
+    orderProblem === null &&
+    !busy;
 
   async function onSave() {
     if (!canSave) return;
@@ -160,6 +178,14 @@ export function HealthForm({ campaigns }: { campaigns: CampaignProgress[] }) {
             onChange={(event) => setMeasuredOn(event.target.value)}
             className={inputClass}
           />
+          {orderProblem ? (
+            <p
+              role="alert"
+              className="mt-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
+            >
+              {orderProblem}
+            </p>
+          ) : null}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -216,6 +242,36 @@ export function HealthForm({ campaigns }: { campaigns: CampaignProgress[] }) {
 
 const inputClass =
   "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-brand";
+
+/**
+ * The same rule the backend enforces, checked here so the member is told before they
+ * press save rather than by a rejection afterwards. The backend is still the control —
+ * this copy of the numbers could be stale, and only its answer counts.
+ *
+ * ISO dates compare correctly as strings, so no Date parsing is needed (and none of the
+ * timezone trouble that comes with it).
+ */
+function checkOrder(
+  comparisons: HealthComparison[],
+  campaignId: string,
+  phase: HealthPhase,
+  measuredOn: string,
+): string | null {
+  const existing = comparisons.find((c) => c.campaign_id === campaignId);
+  if (!existing || measuredOn === "") return null;
+
+  if (phase === "after" && existing.before !== null) {
+    return measuredOn < existing.before.measured_on
+      ? `วันที่วัดหลังกิจกรรมต้องไม่ก่อนวันที่วัดก่อนกิจกรรม (${formatDate(existing.before.measured_on)})`
+      : null;
+  }
+  if (phase === "before" && existing.after !== null) {
+    return measuredOn > existing.after.measured_on
+      ? `วันที่วัดก่อนกิจกรรมต้องไม่หลังวันที่วัดหลังกิจกรรม (${formatDate(existing.after.measured_on)})`
+      : null;
+  }
+  return null;
+}
 
 function healthErrorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) return messageFor(error);

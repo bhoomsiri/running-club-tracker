@@ -1,3 +1,4 @@
+import { BmiScale } from "@/components/bmi-scale";
 import { PageHeader } from "@/components/page-header";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { apiServer } from "@/lib/api-server";
@@ -35,7 +36,7 @@ export default async function HealthPage() {
         <ConsentGate consent={consent} />
 
         {consent?.active === true ? (
-          <HealthForm campaigns={summary.campaigns} />
+          <HealthForm campaigns={summary.campaigns} comparisons={summary.health} />
         ) : null}
 
         <section>
@@ -74,6 +75,13 @@ function ComparisonCard({
   comparison: HealthComparison;
   campaignName: string;
 }) {
+  const latestBmi =
+    comparison.bmi_after !== null
+      ? { value: comparison.bmi_after, isAfter: true }
+      : comparison.bmi_before !== null
+        ? { value: comparison.bmi_before, isAfter: false }
+        : null;
+
   return (
     <Card>
       <h3 className="font-medium">{campaignName}</h3>
@@ -84,7 +92,7 @@ function ComparisonCard({
       </div>
 
       {comparison.bmi_delta !== null ? (
-        <p className="mt-3 border-t border-border pt-3 text-sm">
+        <p className="mt-3 text-sm">
           BMI เปลี่ยนแปลง{" "}
           <span className="font-semibold tabular-nums">
             {/* The sign is already in the string the backend sent; a leading "+" is
@@ -93,6 +101,17 @@ function ComparisonCard({
             {formatDecimal(comparison.bmi_delta)}
           </span>
         </p>
+      ) : null}
+
+      {/* The scale is shown for the latest reading the member has — after if they have
+          recorded it, otherwise before. Two full tables side by side would be noise. */}
+      {latestBmi !== null ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <BmiScale
+            bmi={latestBmi.value}
+            caption={latestBmi.isAfter ? "BMI หลังกิจกรรม" : "BMI ก่อนกิจกรรม"}
+          />
+        </div>
       ) : null}
     </Card>
   );

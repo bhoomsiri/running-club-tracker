@@ -107,6 +107,36 @@ class HealthRecord:
         return bmi(self.weight_kg, self.height_cm or fallback_height_cm)
 
 
+def check_measurement_order(
+    record: HealthRecord, counterpart: HealthRecord | None
+) -> None:
+    """A campaign's 'after' must not be dated before its 'before'.
+
+    Without this the comparison is nonsense: a member who records their starting weight
+    late, or back-dates the finishing one, gets a BMI delta computed backwards and shown
+    to them as progress. The two records are separate rows, so no single record can
+    check this alone — it is the pair that has to make sense, which is why the rule takes
+    the counterpart and why the use case is the one holding both.
+
+    Stated once and applied whichever side is being written: saving a 'before' dated
+    after an existing 'after' is the same inconsistency arriving from the other
+    direction, and is refused too. Equal dates are fine — someone may measure both on the
+    last day.
+    """
+    if counterpart is None:
+        return
+    if record.phase is counterpart.phase:  # pragma: no cover - callers pass the other
+        return
+
+    before, after = (
+        (counterpart, record) if record.phase is HealthPhase.AFTER else (record, counterpart)
+    )
+    if after.measured_on < before.measured_on:
+        raise InvalidHealthRecordError(
+            "the 'after' measurement cannot be dated earlier than the 'before' measurement"
+        )
+
+
 def _check(field: str, value: Decimal | int | None) -> None:
     if value is None:
         return

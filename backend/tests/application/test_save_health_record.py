@@ -16,7 +16,11 @@ from app.application.use_cases.save_health_record import (
 from app.application.use_cases.withdraw_consent import WithdrawConsent, WithdrawConsentCommand
 from app.domain.campaign import Campaign, CampaignType
 from app.domain.consent import Consent, ConsentPurpose
-from app.domain.errors import ConsentRequired, InvalidCampaignError
+from app.domain.errors import (
+    ConsentRequired,
+    InvalidCampaignError,
+    InvalidHealthRecordError,
+)
 from app.domain.health import HealthPhase
 from tests.fakes.fake_health_uow import ImmediateConsentRepository
 from tests.fakes.fake_uow import FixedClock
@@ -210,3 +214,92 @@ class TestConsentLifecycle:
         assert withdrawn.withdrawn_at == NOW
         assert len(consents.all_consents()) == 1
         assert consents.get_current(ALICE, ConsentPurpose.HEALTH_DATA) is None
+
+
+OTHER_CAMPAIGN = Campaign.create(
+    id=UUID("22222222-2222-2222-2222-222222222222"),
+    code="other", name="Other activity", type=CampaignType.CUMULATIVE_DISTANCE,
+    starts_on=date(2026, 1, 1), ends_on=date(2026, 12, 31), config={"target_km": 50},
+)
+
+
+class TestMeasurementOrder:
+    """An 'after' dated before its 'before' makes the comparison read backwards: the
+    member is shown a BMI change with the wrong sign and told it is their progress."""
+
+    def use_case(self) -> SaveHealthRecord:
+        return SaveHealthRecord(
+            consents=ImmediateConsentRepository([consent()]),
+            campaigns=FakeCampaignRepository([CAMPAIGN, OTHER_CAMPAIGN]),
+            health=FakeHealthRepository(),
+            clock=FixedClock(NOW),
+            consent_version=CURRENT_VERSION,
+            retention_days=RETENTION_DAYS,
+        )
+
+    def save(
+        self,
+        use_case: SaveHealthRecord,
+        phase: HealthPhase,
+        measured_on: date,
+        campaign_id: UUID = CAMPAIGN.id,
+    ) -> None:
+        use_case.execute(
+            command(phase=phase, measured_on=measured_on, campaign_id=campaign_id)
+        )
+
+    def test_after_earlier_than_before_is_rejected(self) -> None:
+        use_case = self.use_case()
+        self.save(use_case, HealthPhase.BEFORE, date(2026, 6, 10))
+
+        with pytest.raises(InvalidHealthRecordError):
+            self.save(use_case, HealthPhase.AFTER, date(2026, 6, 9))
+
+    def test_after_on_the_same_day_is_allowed(self) -> None:
+        """Measuring both on the last day of the activity is ordinary."""
+        use_case = self.use_case()
+        self.save(use_case, HealthPhase.BEFORE, date(2026, 6, 10))
+
+        self.save(use_case, HealthPhase.AFTER, date(2026, 6, 10))
+
+    def test_after_later_than_before_is_allowed(self) -> None:
+        use_case = self.use_case()
+        self.save(use_case, HealthPhase.BEFORE, date(2026, 6, 10))
+
+        self.save(use_case, HealthPhase.AFTER, date(2026, 6, 14))
+
+    def test_the_rule_holds_from_the_other_direction_too(self) -> None:
+        """Re-saving 'before' with a date after an existing 'after' is the same
+        inconsistency arriving the other way round, and leaves the same broken pair."""
+        use_case = self.use_case()
+        self.save(use_case, HealthPhase.AFTER, date(2026, 6, 10))
+
+        with pytest.raises(InvalidHealthRecordError):
+            self.save(use_case, HealthPhase.BEFORE, date(2026, 6, 14))
+
+    def test_the_first_record_has_nothing_to_compare_against(self) -> None:
+        """Recording 'after' first is allowed — members do not always start at the
+        beginning."""
+        self.save(self.use_case(), HealthPhase.AFTER, date(2026, 6, 14))
+
+    def test_nothing_is_written_when_the_order_is_rejected(self) -> None:
+        """The refusal has to happen before the upsert, or a bad date would overwrite
+        the member's existing record on its way to raising."""
+        use_case = self.use_case()
+        self.save(use_case, HealthPhase.BEFORE, date(2026, 6, 10))
+        self.save(use_case, HealthPhase.AFTER, date(2026, 6, 14))
+
+        with pytest.raises(InvalidHealthRecordError):
+            self.save(use_case, HealthPhase.BEFORE, date(2026, 6, 15))
+
+        stored = use_case._health.list_by_member(ALICE)
+        before = next(r for r in stored if r.phase is HealthPhase.BEFORE)
+        assert before.measured_on == date(2026, 6, 10), "the old record must be intact"
+
+    def test_another_campaign_does_not_constrain_this_one(self) -> None:
+        """The rule is per campaign: dates in one activity say nothing about another
+        that ran at a different time."""
+        use_case = self.use_case()
+        self.save(use_case, HealthPhase.BEFORE, date(2026, 6, 10))
+
+        self.save(use_case, HealthPhase.AFTER, date(2026, 6, 1), OTHER_CAMPAIGN.id)

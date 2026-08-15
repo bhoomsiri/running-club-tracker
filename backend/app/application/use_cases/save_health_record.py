@@ -18,7 +18,7 @@ from app.application.ports.consent_repository import ConsentRepository
 from app.application.ports.health_repository import HealthRepository
 from app.domain.consent import ConsentPurpose
 from app.domain.errors import ConsentRequired, InvalidCampaignError
-from app.domain.health import HealthPhase, HealthRecord
+from app.domain.health import HealthPhase, HealthRecord, check_measurement_order
 
 
 @dataclass(frozen=True)
@@ -77,4 +77,20 @@ class SaveHealthRecord:
             systolic=cmd.systolic,
             diastolic=cmd.diastolic,
         )
+        # The pair has to make sense, and only this layer can see both rows.
+        check_measurement_order(record, self._counterpart(record))
         return self._health.upsert(record)
+
+    def _counterpart(self, record: HealthRecord) -> HealthRecord | None:
+        """The member's other phase for the same campaign, if they have recorded one."""
+        other = (
+            HealthPhase.BEFORE if record.phase is HealthPhase.AFTER else HealthPhase.AFTER
+        )
+        return next(
+            (
+                existing
+                for existing in self._health.list_by_member(record.member_id)
+                if existing.campaign_id == record.campaign_id and existing.phase is other
+            ),
+            None,
+        )
