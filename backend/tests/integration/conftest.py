@@ -92,6 +92,10 @@ def settings() -> Settings:
         consent_version=CONSENT_VERSION,
         superuser_clerk_user_id=BOSS_CLERK_ID,
         rate_limit_enabled=False,  # limits have their own test; they'd throttle these
+        # Pinned rather than left to default: a developer's .env would otherwise switch
+        # the origin guard on and every request in this suite would come back 403.
+        cf_origin_secret="",
+        trust_proxy=False,
     )
 
 

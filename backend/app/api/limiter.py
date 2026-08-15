@@ -29,9 +29,32 @@ def _current() -> Settings:
     return _settings or get_settings()
 
 
+CLIENT_IP_HEADER = "CF-Connecting-IP"
+
+
+def client_ip(request: Request) -> str:
+    """The caller's real address, used to limit requests made before anyone is identified.
+
+    Behind Cloudflare every request arrives from a Cloudflare edge address, so the socket
+    address would put the entire club — and every attacker — into one shared bucket.
+    CF-Connecting-IP carries the original address instead.
+
+    But that header is only worth anything if Cloudflare is the one who set it: a caller
+    reaching the origin directly can invent a fresh address on every request and never be
+    limited at all. So it is believed only when `trust_proxy` says something trustworthy
+    is in front — which is the same deployment where the origin guard makes going around
+    Cloudflare impossible.
+    """
+    if _current().trust_proxy:
+        forwarded = request.headers.get(CLIENT_IP_HEADER)
+        if forwarded:
+            return forwarded
+    return get_remote_address(request)
+
+
 def member_or_ip(request: Request) -> str:
     member_id = getattr(request.state, "member_id", None)
-    return str(member_id) if member_id else get_remote_address(request)
+    return str(member_id) if member_id else client_ip(request)
 
 
 def default_limit() -> str:

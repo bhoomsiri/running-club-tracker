@@ -18,6 +18,19 @@ class Settings(BaseSettings):
     # The only origin allowed to call this API. Never "*" — see security-pdpa #5.
     frontend_url: str = "http://localhost:3000"
 
+    # Cloudflare sits in front of the API in production, and both of these describe that
+    # arrangement. Off by default, because locally and in CI nothing is in front.
+    #
+    # cf_origin_secret: the shared value Cloudflare attaches to every request it
+    #   forwards. Set it and the origin guard rejects anything arriving without it —
+    #   which is how the service's public *.run.app URL stops being a way around the WAF.
+    #   Empty disables the guard entirely.
+    # trust_proxy: whether the CF-Connecting-IP header may be believed. Only ever true
+    #   where the origin guard has already established Cloudflare is the sole way in;
+    #   otherwise any caller could forge a new address per request and shed the limiter.
+    cf_origin_secret: str = ""
+    trust_proxy: bool = False
+
     # Clerk. The issuer and JWKS URL come from the Clerk instance; the webhook secret
     # signs the events we accept. All from env, never hardcoded.
     clerk_issuer: str = ""

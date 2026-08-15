@@ -9,6 +9,8 @@ instances starting at once would race on the schema.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -17,6 +19,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.api import limiter as rate_limiting
 from app.api.errors import register_error_handlers
+from app.api.origin_guard import CloudflareOriginGuard
 from app.api.routers import admin, consent, health, me, rewards, runs, webhooks
 from app.config import Settings, get_settings
 
@@ -38,6 +41,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # {"detail": ...} shape as every other error in this API.
     app.add_exception_handler(RateLimitExceeded, _too_many_requests)
     app.add_middleware(SlowAPIMiddleware)
+
+    # Added after the limiter and before CORS, which puts it between the two: requests
+    # that did not come through Cloudflare are dropped before they cost the limiter
+    # anything, while genuine errors still come back with CORS headers on them.
+    if settings.cf_origin_secret:
+        app.add_middleware(CloudflareOriginGuard, secret=settings.cf_origin_secret)
+    elif settings.app_env != "local":
+        # Not fatal — the club may be running without Cloudflare in front for a while —
+        # but the *.run.app URL is then an open door around the WAF, so say so loudly.
+        logging.getLogger(__name__).warning(
+            "CF_ORIGIN_SECRET is not set: the origin is reachable without Cloudflare"
+        )
 
     # Locked to the frontend origin — never "*", which with credentials would let any
     # site call this API with a member's session.
