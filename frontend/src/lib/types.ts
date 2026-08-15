@@ -97,6 +97,10 @@ export type RunWithEvidence = {
 
 export type EvidenceUpload = {
   image_key: string;
+  /** Of the scrubbed bytes, computed by the backend. Never sent back on submit — the
+   * key is what identifies the image, so a client cannot supply a hash that would slip
+   * past duplicate detection. */
+  sha256: string;
 };
 
 /** What the AI read. A draft to fill the form with — never something to submit as-is. */
