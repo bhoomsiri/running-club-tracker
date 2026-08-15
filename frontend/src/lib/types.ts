@@ -266,3 +266,24 @@ export type MemberHealth = {
 
 /** What POST /admin/runs/{id}/review accepts — the same three values. */
 export type ReviewDecision = ReviewStatus;
+
+export type AdminReward = {
+  id: string;
+  campaign_id: string;
+  name: string;
+  points_cost: string;
+  stock: number;
+  is_active: boolean;
+};
+
+/** Why a redemption cannot be handed over yet — the same two checks the fulfil endpoint
+ * makes. null means it can. */
+export type FulfilBlock = "negative_balance" | "unresolved_runs";
+
+export type PendingRedemption = {
+  redemption: Redemption;
+  member_name: string;
+  reward_name: string;
+  balance: string;
+  blocked_by: FulfilBlock | null;
+};

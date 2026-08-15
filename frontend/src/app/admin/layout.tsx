@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 
+const SECTIONS = [
+  { href: "/admin", label: "ภาพรวม" },
+  { href: "/admin/redemptions", label: "คิวของรางวัล" },
+  { href: "/admin/rewards", label: "จัดการรางวัล" },
+  { href: "/admin/campaigns", label: "จัดการกิจกรรม" },
+];
+
 /** Its own shell: the admin screens are not part of the member navigation. */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -18,6 +25,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <UserButton />
           </div>
         </div>
+
+        <nav className="mx-auto flex max-w-4xl gap-1 overflow-x-auto px-4 pb-2">
+          {SECTIONS.map((section) => (
+            <Link
+              key={section.href}
+              href={section.href}
+              className="shrink-0 rounded-lg px-3 py-1.5 text-sm text-muted hover:bg-surface"
+            >
+              {section.label}
+            </Link>
+          ))}
+        </nav>
       </header>
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6">{children}</main>
     </>
