@@ -3,9 +3,13 @@
 เป้าหมาย: เปิดใช้จริง (กิจกรรม 2026-08-15 → 09-30). ทำเรียงตามลำดับ dependency ด้านล่าง.
 เครื่องหมาย 🖥️ = โค้ด (Claude Code) · 🖱️ = ตั้งค่าใน dashboard · ✅ = verify
 
-> **Prerequisite:** Cloudflare WAF/proxy หน้า API ต้องมี **โดเมนบน Cloudflare** (เช่น `api.<yourdomain>`).
-> ถ้ายังไม่มีโดเมน: จดโดเมน (ไม่กี่ร้อยบาท/ปี) แล้วชี้ NS มา Cloudflare — หรือข้าม Cloudflare-หน้า-API
-> ไปก่อน (พึ่ง app limiter + Cloud Run) แล้วค่อยเพิ่มทีหลัง.
+> **โดเมน:** `brightbhoom.com` อยู่บน Cloudflare แล้ว → API จะอยู่ที่ `api.brightbhoom.com`
+>
+> **ทำไมไม่ใช้ Cloud Run domain mapping:** ลองแล้วติด 2 ชั้น — (1) ต้อง verify ownership กับ Google
+> ผ่าน Search Console ก่อน (2) Google ต้องออก managed cert เอง ซึ่ง validate ผ่าน DNS สาธารณะ
+> จึงต้องปิด proxy (เมฆเทา) รอจน cert ออก = มีช่วงที่ API เปิดโล่งบนโดเมนจริงโดยไม่มี WAF
+> จึงใช้ **Origin Rule + Host Header Rewrite** แทน: เปิดเมฆส้มได้ตั้งแต่วินาทีแรก ไม่ต้อง verify
+> ไม่ต้องรอ cert (edge cert ของ Cloudflare มีอยู่แล้ว)
 
 ---
 
@@ -13,18 +17,22 @@
 - [x] Dockerfile ของ backend สำหรับ Cloud Run (non-root uid 10001, `uvicorn app.main:app`, PORT จาก env)
 - [x] `deploy.yml` GitHub Action: push → test gate (ruff/mypy/pytest) → build+push image → deploy Cloud Run → **`alembic upgrade head` เป็น job แยกหลัง deploy** (ไม่รันตอน startup)
 - [x] rate limiter อ่าน IP จริงจาก `CF-Connecting-IP` เมื่อ `TRUST_PROXY=true`
-- [x] middleware ปฏิเสธ request ที่ไม่มี header `CF-Origin-Secret` (ค่า = `CF_ORIGIN_SECRET`) — ยกเว้น `/healthz`
+- [x] middleware ปฏิเสธ request ที่ไม่มี header `CF-Origin-Secret` (ค่า = `CF_ORIGIN_SECRET`)
+      — ยกเว้น `/healthz` (probe ภายใน) และ `/livez` (uptime monitor ภายนอก)
 - [x] `.env.example` ครบตาม master list
 - [x] startup validation: `APP_ENV=production` แล้ว env ขาด → container ไม่ boot (exit 3)
       → Cloud Run คา revision เดิมไว้, deploy fail สะอาด แทนที่จะขึ้นแล้ว 500 ทั้งเว็บ
 
-## Phase 0.5 — GitHub repo settings สำหรับ deploy.yml 🖱️
-- [ ] Artifact Registry: สร้าง repository `running-club` (format Docker) ที่ **asia-southeast1**
-- [ ] Workload Identity Federation: pool + provider ผูกกับ repo นี้, และ service account สำหรับ deploy
-      (roles: `run.admin`, `artifactregistry.writer`, `iam.serviceAccountUser`)
-- [ ] Repository **variable**: `GCP_PROJECT_ID`
-- [ ] Repository **secrets**: `GCP_WORKLOAD_IDENTITY_PROVIDER` · `GCP_DEPLOY_SERVICE_ACCOUNT` · `DATABASE_URL` (Neon)
-- [ ] ✅ push main แล้ว workflow ผ่านครบ 3 job (test → deploy → migrate)
+## Phase 0.5 — GCP + GitHub repo settings สำหรับ deploy.yml 🖱️ — **เสร็จแล้ว**
+project `running-club-505603` (number `473776200408`) · billing `013659-38A823-A2B33C`
+- [x] Artifact Registry: repository `running-club` (Docker) ที่ **asia-southeast1**
+- [x] Workload Identity Federation: pool `github-pool` + provider `github-provider`,
+      service account `gh-deployer` (`run.admin`, `artifactregistry.writer`, `iam.serviceAccountUser`)
+      ล็อกไว้ 2 ชั้นที่ repo เดียว: provider `attributeCondition` และ SA `principalSet`
+      = `bhoomsiri/running-club-tracker` — ถ้าหลวมกว่านี้ repo ไหนบน GitHub ก็ deploy ทับได้
+- [x] Repository **variable**: `GCP_PROJECT_ID`
+- [x] Repository **secrets**: `GCP_WORKLOAD_IDENTITY_PROVIDER` · `GCP_DEPLOY_SERVICE_ACCOUNT` · `DATABASE_URL`
+- [x] ✅ push main → workflow ผ่าน, service ขึ้นจริง (revision 00007 รับ traffic 100%)
 
 ## Phase 1 — Clerk 🖱️
 - [ ] สร้าง Clerk application (production instance)
@@ -46,13 +54,28 @@
 - [ ] `S3_BUCKET` · `S3_ENDPOINT_URL` · `S3_ACCESS_KEY` · `S3_SECRET_KEY` · `S3_REGION=auto`
 
 ## Phase 4 — Backend บน Cloud Run (asia-southeast1) 🖱️
-- [ ] deploy image, region **asia-southeast1**, **min-instances=1** (กัน cold start)
-- [ ] ใส่ env ครบ (master list)
-- [ ] custom domain `api.<yourdomain>` (จะให้ Cloudflare proxy)
-- [ ] ✅ `GET /healthz` ผ่าน
+- [x] deploy image, region **asia-southeast1**, **min-instances=1** (กัน cold start)
+- [ ] ใส่ env ครบ (master list) — ยังขาด `APP_ENV` · `FRONTEND_URL` · `CF_ORIGIN_SECRET`
+      ใส่ 2 ตัวหลังก่อน แล้วค่อยใส่ `APP_ENV=production` เป็นตัวสุดท้าย
+      (ใส่ `APP_ENV` ก่อน = revision ใหม่ fail ทันทีตาม startup validation — ถูกต้องแต่เสียรอบ deploy)
+- [ ] ✅ `GET /livez` ผ่าน (ดูกล่องด้านล่างว่าทำไมไม่ใช่ `/healthz`)
+- ~~custom domain บน Cloud Run~~ → ไม่ใช้แล้ว ดู Phase 5 (Origin Rule แทน)
+
+> **`/healthz` ใช้ verify จากภายนอกไม่ได้ — ใช้ `/livez`**
+> Google frontend สงวน path `/healthz` ไว้บนโดเมน `*.run.app`: request ไม่เคยถึง container
+> เลย (ได้หน้า HTML 404 ของ Google, ไม่มี `server` header, ไม่มีบรรทัดใน Cloud Run logs)
+> `/healthz` ยังอยู่และยังใช้ได้สำหรับ probe ภายในของ Cloud Run ซึ่งยิงเข้า container ตรง —
+> ส่วน `/livez` คือ route เดียวกันภายใต้ชื่อที่ edge ยอมส่งต่อ ใช้กับ uptime monitor
+> ทั้งคู่อยู่ใน `EXEMPT_PATHS` ของ origin guard จึงตอบ 200 ต่อไปแม้เปิด `CF_ORIGIN_SECRET` แล้ว
 
 ## Phase 5 — Cloudflare หน้า API 🖱️
-- [ ] DNS `api.<yourdomain>` → Cloud Run, **proxied (เมฆส้ม)**
+- [ ] **DNS:** `CNAME api → running-club-api-473776200408.asia-southeast1.run.app` **proxied (เมฆส้ม)**
+- [ ] **Origin Rule — Host Header Rewrite** (ขาดไม่ได้)
+      Rules → Origin Rules → If `Hostname equals api.brightbhoom.com`
+      Then Host Header → Rewrite to → `running-club-api-473776200408.asia-southeast1.run.app`
+      ⚠️ Cloud Run route ตาม Host: ถ้าส่ง `api.brightbhoom.com` ไปดิบ ๆ จะได้ **404 ทุก request**
+- [ ] **SSL/TLS mode = Full (strict)** — origin เป็น `*.run.app` ที่ Google ออก cert ถูกต้องอยู่แล้ว
+      (ค่านี้ระดับ zone มีผลทั้งโดเมน — subdomain อื่นที่ origin ไม่มี cert ที่ถูกต้องจะพังตาม)
 - [ ] WAF: เปิด managed ruleset
 - [ ] Rate limiting rules: เข้มที่ `/runs/extract` และ `/webhooks/clerk`, ทั่วไปที่เหลือ
 - [ ] **Origin lock:** Transform Rule (Modify Request Header → Set static) ชื่อ header **`CF-Origin-Secret`**
@@ -61,9 +84,10 @@
 - [ ] **WAF exception ให้ `/webhooks/clerk`** (skip managed ruleset + Bot Fight Mode สำหรับ path นี้
       หรือ allowlist IP ของ Clerk) — webhook เป็น server-to-server ไม่มี browser fingerprint
       จึงมีสิทธิ์โดน bot rule เด้ง. Transform Rule ยังต้องเติม `CF-Origin-Secret` ให้ path นี้ด้วย
-      (origin guard ไม่ยกเว้น webhook — ยกเว้นแค่ `/healthz`)
+      (origin guard ไม่ยกเว้น webhook — ยกเว้นแค่ `/healthz` กับ `/livez`)
       ⚠️ ถ้าพลาดข้อนี้จะ **เงียบ**: Clerk ยิงไม่ถึง → สมาชิกใหม่ไม่มี row → รู้ตอนมีคนบ่นว่าเข้าไม่ได้
-- [ ] ✅ ยิงตรง `*.run.app` (ไม่มี header) → โดนบล็อก; ผ่าน `api.<yourdomain>` → ผ่าน
+- [ ] ✅ ยิงตรง `*.run.app` (ไม่มี header) → โดนบล็อก; ผ่าน `api.brightbhoom.com` → ผ่าน
+      แต่ `*.run.app/livez` ต้องยัง 200 อยู่ (ยกเว้นไว้ให้ monitor)
 - [ ] ✅ ดู Clerk dashboard → Webhooks → Message attempts ต้องเป็น 2xx (ไม่ใช่ 403)
 
 ## Phase 6 — Seed prod 🖱️
@@ -72,7 +96,7 @@
 
 ## Phase 7 — Frontend บน Vercel 🖱️
 - [ ] import repo, framework Next.js
-- [ ] env: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` · `CLERK_SECRET_KEY` · `NEXT_PUBLIC_API_URL=https://api.<yourdomain>`
+- [ ] env: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` · `CLERK_SECRET_KEY` · `NEXT_PUBLIC_API_URL=https://api.brightbhoom.com`
 - [ ] deploy (ต่อไป auto-deploy จาก GitHub)
 - [ ] custom domain frontend → อัปเดต backend `FRONTEND_URL` (CORS) + Clerk allowed origins ให้ตรง
 
@@ -90,7 +114,7 @@
 - [ ] แลกของที่แต้มพอ → balance ลด, redemption pending
 - [ ] (superuser) fulfill/cancel ผ่าน API
 - [ ] ให้ consent → ฟอร์มสุขภาพปลดล็อก → บันทึก before/after → BMI ขึ้น
-- [ ] ยิง API ไม่มี token → 401; ยิง `*.run.app` ตรง → บล็อก
+- [ ] ยิง API ไม่มี token → 401; ยิง `*.run.app` ตรง → 403 (แต่ `/livez` ยัง 200)
 
 ---
 
