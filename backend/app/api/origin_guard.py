@@ -24,9 +24,12 @@ from starlette.types import ASGIApp
 
 ORIGIN_SECRET_HEADER = "CF-Origin-Secret"
 
-# Cloud Run's own probes hit the container directly rather than through Cloudflare, so
-# they can never carry the header. Health is the one thing that must answer regardless.
-EXEMPT_PATHS = frozenset({"/healthz"})
+# Health is the one thing that must answer regardless of where the request came from.
+# /healthz because Cloud Run's own probes hit the container directly rather than through
+# Cloudflare and so can never carry the header; /livez because an uptime monitor has to
+# be able to check the origin without being handed the shared secret. Neither says
+# anything but {"status": "ok"}.
+EXEMPT_PATHS = frozenset({"/healthz", "/livez"})
 
 
 class CloudflareOriginGuard(BaseHTTPMiddleware):

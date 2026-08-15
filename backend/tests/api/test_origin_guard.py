@@ -91,6 +91,26 @@ def test_healthz_answers_without_the_header(guarded: TestClient) -> None:
     assert guarded.get("/healthz").status_code == 200
 
 
+def test_livez_answers_without_the_header(guarded: TestClient) -> None:
+    """The externally reachable half of the pair: Google's frontend reserves /healthz on
+    *.run.app and never forwards it, so an uptime monitor watching the origin has only
+    this one — and it must not need the shared secret to use it."""
+    response = guarded.get("/livez")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_livez_says_nothing_beyond_ok(guarded: TestClient) -> None:
+    """It answers unauthenticated to the whole internet, so it must stay a constant —
+    no version, no config, nothing about what is behind it."""
+    assert guarded.get("/livez").json() == {"status": "ok"}
+
+
+def test_livez_and_healthz_answer_identically(unguarded: TestClient) -> None:
+    assert unguarded.get("/livez").json() == unguarded.get("/healthz").json()
+
+
 def test_the_webhook_endpoint_is_not_exempt(guarded: TestClient) -> None:
     """Clerk's webhooks arrive through the club's domain like everything else, so they
     carry the header too — and this is the one public POST in the API."""

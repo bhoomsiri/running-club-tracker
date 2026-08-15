@@ -100,8 +100,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin.router)
     app.include_router(webhooks.router)
 
+    # Two names for one answer, because Google's frontend reserves /healthz on
+    # *.run.app: a request for it never reaches the container, it gets Google's own
+    # HTML 404 back. Cloud Run's probes talk to the container directly and are
+    # unaffected, so /healthz stays as it is — /livez is the one anything outside can
+    # actually reach.
     @app.get("/healthz", tags=["ops"])
     def healthz() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/livez", tags=["ops"])
+    def livez() -> dict[str, str]:
         return {"status": "ok"}
 
     return app
