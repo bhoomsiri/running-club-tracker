@@ -185,10 +185,12 @@ export function SubmitRunForm() {
 
         <label className="mt-3 block">
           <span className="sr-only">เลือกรูปหลักฐาน</span>
+          {/* No `capture`: it forces the camera open and takes the gallery away, and
+              most members screenshot their run first and send it later. Without it the
+              phone offers both. */}
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            capture="environment"
             disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0];
