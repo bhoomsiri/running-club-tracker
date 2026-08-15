@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 const ITEMS = [
   { href: "/dashboard", label: "แดชบอร์ด", icon: "📊" },
   { href: "/submit", label: "ส่งผลวิ่ง", icon: "🏃" },
+  { href: "/runs", label: "ผลวิ่ง", icon: "📋" },
   { href: "/rewards", label: "รางวัล", icon: "🎁" },
   { href: "/profile", label: "โปรไฟล์", icon: "👤" },
 ] as const;
@@ -30,7 +31,7 @@ export function BottomNav() {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center gap-0.5 py-2.5 text-xs sm:flex-row sm:justify-center sm:gap-2 sm:py-3 sm:text-sm ${
+                className={`flex flex-col items-center gap-0.5 px-1 py-2.5 text-[11px] sm:flex-row sm:justify-center sm:gap-2 sm:py-3 sm:text-sm ${
                   active ? "font-semibold text-brand" : "text-muted"
                 }`}
               >
