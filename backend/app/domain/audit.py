@@ -36,6 +36,8 @@ def _normalise(key: str) -> str:
 
 class AuditAction(StrEnum):
     VIEW_HEALTH = "view_health"
+    VIEW_SCREENING = "view_screening"
+    VIEW_CONTACT = "view_contact"
     EDIT_HEALTH = "edit_health"
     EDIT_MEMBER = "edit_member"
     ADJUST_POINTS = "adjust_points"

@@ -19,7 +19,10 @@ from app.api.deps import (
     get_review_run_uc,
     get_update_campaign_uc,
     get_update_reward_uc,
+    get_view_member_contact_uc,
     get_view_member_health_uc,
+    get_view_member_progress_uc,
+    get_view_member_screening_uc,
 )
 from app.api.schemas import (
     AdminRewardResponse,
@@ -27,8 +30,11 @@ from app.api.schemas import (
     ClubOverviewResponse,
     CreateCampaignRequest,
     CreateRewardRequest,
+    MemberContactResponse,
     MemberHealthResponse,
+    MemberProgressResponse,
     MemberResponse,
+    MemberScreeningResponse,
     RedemptionResponse,
     ReviewRunRequest,
     RunResponse,
@@ -55,9 +61,18 @@ from app.application.use_cases.manage_rewards import (
     UpdateRewardCommand,
 )
 from app.application.use_cases.review_run import ReviewRun, ReviewRunCommand
+from app.application.use_cases.view_member_contact import (
+    ViewMemberContact,
+    ViewMemberContactCommand,
+)
 from app.application.use_cases.view_member_health import (
     ViewMemberHealth,
     ViewMemberHealthCommand,
+)
+from app.application.use_cases.view_member_progress import ViewMemberProgress
+from app.application.use_cases.view_member_screening import (
+    ViewMemberScreening,
+    ViewMemberScreeningCommand,
 )
 from app.domain.entities import Member
 
@@ -85,6 +100,42 @@ def list_members(
 ) -> list[MemberResponse]:
     # Names and roles only — no health data, so no audit rows.
     return [MemberResponse.from_entity(m) for m in use_case.execute(admin.id)]
+
+
+@router.get("/members/{member_id}/summary", response_model=MemberProgressResponse)
+def member_progress(
+    member_id: UUID,
+    boss: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[ViewMemberProgress, Depends(get_view_member_progress_uc)],
+) -> MemberProgressResponse:
+    """Activity records only, so no audit row. The three endpoints below are the ones
+    that touch sensitive data, and each of those writes one."""
+    return MemberProgressResponse.from_view(use_case.execute(boss.id, member_id))
+
+
+@router.get("/members/{member_id}/screening", response_model=MemberScreeningResponse)
+def member_screening(
+    member_id: UUID,
+    boss: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[ViewMemberScreening, Depends(get_view_member_screening_uc)],
+) -> MemberScreeningResponse:
+    """Audited: the row is committed before the answers are returned."""
+    return MemberScreeningResponse.from_view(
+        use_case.execute(ViewMemberScreeningCommand(actor_id=boss.id, subject_id=member_id))
+    )
+
+
+@router.get("/members/{member_id}/contact", response_model=MemberContactResponse)
+def member_contact(
+    member_id: UUID,
+    boss: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[ViewMemberContact, Depends(get_view_member_contact_uc)],
+) -> MemberContactResponse:
+    """Audited. Collected so someone can be reached in an emergency, which is precisely
+    why opening them is an event the club should be able to account for."""
+    return MemberContactResponse.from_entity(
+        use_case.execute(ViewMemberContactCommand(actor_id=boss.id, subject_id=member_id))
+    )
 
 
 @router.get("/members/{member_id}/health", response_model=MemberHealthResponse)

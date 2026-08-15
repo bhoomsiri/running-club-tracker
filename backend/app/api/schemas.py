@@ -28,6 +28,8 @@ from app.application.use_cases.get_onboarding_status import OnboardingStatus
 from app.application.use_cases.list_rewards import CampaignRewards
 from app.application.use_cases.list_runs import RunWithEvidence
 from app.application.use_cases.view_member_health import MemberHealthView
+from app.application.use_cases.view_member_progress import MemberProgressView
+from app.application.use_cases.view_member_screening import MemberScreeningView
 from app.domain.campaign import Campaign, CampaignType
 from app.domain.consent import Consent
 from app.domain.entities import Member, ReviewStatus, RunEntry, RunSource, Sex
@@ -579,4 +581,82 @@ class ClubOverviewResponse(BaseModel):
         return cls(
             campaigns=[CampaignResponse.from_entity(c) for c in overview.campaigns],
             members=[MemberOverviewResponse.from_overview(m) for m in overview.members],
+        )
+
+
+# --------------------------------------------------------- admin: one member's detail
+
+
+class MemberProgressResponse(BaseModel):
+    """One member's standing, seen by the superuser. Nothing sensitive — the health,
+    screening and contact endpoints are separate, and each of those is audited."""
+
+    member: MemberResponse
+    total_distance_km: Decimal
+    run_count: int
+    pending_review_count: int
+    campaigns: list[MemberCampaignProgressResponse]
+    redemptions: list[RedemptionResponse]
+
+    @classmethod
+    def from_view(cls, view: MemberProgressView) -> MemberProgressResponse:
+        return cls(
+            member=MemberResponse.from_entity(view.member),
+            total_distance_km=view.total_distance_km,
+            run_count=view.run_count,
+            pending_review_count=view.pending_review_count,
+            campaigns=[
+                MemberCampaignProgressResponse(
+                    campaign_id=standing.campaign.id,
+                    code=standing.campaign.code,
+                    name=standing.campaign.name,
+                    value=standing.progress.value,
+                    unit=standing.progress.unit,
+                    target=standing.progress.target,
+                    percent=standing.progress.percent,
+                    completed=standing.progress.completed,
+                    points_balance=standing.points_balance,
+                )
+                for standing in view.campaigns
+            ],
+            redemptions=[RedemptionResponse.from_entity(r) for r in view.redemptions],
+        )
+
+
+class MemberScreeningResponse(BaseModel):
+    subject: MemberResponse
+    screening: ScreeningResponse | None
+
+    @classmethod
+    def from_view(cls, view: MemberScreeningView) -> MemberScreeningResponse:
+        return cls(
+            subject=MemberResponse.from_entity(view.subject),
+            screening=(
+                None
+                if view.screening is None
+                else ScreeningResponse.from_entity(view.screening)
+            ),
+        )
+
+
+class MemberContactResponse(BaseModel):
+    """Sensitive. Only ever returned by the audited endpoint, never by a list."""
+
+    subject: MemberResponse
+    birth_year: int | None
+    sex: str | None
+    phone: str | None
+    emergency_contact_name: str | None
+    emergency_contact_phone: str | None
+
+    @classmethod
+    def from_entity(cls, member: Member) -> MemberContactResponse:
+        profile = member.profile
+        return cls(
+            subject=MemberResponse.from_entity(member),
+            birth_year=profile.birth_year,
+            sex=profile.sex.value if profile.sex else None,
+            phone=profile.phone,
+            emergency_contact_name=profile.emergency_contact_name,
+            emergency_contact_phone=profile.emergency_contact_phone,
         )

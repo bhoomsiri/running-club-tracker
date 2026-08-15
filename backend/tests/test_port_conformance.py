@@ -11,6 +11,9 @@ This is why the gate runs `mypy app tests` rather than `mypy app`.
 from __future__ import annotations
 
 from app.adapters.persistence.health_unit_of_work import SqlAlchemyHealthUnitOfWork
+from app.adapters.persistence.sensitive_view_unit_of_work import (
+    SqlAlchemySensitiveViewUnitOfWork,
+)
 from app.adapters.persistence.sqlalchemy_audit_repository import SqlAlchemyAuditRepository
 from app.adapters.persistence.sqlalchemy_campaign_repository import (
     SqlAlchemyCampaignRepository,
@@ -43,12 +46,14 @@ from app.application.ports.redemption_repository import RedemptionRepository
 from app.application.ports.reward_repository import RewardRepository
 from app.application.ports.run_repository import RunRepository
 from app.application.ports.screening_repository import ScreeningRepository
+from app.application.ports.sensitive_view_unit_of_work import SensitiveViewUnitOfWork
 from app.application.ports.unit_of_work import UnitOfWork
 from tests.fakes.fake_health_uow import (
     FakeAuditRepository,
     FakeConsentRepository,
     FakeHealthUnitOfWork,
 )
+from tests.fakes.fake_sensitive_view_uow import FakeSensitiveViewUnitOfWork
 from tests.fakes.fake_uow import (
     FakePointsLedgerRepository,
     FakeRedemptionRepository,
@@ -144,6 +149,14 @@ def _fake_members(repo: FakeMemberRepository) -> MemberRepository:
     return repo
 
 
+def _real_sensitive_view(uow: SqlAlchemySensitiveViewUnitOfWork) -> SensitiveViewUnitOfWork:
+    return uow
+
+
+def _fake_sensitive_view(uow: FakeSensitiveViewUnitOfWork) -> SensitiveViewUnitOfWork:
+    return uow
+
+
 def _real_screenings(repo: SqlAlchemyScreeningRepository) -> ScreeningRepository:
     return repo
 
@@ -165,3 +178,4 @@ def test_every_port_has_a_fake_and_a_real_implementation() -> None:
     file being imported."""
     assert _fake_members(FakeMemberRepository()) is not None
     assert _fake_screenings(FakeScreeningRepository()) is not None
+    assert _fake_sensitive_view(FakeSensitiveViewUnitOfWork()) is not None

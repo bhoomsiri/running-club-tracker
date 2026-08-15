@@ -26,6 +26,9 @@ from app.adapters.persistence.run_review_unit_of_work import SqlAlchemyRunReview
 from app.adapters.persistence.run_submission_unit_of_work import (
     SqlAlchemyRunSubmissionUnitOfWork,
 )
+from app.adapters.persistence.sensitive_view_unit_of_work import (
+    SqlAlchemySensitiveViewUnitOfWork,
+)
 from app.adapters.persistence.sqlalchemy_campaign_repository import (
     SqlAlchemyCampaignRepository,
 )
@@ -71,7 +74,10 @@ from app.application.use_cases.submit_run import SubmitRun
 from app.application.use_cases.sync_member_from_clerk import SyncMemberFromClerk
 from app.application.use_cases.update_my_profile import UpdateMyProfile
 from app.application.use_cases.upload_evidence import UploadEvidence
+from app.application.use_cases.view_member_contact import ViewMemberContact
 from app.application.use_cases.view_member_health import ViewMemberHealth
+from app.application.use_cases.view_member_progress import ViewMemberProgress
+from app.application.use_cases.view_member_screening import ViewMemberScreening
 from app.application.use_cases.withdraw_consent import WithdrawConsent
 from app.config import Settings, get_settings
 from app.db import get_session_factory
@@ -316,6 +322,34 @@ def get_view_member_health_uc(
     return ViewMemberHealth(
         SqlAlchemyHealthUnitOfWork(factory, clock), settings.consent_version
     )
+
+
+def get_view_member_progress_uc(
+    session: Annotated[Session, Depends(get_session)],
+) -> ViewMemberProgress:
+    # Not audited: distance and points are activity records, not sensitive data.
+    return ViewMemberProgress(
+        members=SqlAlchemyMemberRepository(session),
+        runs=SqlAlchemyRunRepository(session),
+        campaigns=SqlAlchemyCampaignRepository(session),
+        ledger=SqlAlchemyPointsLedgerRepository(session),
+        redemptions=SqlAlchemyRedemptionRepository(session),
+    )
+
+
+def get_view_member_screening_uc(
+    factory: Annotated[sessionmaker[Session], Depends(get_session_factory_dep)],
+    clock: Annotated[SystemClock, Depends(get_clock)],
+) -> ViewMemberScreening:
+    # Its own UnitOfWork: the audit row and the read commit together, audit first.
+    return ViewMemberScreening(SqlAlchemySensitiveViewUnitOfWork(factory, clock))
+
+
+def get_view_member_contact_uc(
+    factory: Annotated[sessionmaker[Session], Depends(get_session_factory_dep)],
+    clock: Annotated[SystemClock, Depends(get_clock)],
+) -> ViewMemberContact:
+    return ViewMemberContact(SqlAlchemySensitiveViewUnitOfWork(factory, clock))
 
 
 def get_redeem_reward_uc(
