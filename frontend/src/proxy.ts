@@ -1,6 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 /**
+ * The auth boundary. Named `proxy.ts` because Next 16 renamed the convention away from
+ * `middleware.ts`; the default export is still what Next picks up, so Clerk's helper
+ * drops straight in.
+ *
  * Everything is protected; sign-in and sign-up are the two ways in.
  *
  * Written as a deny-by-default list on purpose: a new page added later is private the
