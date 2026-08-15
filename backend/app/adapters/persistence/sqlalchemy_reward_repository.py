@@ -26,6 +26,14 @@ class SqlAlchemyRewardRepository:
         ).scalar_one_or_none()
         return reward_to_domain(row) if row else None
 
+    def list_for_campaign(self, campaign_id: UUID) -> list[Reward]:
+        rows = self._session.execute(
+            sa.select(models.Reward)
+            .where(models.Reward.campaign_id == campaign_id)
+            .order_by(models.Reward.points_cost)
+        ).scalars()
+        return [reward_to_domain(r) for r in rows]
+
     def list_active_for_campaign(self, campaign_id: UUID) -> list[Reward]:
         rows = self._session.execute(
             sa.select(models.Reward)

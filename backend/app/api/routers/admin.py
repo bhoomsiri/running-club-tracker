@@ -15,7 +15,10 @@ from app.api.deps import (
     get_current_admin,
     get_current_superuser,
     get_fulfill_redemption_uc,
+    get_list_admin_campaigns_uc,
+    get_list_admin_rewards_uc,
     get_list_members_uc,
+    get_list_pending_redemptions_uc,
     get_review_run_uc,
     get_update_campaign_uc,
     get_update_reward_uc,
@@ -35,6 +38,7 @@ from app.api.schemas import (
     MemberProgressResponse,
     MemberResponse,
     MemberScreeningResponse,
+    PendingRedemptionResponse,
     RedemptionResponse,
     ReviewRunRequest,
     RunResponse,
@@ -42,7 +46,12 @@ from app.api.schemas import (
     UpdateRewardRequest,
 )
 from app.application.use_cases.get_club_overview import GetClubOverview
+from app.application.use_cases.list_admin_catalogue import (
+    ListAdminCampaigns,
+    ListAdminRewards,
+)
 from app.application.use_cases.list_members import ListMembers
+from app.application.use_cases.list_pending_redemptions import ListPendingRedemptions
 from app.application.use_cases.manage_campaigns import (
     CreateCampaign,
     CreateCampaignCommand,
@@ -186,6 +195,16 @@ def create_campaign(
     return CampaignResponse.from_entity(campaign)
 
 
+@router.get("/campaigns", response_model=list[CampaignResponse])
+def list_campaigns(
+    boss: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[ListAdminCampaigns, Depends(get_list_admin_campaigns_uc)],
+) -> list[CampaignResponse]:
+    """Closed ones included — a finished activity is still something to look at, and a
+    correction to it still has to be possible."""
+    return [CampaignResponse.from_entity(c) for c in use_case.execute(boss.id)]
+
+
 @router.patch("/campaigns/{campaign_id}", response_model=CampaignResponse)
 def update_campaign(
     campaign_id: UUID,
@@ -213,6 +232,19 @@ def create_reward(
     return AdminRewardResponse.from_entity(reward)
 
 
+@router.get("/rewards", response_model=list[AdminRewardResponse])
+def list_admin_rewards(
+    campaign_id: UUID,
+    boss: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[ListAdminRewards, Depends(get_list_admin_rewards_uc)],
+) -> list[AdminRewardResponse]:
+    """Retired rewards included. They are withdrawn, never deleted, and one that
+    vanished from this screen would look deleted."""
+    return [
+        AdminRewardResponse.from_entity(r) for r in use_case.execute(boss.id, campaign_id)
+    ]
+
+
 @router.patch("/rewards/{reward_id}", response_model=AdminRewardResponse)
 def update_reward(
     reward_id: UUID,
@@ -226,6 +258,19 @@ def update_reward(
         UpdateRewardCommand(actor_id=superuser.id, reward_id=reward_id, **body.model_dump())
     )
     return AdminRewardResponse.from_entity(reward)
+
+
+@router.get("/redemptions", response_model=list[PendingRedemptionResponse])
+def pending_redemptions(
+    boss: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[ListPendingRedemptions, Depends(get_list_pending_redemptions_uc)],
+) -> list[PendingRedemptionResponse]:
+    """The queue of rewards waiting to be handed over.
+
+    Without it the fulfil and cancel endpoints below could only be reached by knowing a
+    redemption's id, which nobody does.
+    """
+    return [PendingRedemptionResponse.from_row(r) for r in use_case.execute(boss.id)]
 
 
 @router.post("/redemptions/{redemption_id}/fulfill", response_model=RedemptionResponse)

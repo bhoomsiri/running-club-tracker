@@ -18,6 +18,11 @@ class RewardRepository(Protocol):
         visible with stock 0 — hiding them makes the list look arbitrary."""
         ...
 
+    def list_for_campaign(self, campaign_id: UUID) -> list[Reward]:
+        """Every reward, retired ones included. Members see only the active list; whoever
+        manages the catalogue has to see what was withdrawn, or it looks deleted."""
+        ...
+
     def decrement_stock(self, reward_id: UUID) -> None: ...
 
     def increment_stock(self, reward_id: UUID) -> None:

@@ -60,7 +60,12 @@ from app.application.use_cases.get_my_screening import GetMyScreening
 from app.application.use_cases.get_my_summary import GetMySummary
 from app.application.use_cases.get_onboarding_status import GetOnboardingStatus
 from app.application.use_cases.grant_consent import GrantConsent
+from app.application.use_cases.list_admin_catalogue import (
+    ListAdminCampaigns,
+    ListAdminRewards,
+)
 from app.application.use_cases.list_members import ListMembers
+from app.application.use_cases.list_pending_redemptions import ListPendingRedemptions
 from app.application.use_cases.list_rewards import ListRewards
 from app.application.use_cases.list_runs import ListMemberRuns, ListMyRuns
 from app.application.use_cases.manage_campaigns import CreateCampaign, UpdateCampaign
@@ -303,6 +308,34 @@ def get_club_overview_uc(
         runs=SqlAlchemyRunRepository(session),
         campaigns=SqlAlchemyCampaignRepository(session),
         ledger=SqlAlchemyPointsLedgerRepository(session),
+    )
+
+
+def get_list_admin_campaigns_uc(
+    session: Annotated[Session, Depends(get_session)],
+) -> ListAdminCampaigns:
+    return ListAdminCampaigns(
+        SqlAlchemyMemberRepository(session), SqlAlchemyCampaignRepository(session)
+    )
+
+
+def get_list_admin_rewards_uc(
+    session: Annotated[Session, Depends(get_session)],
+) -> ListAdminRewards:
+    return ListAdminRewards(
+        SqlAlchemyMemberRepository(session), SqlAlchemyRewardRepository(session)
+    )
+
+
+def get_list_pending_redemptions_uc(
+    session: Annotated[Session, Depends(get_session)],
+) -> ListPendingRedemptions:
+    return ListPendingRedemptions(
+        members=SqlAlchemyMemberRepository(session),
+        redemptions=SqlAlchemyRedemptionRepository(session),
+        rewards=SqlAlchemyRewardRepository(session),
+        ledger=SqlAlchemyPointsLedgerRepository(session),
+        runs=SqlAlchemyRunRepository(session),
     )
 
 

@@ -25,6 +25,7 @@ from app.application.use_cases.get_club_overview import (
 )
 from app.application.use_cases.get_my_summary import CampaignSummary, MemberSummary
 from app.application.use_cases.get_onboarding_status import OnboardingStatus
+from app.application.use_cases.list_pending_redemptions import PendingRedemption
 from app.application.use_cases.list_rewards import CampaignRewards
 from app.application.use_cases.list_runs import RunWithEvidence
 from app.application.use_cases.view_member_health import MemberHealthView
@@ -659,4 +660,33 @@ class MemberContactResponse(BaseModel):
             phone=profile.phone,
             emergency_contact_name=profile.emergency_contact_name,
             emergency_contact_phone=profile.emergency_contact_phone,
+        )
+
+
+# --------------------------------------------------------------- admin: the queue
+
+
+class PendingRedemptionResponse(BaseModel):
+    """One reward waiting to be handed over.
+
+    `blocked_by` is the same pair of checks `FulfillRedemption` makes, computed here so
+    the reason appears beside the item instead of arriving as a 409 after the button is
+    pressed. That check is still the control — this is a read, and the world can move
+    between the two.
+    """
+
+    redemption: RedemptionResponse
+    member_name: str
+    reward_name: str
+    balance: Decimal
+    blocked_by: str | None
+
+    @classmethod
+    def from_row(cls, row: PendingRedemption) -> PendingRedemptionResponse:
+        return cls(
+            redemption=RedemptionResponse.from_entity(row.redemption),
+            member_name=row.member_name,
+            reward_name=row.reward_name,
+            balance=row.balance,
+            blocked_by=row.blocked_by,
         )

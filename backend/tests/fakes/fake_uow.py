@@ -50,6 +50,9 @@ class FakeRewardRepository:
         self.locked.append(reward_id)
         return self._items.get(reward_id)
 
+    def list_for_campaign(self, campaign_id: UUID) -> list[Reward]:
+        return [r for r in self._items.values() if r.campaign_id == campaign_id]
+
     def list_active_for_campaign(self, campaign_id: UUID) -> list[Reward]:
         return [
             r for r in self._items.values() if r.campaign_id == campaign_id and r.is_active
