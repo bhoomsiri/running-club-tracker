@@ -48,6 +48,7 @@ from app.application.ports.run_extractor import RunExtractor
 from app.application.ports.token_verifier import TokenVerifier
 from app.application.use_cases.ensure_member import EnsureMember
 from app.application.use_cases.extract_run_draft import ExtractRunDraft
+from app.application.use_cases.get_my_consent import GetMyConsent
 from app.application.use_cases.get_my_summary import GetMySummary
 from app.application.use_cases.grant_consent import GrantConsent
 from app.application.use_cases.list_members import ListMembers
@@ -211,6 +212,12 @@ def get_grant_consent_uc(
     settings: Annotated[Settings, Depends(get_settings_dep)],
 ) -> GrantConsent:
     return GrantConsent(SqlAlchemyConsentRepository(session), clock, settings.consent_version)
+
+
+def get_my_consent_uc(
+    session: Annotated[Session, Depends(get_session)],
+) -> GetMyConsent:
+    return GetMyConsent(SqlAlchemyConsentRepository(session))
 
 
 def get_withdraw_consent_uc(

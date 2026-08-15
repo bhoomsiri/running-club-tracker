@@ -73,7 +73,21 @@ export type Consent = {
   version: string;
   granted_at: string;
   withdrawn_at: string | null;
+  /** False both for a withdrawn consent and for one given to wording that has since
+   * changed. This is the only field the health form should gate on. */
   active: boolean;
+};
+
+export type SaveHealthRequest = {
+  campaign_id: string;
+  phase: HealthPhase;
+  measured_on: string;
+  weight_kg?: string;
+  height_cm?: string;
+  resting_hr?: number;
+  systolic?: number;
+  diastolic?: number;
+  /** Absent on purpose: member_id. The backend takes it from the verified token. */
 };
 
 export type RunSource = "app_screenshot" | "manual_photo";
