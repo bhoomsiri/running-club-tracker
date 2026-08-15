@@ -4,7 +4,9 @@ import { PageHeader } from "@/components/page-header";
 import { Badge, Card } from "@/components/ui";
 import { apiServer } from "@/lib/api-server";
 import { formatDecimal } from "@/lib/format";
-import type { MemberSummary, Role } from "@/lib/types";
+import type { MemberProfile, MemberSummary, Role } from "@/lib/types";
+
+import { EditProfile } from "./edit-profile";
 
 const ROLE_LABELS: Record<Role, string> = {
   member: "สมาชิก",
@@ -13,7 +15,10 @@ const ROLE_LABELS: Record<Role, string> = {
 };
 
 export default async function ProfilePage() {
-  const summary = await apiServer<MemberSummary>("/me/summary");
+  const [summary, profile] = await Promise.all([
+    apiServer<MemberSummary>("/me/summary"),
+    apiServer<MemberProfile>("/me/profile"),
+  ]);
 
   return (
     <>
@@ -21,7 +26,11 @@ export default async function ProfilePage() {
 
       <div className="space-y-4">
         <Card>
-          <p className="text-lg font-medium">{summary.member.display_name}</p>
+          {/* The Thai name is what the club calls them; display_name from Clerk is the
+              fallback until they have given one. */}
+          <p className="text-lg font-medium">
+            {profile.full_name_th ?? summary.member.display_name}
+          </p>
           <p className="mt-1">
             <Badge tone={summary.member.role === "member" ? "neutral" : "brand"}>
               {ROLE_LABELS[summary.member.role]}
@@ -32,15 +41,17 @@ export default async function ProfilePage() {
           </p>
         </Card>
 
-        {/* Health lives on its own screen rather than inline here: it is behind a
-            consent gate, and mixing it into a general profile page makes it look like
-            just another field to fill in. */}
+        <EditProfile profile={profile} />
+
+        {/* Health and the screening live on their own screen: both are behind a consent
+            gate, and mixing them into a general profile page makes them look like more
+            fields to fill in. */}
         <Link href="/health" className="block">
           <Card className="flex items-center justify-between gap-3">
             <div>
-              <p className="font-medium">ข้อมูลสุขภาพ</p>
+              <p className="font-medium">ข้อมูลสุขภาพและแบบคัดกรอง</p>
               <p className="mt-0.5 text-sm text-muted">
-                บันทึกค่าก่อน/หลังกิจกรรม และจัดการความยินยอม
+                บันทึกค่าก่อน/หลังกิจกรรม แก้ไขแบบคัดกรอง และจัดการความยินยอม
               </p>
             </div>
             <span aria-hidden className="text-muted">
@@ -52,9 +63,8 @@ export default async function ProfilePage() {
         <Card>
           <p className="text-sm font-medium">สิทธิ์ของคุณ (PDPA)</p>
           <p className="mt-2 text-sm text-muted">
-            คุณขอดู แก้ไข ถอนความยินยอม หรือขอลบข้อมูลสุขภาพของคุณได้ทุกเมื่อ —
-            การถอนความยินยอมทำได้เองที่หน้าข้อมูลสุขภาพ ส่วนการขอลบข้อมูล
-            กรุณาติดต่อผู้ดูแลชมรม
+            คุณขอดู แก้ไข และถอนความยินยอมได้เองทุกเมื่อ — หากต้องการลบข้อมูลก่อนกำหนด
+            หรือใช้สิทธิ์อื่นตาม PDPA กรุณาติดต่อผู้ดูแลชมรม
           </p>
         </Card>
       </div>

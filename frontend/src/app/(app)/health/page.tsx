@@ -3,9 +3,16 @@ import { PageHeader } from "@/components/page-header";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { apiServer } from "@/lib/api-server";
 import { formatDate, formatDecimal } from "@/lib/format";
-import type { Consent, HealthComparison, HealthRecord, MemberSummary } from "@/lib/types";
+import type {
+  Consent,
+  HealthComparison,
+  HealthRecord,
+  MemberSummary,
+  Screening,
+} from "@/lib/types";
 
 import { ConsentGate } from "./consent-gate";
+import { EditScreening } from "./edit-screening";
 import { HealthForm } from "./health-form";
 
 /**
@@ -20,9 +27,10 @@ import { HealthForm } from "./health-form";
  * changed, and a withdrawn one comes back as null. Both mean ask again.
  */
 export default async function HealthPage() {
-  const [consent, summary] = await Promise.all([
+  const [consent, summary, screening] = await Promise.all([
     apiServer<Consent | null>("/consent"),
     apiServer<MemberSummary>("/me/summary"),
+    apiServer<Screening | null>("/screening"),
   ]);
 
   return (
@@ -36,7 +44,10 @@ export default async function HealthPage() {
         <ConsentGate consent={consent} />
 
         {consent?.active === true ? (
-          <HealthForm campaigns={summary.campaigns} comparisons={summary.health} />
+          <>
+            <HealthForm campaigns={summary.campaigns} comparisons={summary.health} />
+            <EditScreening screening={screening} />
+          </>
         ) : null}
 
         <section>
@@ -143,6 +154,9 @@ function PhaseColumn({
             <Row label="ส่วนสูง" value={`${formatDecimal(record.height_cm)} ซม.`} />
           ) : null}
           {bmi !== null ? <Row label="BMI" value={formatDecimal(bmi)} /> : null}
+          {/* Heart rate and blood pressure are no longer collected, but records saved
+              before that change still carry them, and hiding a member's own data would
+              be a worse answer than showing it. */}
           {record.resting_hr !== null ? (
             <Row label="ชีพจร" value={`${record.resting_hr}`} />
           ) : null}

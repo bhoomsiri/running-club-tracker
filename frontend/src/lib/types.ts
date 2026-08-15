@@ -155,3 +155,43 @@ export type CampaignRewards = {
   points_balance: string;
   rewards: Reward[];
 };
+
+export type Sex = "male" | "female";
+
+export type MemberProfile = {
+  full_name_th: string | null;
+  birth_year: number | null;
+  sex: Sex | null;
+  phone: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  complete: boolean;
+};
+
+export type UpdateProfileRequest = {
+  full_name_th: string;
+  birth_year: number;
+  sex: Sex;
+  phone: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+};
+
+/** The steps the wizard walks, in the order the backend reports them. */
+export type OnboardingStep = "consent" | "profile" | "screening" | "baseline";
+
+export type OnboardingStatus = {
+  complete: boolean;
+  missing: OnboardingStep[];
+};
+
+export type Screening = {
+  version: string;
+  /** All eleven questions; a partial set is refused by the backend. */
+  answers: Record<string, boolean>;
+  risk_acknowledged: boolean;
+  screened_on: string;
+  updated_at: string;
+  /** Derived by the backend, so the UI never decides for itself what counts as a risk. */
+  needs_medical_advice: boolean;
+};

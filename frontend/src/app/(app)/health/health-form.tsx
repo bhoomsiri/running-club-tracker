@@ -28,18 +28,19 @@ import type {
  */
 
 type Vital = {
-  key: "weight_kg" | "height_cm" | "resting_hr" | "systolic" | "diastolic";
+  key: "weight_kg" | "height_cm";
   label: string;
   hint: string;
   decimal: boolean;
 };
 
+// Weight and height only. The backend still accepts resting heart rate and blood
+// pressure, and the columns hold what members entered before — but the club is not
+// taking clinical measurements, and asking for a blood pressure reading nobody is
+// equipped to take invites numbers that mean nothing. What these two are for is BMI.
 const VITALS: Vital[] = [
   { key: "weight_kg", label: "น้ำหนัก (กก.)", hint: "เช่น 62.5", decimal: true },
   { key: "height_cm", label: "ส่วนสูง (ซม.)", hint: "เช่น 170", decimal: true },
-  { key: "resting_hr", label: "ชีพจรขณะพัก (ครั้ง/นาที)", hint: "เช่น 68", decimal: false },
-  { key: "systolic", label: "ความดันตัวบน", hint: "เช่น 118", decimal: false },
-  { key: "diastolic", label: "ความดันตัวล่าง", hint: "เช่น 76", decimal: false },
 ];
 
 const PHASES: { value: HealthPhase; label: string; hint: string }[] = [
