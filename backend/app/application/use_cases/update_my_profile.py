@@ -23,6 +23,8 @@ class UpdateMyProfileCommand:
     full_name_th: str
     birth_year: int
     sex: Sex
+    position: str
+    department: str
     phone: str
     emergency_contact_name: str
     emergency_contact_phone: str
@@ -38,12 +40,14 @@ class UpdateMyProfile:
         if member is None:
             raise MemberNotFound(str(cmd.member_id))
 
-        # All six together: this is not a patch of individual fields, because a profile
+        # All of it together: this is not a patch of individual fields, because a profile
         # with half an emergency contact is not useful to anyone at the roadside.
         profile = build_profile(
             full_name_th=cmd.full_name_th,
             birth_year=cmd.birth_year,
             sex=cmd.sex,
+            position=cmd.position,
+            department=cmd.department,
             phone=cmd.phone,
             emergency_contact_name=cmd.emergency_contact_name,
             emergency_contact_phone=cmd.emergency_contact_phone,

@@ -22,6 +22,8 @@ PROFILE = {
     "full_name_th": "สมชาย ใจดี",
     "birth_year": 1990,
     "sex": "male",
+    "position": "พยาบาลวิชาชีพชำนาญการ",
+    "department": "กลุ่มงานการพยาบาล",
     "phone": "081-234-5678",
     "emergency_contact_name": "สมหญิง ใจดี",
     "emergency_contact_phone": "0898765432",
@@ -127,6 +129,13 @@ class TestProfile:
             assert "emergency_contact_phone" not in member
             assert "phone" not in member
             assert "birth_year" not in member
+
+        # The other side of the same line: a job title and a unit are ordinary personal
+        # data, so they are here on purpose. Pinning it means a later change that moves
+        # them into the sensitive class has to come past this test.
+        alice = next(m for m in listed if m["name"] == "สมชาย ใจดี")
+        assert alice["department"] == "กลุ่มงานการพยาบาล"
+        assert alice["position"] == "พยาบาลวิชาชีพชำนาญการ"
 
 
 class TestScreening:

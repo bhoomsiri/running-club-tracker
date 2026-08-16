@@ -48,6 +48,8 @@ def member_to_domain(row: models.Member) -> Member:
             full_name_th=row.full_name_th,
             birth_year=row.birth_year,
             sex=Sex(row.sex) if row.sex else None,
+            position=row.position,
+            department=row.department,
             phone=row.phone,
             emergency_contact_name=row.emergency_contact_name,
             emergency_contact_phone=row.emergency_contact_phone,

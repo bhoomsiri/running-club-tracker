@@ -49,6 +49,10 @@ class MemberResponse(BaseModel):
     # Kept as well, because it is what Clerk holds and the two can differ.
     display_name: str
     role: str
+    # Ordinary personal data, unlike everything else on the profile: which unit someone
+    # works in is how the club recognises them, and it needs no audit row to show.
+    position: str | None
+    department: str | None
 
     @classmethod
     def from_entity(cls, member: Member) -> MemberResponse:
@@ -59,6 +63,8 @@ class MemberResponse(BaseModel):
             name=member.preferred_name,
             display_name=member.display_name,
             role=member.role.value,
+            position=member.profile.position,
+            department=member.profile.department,
         )
 
 
@@ -434,6 +440,8 @@ class UpdateProfileRequest(BaseModel):
     full_name_th: str = Field(min_length=1, max_length=200)
     birth_year: int
     sex: Sex
+    position: str = Field(min_length=1, max_length=160)
+    department: str = Field(min_length=1, max_length=160)
     phone: str = Field(min_length=9, max_length=16)
     emergency_contact_name: str = Field(min_length=1, max_length=200)
     emergency_contact_phone: str = Field(min_length=9, max_length=16)
@@ -450,6 +458,8 @@ class MemberProfileResponse(BaseModel):
     full_name_th: str | None
     birth_year: int | None
     sex: str | None
+    position: str | None
+    department: str | None
     phone: str | None
     emergency_contact_name: str | None
     emergency_contact_phone: str | None
@@ -462,6 +472,8 @@ class MemberProfileResponse(BaseModel):
             full_name_th=profile.full_name_th,
             birth_year=profile.birth_year,
             sex=profile.sex.value if profile.sex else None,
+            position=profile.position,
+            department=profile.department,
             phone=profile.phone,
             emergency_contact_name=profile.emergency_contact_name,
             emergency_contact_phone=profile.emergency_contact_phone,
@@ -552,6 +564,9 @@ class MemberOverviewResponse(BaseModel):
     member_id: UUID
     name: str
     role: str
+    # The one profile field here, and only because it is not sensitive: the club is run
+    # by department, so a list without it is a list of names nobody can place.
+    department: str | None
     total_distance_km: Decimal
     run_count: int
     pending_review_count: int
@@ -564,6 +579,7 @@ class MemberOverviewResponse(BaseModel):
             # The Thai full name once given, else the name Clerk supplied.
             name=row.member.preferred_name,
             role=row.member.role.value,
+            department=row.member.profile.department,
             total_distance_km=row.total_distance_km,
             run_count=row.run_count,
             pending_review_count=row.pending_review_count,

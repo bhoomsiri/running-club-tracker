@@ -70,6 +70,8 @@ class SqlAlchemyMemberRepository:
                 full_name_th=profile.full_name_th,
                 birth_year=profile.birth_year,
                 sex=profile.sex.value if profile.sex else None,
+                position=profile.position,
+                department=profile.department,
                 phone=profile.phone,
                 emergency_contact_name=profile.emergency_contact_name,
                 emergency_contact_phone=profile.emergency_contact_phone,

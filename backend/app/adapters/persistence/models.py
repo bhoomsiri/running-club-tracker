@@ -76,6 +76,10 @@ class Member(Base):
     full_name_th: Mapped[str | None] = mapped_column(sa.String(200))
     birth_year: Mapped[int | None] = mapped_column(sa.SmallInteger)
     sex: Mapped[str | None] = mapped_column(sa.String(6))
+    # Job and unit at the hospital. Ordinary personal data, not the sensitive kind —
+    # so unlike the columns around them these may be shown in an admin list.
+    position: Mapped[str | None] = mapped_column(sa.String(160))
+    department: Mapped[str | None] = mapped_column(sa.String(160))
     phone: Mapped[str | None] = mapped_column(sa.String(16))
     emergency_contact_name: Mapped[str | None] = mapped_column(sa.String(200))
     emergency_contact_phone: Mapped[str | None] = mapped_column(sa.String(16))

@@ -57,11 +57,19 @@ class MemberProfile:
     request and fills this in afterwards — `is_complete` is what the onboarding gate
     asks. The emergency contact is the reason this is collected at all: someone has to
     be reachable if a member collapses on a run.
+
+    `position` and `department` are the member's job and unit at the hospital. They are
+    ordinary personal data rather than the มาตรา 26 kind — which is why, unlike `sex`
+    and the emergency contact, they may appear in an admin list without an audit row.
+    They are free text on purpose: a fixed list of departments would be wrong within a
+    year, and the club is not the system of record for the hospital's org chart.
     """
 
     full_name_th: str | None = None
     birth_year: int | None = None
     sex: Sex | None = None
+    position: str | None = None
+    department: str | None = None
     phone: str | None = None
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
@@ -74,6 +82,8 @@ class MemberProfile:
                 self.full_name_th,
                 self.birth_year,
                 self.sex,
+                self.position,
+                self.department,
                 self.phone,
                 self.emergency_contact_name,
                 self.emergency_contact_phone,
@@ -124,6 +134,8 @@ class Member:
 
 MAX_FULL_NAME = 200
 MAX_CONTACT_NAME = 200
+# Hospital job titles and unit names run long ("พยาบาลวิชาชีพชำนาญการ", "กลุ่มงาน…").
+MAX_WORK_FIELD = 160
 MIN_BIRTH_YEAR = 1900
 # Nobody younger than this is running a club activity unaccompanied; it also catches a
 # birth year typed where the current year was meant.
@@ -137,6 +149,8 @@ def build_profile(
     full_name_th: str,
     birth_year: int,
     sex: Sex,
+    position: str,
+    department: str,
     phone: str,
     emergency_contact_name: str,
     emergency_contact_phone: str,
@@ -147,6 +161,8 @@ def build_profile(
         full_name_th=_required_text("full_name_th", full_name_th, MAX_FULL_NAME),
         birth_year=_validate_birth_year(birth_year, now),
         sex=sex,
+        position=_required_text("position", position, MAX_WORK_FIELD),
+        department=_required_text("department", department, MAX_WORK_FIELD),
         phone=_validate_phone("phone", phone),
         emergency_contact_name=_required_text(
             "emergency_contact_name", emergency_contact_name, MAX_CONTACT_NAME

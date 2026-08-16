@@ -44,6 +44,8 @@ PROFILE_FIELDS = {
     "full_name_th": "สมชาย ใจดี",
     "birth_year": 1990,
     "sex": Sex.MALE,
+    "position": "พยาบาลวิชาชีพชำนาญการ",
+    "department": "กลุ่มงานการพยาบาล",
     "phone": "081-234-5678",
     "emergency_contact_name": "สมหญิง ใจดี",
     "emergency_contact_phone": "0898765432",
@@ -148,6 +150,13 @@ class TestOnboardingStatus:
 
         assert PROFILE in build_status(subject).execute(subject.id).missing
 
+    def test_a_profile_without_a_department_does_not_count(self) -> None:
+        """Members who joined before the field existed are sent back through the step
+        once, which is the point of adding it to `is_complete` rather than beside it."""
+        subject = member().with_profile(_complete_profile(department=None))
+
+        assert PROFILE in build_status(subject).execute(subject.id).missing
+
     def test_a_baseline_without_height_does_not_count(self) -> None:
         """Weight alone yields no BMI, so there would be nothing to compare against —
         and by the time anyone notices, the moment to measure has passed."""
@@ -216,6 +225,20 @@ class TestUpdateMyProfile:
         stored = members.get(subject.id)
         assert stored is not None
         assert stored.profile.full_name_th == "สมชาย ใจดี"
+        assert stored.profile.department == "กลุ่มงานการพยาบาล"
+
+    def test_a_blank_department_is_refused(self) -> None:
+        """Every member is hospital staff, and a unit is how the club places them —
+        whitespace would satisfy a length check while telling nobody anything."""
+        subject = member()
+        use_case, _ = self.build(subject)
+
+        with pytest.raises(InvalidMemberError, match="department"):
+            use_case.execute(
+                UpdateMyProfileCommand(
+                    member_id=subject.id, **{**PROFILE_FIELDS, "department": "   "}  # type: ignore[arg-type]
+                )
+            )
 
     def test_a_phone_number_is_stored_as_digits(self) -> None:
         """So the same number typed three ways is one number, and an emergency contact
@@ -278,6 +301,8 @@ def _complete_profile(**overrides: object):  # type: ignore[no-untyped-def]
         "full_name_th": "สมชาย ใจดี",
         "birth_year": 1990,
         "sex": Sex.MALE,
+        "position": "พยาบาลวิชาชีพชำนาญการ",
+        "department": "กลุ่มงานการพยาบาล",
         "phone": "0812345678",
         "emergency_contact_name": "สมหญิง ใจดี",
         "emergency_contact_phone": "0898765432",
