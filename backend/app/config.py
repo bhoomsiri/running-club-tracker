@@ -64,7 +64,12 @@ class Settings(BaseSettings):
     # substance — every member who agreed to an older version is then treated as not
     # having consented, and must agree again before health data can be written.
     # That judgement is a human one; the code only compares the string.
-    consent_version: str = "v1"
+    #
+    # v2: the consent screen now tells members that their name and distance appear on
+    # the club leaderboard. Anyone who agreed to v1 never saw that sentence, so counting
+    # them as having agreed to it would be the one thing a consent record must never do.
+    # Expect a v3 when the hospital's DPO finalises the wording before launch.
+    consent_version: str = "v2"
 
     # Accountability logs outlive the data they describe: you must still be able to show
     # who accessed what, after that data has been purged. Purged by its own job, never
