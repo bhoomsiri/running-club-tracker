@@ -55,6 +55,12 @@ export default async function AdminMemberPage({
             <Badge>รอตรวจ {progress.pending_review_count}</Badge>
           ) : null}
         </div>
+        {progress.member.department ? (
+          <p className="mt-1 text-sm">
+            {progress.member.position ? `${progress.member.position} · ` : ""}
+            {progress.member.department}
+          </p>
+        ) : null}
         <p className="mt-1 text-sm text-muted tabular-nums">
           ระยะสะสม {formatDecimal(progress.total_distance_km)} กม. · ส่งแล้ว{" "}
           {progress.run_count} ครั้ง

@@ -22,6 +22,12 @@ export function EditProfile({ profile }: { profile: MemberProfile }) {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="font-medium">ข้อมูลติดต่อและผู้ติดต่อฉุกเฉิน</p>
+            {profile.department ? (
+              <p className="mt-0.5 truncate text-sm">
+                {profile.position ? `${profile.position} · ` : ""}
+                {profile.department}
+              </p>
+            ) : null}
             <p className="mt-0.5 text-sm text-muted">
               {profile.phone ? `โทร ${profile.phone}` : "ยังไม่ได้กรอกเบอร์โทร"}
               {profile.emergency_contact_name

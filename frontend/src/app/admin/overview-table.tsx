@@ -42,7 +42,10 @@ export function OverviewTable({ overview }: { overview: ClubOverview }) {
     const needle = query.trim().toLowerCase();
     const filtered = overview.members.filter((member) => {
       if (pendingOnly && member.pending_review_count === 0) return false;
-      return needle === "" || member.name.toLowerCase().includes(needle);
+      if (needle === "") return true;
+      // Department too, so "กลุ่มงานการพยาบาล" pulls up that unit's members — the club
+      // is organised by unit, and that is how the superuser thinks about it.
+      return `${member.name} ${member.department ?? ""}`.toLowerCase().includes(needle);
     });
 
     return [...filtered].sort((a, b) => {
@@ -74,8 +77,8 @@ export function OverviewTable({ overview }: { overview: ClubOverview }) {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="ค้นหาชื่อสมาชิก"
-          aria-label="ค้นหาชื่อสมาชิก"
+          placeholder="ค้นหาชื่อหรือหน่วยงาน"
+          aria-label="ค้นหาชื่อหรือหน่วยงาน"
           className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-brand"
         />
 
@@ -159,6 +162,14 @@ function MemberRow({
               <Badge>รอตรวจ {member.pending_review_count}</Badge>
             ) : null}
           </div>
+
+          {member.department ? (
+            <p className="mt-0.5 truncate text-sm text-muted">{member.department}</p>
+          ) : (
+            <p className="mt-0.5 text-sm text-amber-700 dark:text-amber-300">
+              ยังไม่ได้กรอกหน่วยงาน
+            </p>
+          )}
 
           <p className="mt-1 text-sm text-muted tabular-nums">
             {formatDecimal(member.total_distance_km)} กม. · ส่งแล้ว {member.run_count} ครั้ง

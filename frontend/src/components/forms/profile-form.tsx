@@ -10,8 +10,12 @@ import type { MemberProfile, Sex } from "@/lib/types";
  * The member's own details. Used by the onboarding wizard and by the profile screen, so
  * the rules a member meets are the same wherever they meet them.
  *
- * All six fields together, matching the backend: half an emergency contact is no use to
+ * Every field together, matching the backend: half an emergency contact is no use to
  * anyone at the roadside, so there is no partial save.
+ *
+ * Job and unit are free text rather than a dropdown. Every member is hospital staff, but
+ * a fixed list of departments would be out of date within a year and this app is not the
+ * hospital's org chart — so the member types what their unit is actually called.
  */
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -41,6 +45,8 @@ export function ProfileForm({
     initial?.birth_year ? String(initial.birth_year) : "",
   );
   const [sex, setSex] = useState<Sex | "">(() => initial?.sex ?? "");
+  const [position, setPosition] = useState(initial?.position ?? "");
+  const [department, setDepartment] = useState(initial?.department ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [contactName, setContactName] = useState(initial?.emergency_contact_name ?? "");
   const [contactPhone, setContactPhone] = useState(
@@ -59,6 +65,8 @@ export function ProfileForm({
     fullName.trim() !== "" &&
     yearOk &&
     sex !== "" &&
+    position.trim() !== "" &&
+    department.trim() !== "" &&
     phoneOk &&
     contactName.trim() !== "" &&
     contactPhoneOk &&
@@ -77,6 +85,8 @@ export function ProfileForm({
           full_name_th: fullName.trim(),
           birth_year: yearValue,
           sex,
+          position: position.trim(),
+          department: department.trim(),
           phone: normalisePhone(phone),
           emergency_contact_name: contactName.trim(),
           emergency_contact_phone: normalisePhone(contactPhone),
@@ -152,6 +162,33 @@ export function ProfileForm({
           ใช้ประกอบการประเมินความเสี่ยงในการออกกำลังกายเท่านั้น
         </p>
       </fieldset>
+
+      <Field label="ตำแหน่ง" htmlFor="position">
+        <input
+          id="position"
+          type="text"
+          value={position}
+          onChange={(event) => setPosition(event.target.value)}
+          placeholder="เช่น พยาบาลวิชาชีพชำนาญการ"
+          autoComplete="organization-title"
+          className={inputClass}
+        />
+      </Field>
+
+      <Field label="หน่วยงาน / กลุ่มงาน" htmlFor="department">
+        <input
+          id="department"
+          type="text"
+          value={department}
+          onChange={(event) => setDepartment(event.target.value)}
+          placeholder="เช่น กลุ่มงานการพยาบาล"
+          autoComplete="organization"
+          className={inputClass}
+        />
+        <p className="mt-1.5 text-xs text-muted">
+          ใช้จัดกลุ่มผู้เข้าร่วมและสรุปผลกลับไปยังหน่วยงาน
+        </p>
+      </Field>
 
       <Field label="เบอร์โทรของคุณ" htmlFor="phone">
         <input

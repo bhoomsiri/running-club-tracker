@@ -15,6 +15,10 @@ import type { ReviewStatus, RunWithEvidence } from "@/lib/types";
  * back — and without this list the member would see their total drop with no
  * explanation at all. So the status is spelled out in words rather than shown as a
  * colour, and a rejected run says what to do about it.
+ *
+ * Submitting counts straight away: nothing waits for approval, and the wording says so
+ * rather than leaving people watching for a review that is not coming. "รอตรวจสอบ" is
+ * the exception, not the default — a run only lands there when an admin sets it aside.
  */
 
 const STATUS: Record<
@@ -24,14 +28,14 @@ const STATUS: Record<
   ok: {
     icon: "✅",
     label: "ผ่าน",
-    meaning: "นับระยะและแต้มเรียบร้อยแล้ว",
+    meaning: "นับระยะและแต้มให้ทันทีที่ส่ง ไม่ต้องรออนุมัติ",
     tone: "success",
   },
   flagged: {
     icon: "🟡",
     label: "รอตรวจสอบ",
     meaning:
-      "ผู้ดูแลกำลังตรวจ — ระหว่างนี้ยังนับความคืบหน้าให้ตามปกติ ถ้าตรวจแล้วไม่ผ่านจึงจะถูกหักออก",
+      "ผู้ดูแลยกรายการนี้ไว้ตรวจเพิ่ม — ระหว่างนี้ยังนับความคืบหน้าให้ตามปกติ ถ้าตรวจแล้วไม่ผ่านจึงจะถูกหักออก",
     tone: "neutral",
   },
   rejected: {

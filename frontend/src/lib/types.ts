@@ -17,6 +17,10 @@ export type Member = {
   /** What Clerk holds. Kept because the two can differ; rarely the one to display. */
   display_name: string;
   role: Role;
+  /** Job and unit at the hospital. Ordinary personal data, unlike the rest of the
+   * profile — which is why these two travel without an audit row. */
+  position: string | null;
+  department: string | null;
 };
 
 export type CampaignProgress = {
@@ -167,6 +171,8 @@ export type MemberProfile = {
   full_name_th: string | null;
   birth_year: number | null;
   sex: Sex | null;
+  position: string | null;
+  department: string | null;
   phone: string | null;
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
@@ -177,6 +183,8 @@ export type UpdateProfileRequest = {
   full_name_th: string;
   birth_year: number;
   sex: Sex;
+  position: string;
+  department: string;
   phone: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
@@ -211,6 +219,8 @@ export type MemberOverview = {
   /** full_name_th when the member has given one, else their Clerk display name. */
   name: string;
   role: Role;
+  /** The one profile field in this list, and only because it is not sensitive. */
+  department: string | null;
   total_distance_km: string;
   run_count: number;
   pending_review_count: number;

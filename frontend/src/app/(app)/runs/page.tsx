@@ -29,7 +29,7 @@ export default async function MyRunsPage() {
     <>
       <PageHeader
         title="ผลวิ่งของฉัน"
-        subtitle="ทุกครั้งที่ส่ง พร้อมสถานะการตรวจสอบ"
+        subtitle="ทุกครั้งที่ส่ง — ระบบนับให้ทันที ไม่ต้องรออนุมัติ"
       />
 
       {runs.length === 0 ? (
