@@ -24,6 +24,7 @@ from app.application.use_cases.get_club_overview import (
     MemberCampaignProgress,
     MemberOverview,
 )
+from app.application.use_cases.get_leaderboard import Leaderboard, LeaderboardEntry
 from app.application.use_cases.get_my_summary import CampaignSummary, MemberSummary
 from app.application.use_cases.get_onboarding_status import OnboardingStatus
 from app.application.use_cases.list_pending_redemptions import PendingRedemption
@@ -457,6 +458,50 @@ class RewardImageResponse(BaseModel):
     this one only proves the bytes were an image and are now in the bucket."""
 
     image_key: str
+
+
+# --------------------------------------------------------------------- leaderboard
+
+
+class LeaderboardEntryResponse(BaseModel):
+    """One line of the club standing. Every member sees every one of these, so it holds
+    a name, a distance and a count — and nothing else about anybody."""
+
+    rank: int
+    member_id: UUID
+    name: str
+    total_distance_km: Decimal
+    points: Decimal | None
+    run_count: int
+
+    @classmethod
+    def from_entry(cls, entry: LeaderboardEntry) -> LeaderboardEntryResponse:
+        return cls(
+            rank=entry.rank,
+            member_id=entry.member_id,
+            name=entry.name,
+            total_distance_km=entry.total_distance_km,
+            points=entry.points,
+            run_count=entry.run_count,
+        )
+
+
+class LeaderboardResponse(BaseModel):
+    entries: list[LeaderboardEntryResponse]
+    # The caller's own line, so someone in 60th place is told where they are rather than
+    # left to search a list they are not near the top of.
+    me: LeaderboardEntryResponse
+    total_members: int
+    points_campaign_name: str | None
+
+    @classmethod
+    def from_leaderboard(cls, board: Leaderboard) -> LeaderboardResponse:
+        return cls(
+            entries=[LeaderboardEntryResponse.from_entry(e) for e in board.entries],
+            me=LeaderboardEntryResponse.from_entry(board.me),
+            total_members=board.total_members,
+            points_campaign_name=board.points_campaign_name,
+        )
 
 
 # ------------------------------------------------------------------- announcements

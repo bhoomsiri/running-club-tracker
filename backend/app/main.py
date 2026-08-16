@@ -27,6 +27,7 @@ from app.api.routers import (
     announcements,
     consent,
     health,
+    leaderboard,
     me,
     rewards,
     runs,
@@ -110,6 +111,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(screening.router)
     app.include_router(runs.router)
     app.include_router(rewards.router)
+    app.include_router(leaderboard.router)
     app.include_router(admin.router)
     app.include_router(webhooks.router)
 
