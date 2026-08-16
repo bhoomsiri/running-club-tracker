@@ -4,6 +4,7 @@ import { UserButton } from "@clerk/nextjs";
 const SECTIONS = [
   { href: "/admin", label: "ภาพรวม" },
   { href: "/admin/redemptions", label: "คิวของรางวัล" },
+  { href: "/admin/announcements", label: "ข่าวประชาสัมพันธ์" },
   { href: "/admin/rewards", label: "จัดการรางวัล" },
   { href: "/admin/campaigns", label: "จัดการกิจกรรม" },
 ];

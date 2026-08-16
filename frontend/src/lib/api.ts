@@ -48,6 +48,17 @@ function baseUrl(): string {
   return url.replace(/\/$/, "");
 }
 
+/**
+ * The one endpoint that answers without a session: the club's published news.
+ *
+ * Separate from `apiFetch` on purpose rather than making the token optional there —
+ * "no token" must be a deliberate choice made once, at the call site of a public
+ * endpoint, not something a bug can turn every other request into.
+ */
+export async function apiPublic<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return send<T>(path, new Headers(init.headers), init);
+}
+
 export async function apiFetch<T>(
   path: string,
   token: string | null,
@@ -57,6 +68,14 @@ export async function apiFetch<T>(
 
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${token}`);
+  return send<T>(path, headers, init);
+}
+
+async function send<T>(
+  path: string,
+  headers: Headers,
+  init: RequestInit,
+): Promise<T> {
   // FormData sets its own multipart boundary; setting Content-Type here would break it.
   if (init.body !== undefined && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");

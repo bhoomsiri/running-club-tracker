@@ -1,9 +1,17 @@
 import Link from "next/link";
 
+import { AnnouncementBody } from "@/components/announcement-body";
 import { Badge, Card, EmptyState, ProgressBar } from "@/components/ui";
+import { apiPublic } from "@/lib/api";
 import { apiServer } from "@/lib/api-server";
 import { barWidth, formatDate, formatDecimal, unitLabel } from "@/lib/format";
-import type { CampaignProgress, MemberSummary, Redemption, Role } from "@/lib/types";
+import type {
+  Announcement,
+  CampaignProgress,
+  MemberSummary,
+  Redemption,
+  Role,
+} from "@/lib/types";
 
 /**
  * Rendered on the server so the member's numbers arrive with the HTML rather than after
@@ -24,7 +32,13 @@ const REDEMPTION_LABELS: Record<Redemption["status"], string> = {
 };
 
 export default async function DashboardPage() {
-  const summary = await apiServer<MemberSummary>("/me/summary");
+  // The news is public and the summary is not, so they are fetched by different
+  // clients — but they are fetched together, because two round trips in sequence is a
+  // second of blank screen on a phone.
+  const [summary, news] = await Promise.all([
+    apiServer<MemberSummary>("/me/summary"),
+    latestNews(),
+  ]);
 
   return (
     <>
@@ -52,6 +66,19 @@ export default async function DashboardPage() {
           <span aria-hidden className="text-brand">
             ›
           </span>
+        </Link>
+      ) : null}
+
+      {news ? (
+        <Link href="/announcements" className="mb-6 block">
+          <Card>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-xs font-medium text-brand">ข่าวจากชมรม</p>
+              <span className="shrink-0 text-xs text-muted">ดูทั้งหมด ›</span>
+            </div>
+            <p className="mt-1 font-medium">{news.title}</p>
+            <AnnouncementBody body={news.body} className="mt-1 line-clamp-2 text-sm" />
+          </Card>
         </Link>
       ) : null}
 
@@ -105,6 +132,18 @@ export default async function DashboardPage() {
     </>
   );
 }
+
+/** The latest notice, or nothing at all. A dashboard that fails to load because the
+ * notice board is down would be a bad trade for a headline. */
+async function latestNews(): Promise<Announcement | null> {
+  try {
+    const [newest] = await apiPublic<Announcement[]>("/announcements?limit=1");
+    return newest ?? null;
+  } catch {
+    return null;
+  }
+}
+
 
 function CampaignCard({ campaign }: { campaign: CampaignProgress }) {
   const unit = unitLabel(campaign.unit);

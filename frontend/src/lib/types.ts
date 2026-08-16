@@ -167,6 +167,22 @@ export type CampaignRewards = {
   rewards: Reward[];
 };
 
+/** Club news. The only shape in this file that arrives without a session — the landing
+ * page is for people who have not signed up yet. Note what it does not carry: no author,
+ * no member id. */
+export type Announcement = {
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+};
+
+/** The superuser's view: the same notice plus whether anyone else can see it. */
+export type AdminAnnouncement = Announcement & {
+  is_published: boolean;
+};
+
 export type Sex = "male" | "female";
 
 export type MemberProfile = {
