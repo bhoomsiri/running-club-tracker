@@ -198,6 +198,9 @@ class Reward(Base):
     points_cost: Mapped[Decimal] = mapped_column(sa.Numeric(12, 2), nullable=False)
     stock: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.true())
+    # Object key of the catalogue photo, in the private bucket's rewards/ namespace.
+    # The URL members see is presigned per request, never stored.
+    image_key: Mapped[str | None] = mapped_column(sa.String(255))
     created_at: Mapped[datetime] = _created_at()
 
     __table_args__ = (

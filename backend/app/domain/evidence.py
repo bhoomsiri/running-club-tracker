@@ -61,6 +61,26 @@ def evidence_key(member_id: str, digest: str, kind: ImageKind) -> str:
     return f"runs/{member_id}/{digest}.{kind.value}"
 
 
+def reward_image_key(digest: str, kind: ImageKind) -> str:
+    """Where a reward's catalogue photo lives.
+
+    A separate namespace from `runs/` on purpose. `is_owned_by` reads ownership out of
+    the key, so anything under `runs/{member_id}/` is that member's — a catalogue photo
+    belongs to the club, not to the superuser who happened to upload it, and putting one
+    in a member's folder would make it look like their evidence.
+
+    No member id, and the content hash again: the same photo uploaded twice is the same
+    object rather than two.
+    """
+    return f"rewards/{digest}.{kind.value}"
+
+
+def is_reward_image(key: str) -> bool:
+    """Whether a key names a catalogue photo — the only kind of image any member may be
+    shown without belonging to it."""
+    return key.startswith("rewards/")
+
+
 def is_owned_by(key: str, member_id: str) -> bool:
     """Does this object key belong to this member?
 

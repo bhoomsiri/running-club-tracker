@@ -79,6 +79,7 @@ from app.application.use_cases.submit_run import SubmitRun
 from app.application.use_cases.sync_member_from_clerk import SyncMemberFromClerk
 from app.application.use_cases.update_my_profile import UpdateMyProfile
 from app.application.use_cases.upload_evidence import UploadEvidence
+from app.application.use_cases.upload_reward_image import UploadRewardImage
 from app.application.use_cases.view_member_contact import ViewMemberContact
 from app.application.use_cases.view_member_health import ViewMemberHealth
 from app.application.use_cases.view_member_progress import ViewMemberProgress
@@ -321,9 +322,10 @@ def get_list_admin_campaigns_uc(
 
 def get_list_admin_rewards_uc(
     session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[ImageStorage, Depends(get_image_storage)],
 ) -> ListAdminRewards:
     return ListAdminRewards(
-        SqlAlchemyMemberRepository(session), SqlAlchemyRewardRepository(session)
+        SqlAlchemyMemberRepository(session), SqlAlchemyRewardRepository(session), storage
     )
 
 
@@ -432,6 +434,13 @@ def get_upload_evidence_uc(
     return UploadEvidence(storage, PillowImageSanitizer())
 
 
+def get_upload_reward_image_uc(
+    session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[ImageStorage, Depends(get_image_storage)],
+) -> UploadRewardImage:
+    return UploadRewardImage(SqlAlchemyMemberRepository(session), storage, PillowImageSanitizer())
+
+
 def get_extract_run_uc(
     storage: Annotated[ImageStorage, Depends(get_image_storage)],
     extractor: Annotated[RunExtractor, Depends(get_run_extractor)],
@@ -457,11 +466,13 @@ def get_review_run_uc(
 
 def get_list_rewards_uc(
     session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[ImageStorage, Depends(get_image_storage)],
 ) -> ListRewards:
     return ListRewards(
         SqlAlchemyCampaignRepository(session),
         SqlAlchemyRewardRepository(session),
         SqlAlchemyPointsLedgerRepository(session),
+        storage,
     )
 
 

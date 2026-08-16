@@ -42,6 +42,10 @@ class Reward:
     points_cost: Decimal
     stock: int
     is_active: bool
+    # The catalogue photo, if one has been uploaded. Optional because a reward is usable
+    # without a picture, and the object it names may outlive nothing but this string —
+    # the URL a member is shown is minted at read time and expires in minutes.
+    image_key: str | None = None
 
     def ensure_redeemable(self) -> None:
         """Rules that don't depend on who is redeeming. The balance check lives in the

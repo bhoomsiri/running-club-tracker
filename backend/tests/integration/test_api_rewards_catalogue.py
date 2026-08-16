@@ -18,7 +18,7 @@ from app.api import deps
 from app.config import Settings
 from app.main import create_app
 from tests.fakes.fake_storage import FakeImageStorage
-from tests.integration.conftest import StubVerifier
+from tests.integration.conftest import BOSS_CLERK_ID, StubVerifier
 
 pytestmark = pytest.mark.integration
 
@@ -207,3 +207,96 @@ def test_one_members_points_are_not_visible_to_another(
     body = client.get("/rewards", headers=auth("user_someone_else")).json()
 
     assert body[0]["points_balance"] == "0"
+
+
+@pytest.fixture
+def boss(session_factory: sessionmaker[Session]) -> None:
+    """Seeded, not provisioned just in time: a first request makes an ordinary member,
+    because the role only ever comes from the webhook or the bootstrap setting."""
+    with session_factory() as session:
+        session.add(
+            models.Member(
+                id=uuid4(), clerk_user_id=BOSS_CLERK_ID, display_name="Boss", role="superuser"
+            )
+        )
+        session.commit()
+
+
+class TestRewardPhotos:
+    """Uploading a catalogue photo, and the one key a reward must never be pointed at."""
+
+    def upload(self, client: TestClient) -> str:
+        response = client.post(
+            "/admin/rewards/image",
+            headers=auth(BOSS_CLERK_ID),
+            files={"file": ("shirt.jpg", photo((10, 120, 200)), "image/jpeg")},
+        )
+        assert response.status_code == 201, response.text
+        return str(response.json()["image_key"])
+
+    def test_a_member_cannot_upload_one(
+        self, client: TestClient, catalogue: dict[str, UUID]
+    ) -> None:
+        response = client.post(
+            "/admin/rewards/image",
+            headers=auth(),
+            files={"file": ("shirt.jpg", photo((1, 2, 3)), "image/jpeg")},
+        )
+
+        assert response.status_code == 403
+
+    def test_a_photo_reaches_the_member_catalogue_as_a_link(
+        self,
+        client: TestClient,
+        catalogue: dict[str, UUID],
+        boss: None,
+        storage: FakeImageStorage,
+    ) -> None:
+        key = self.upload(client)
+        assert key.startswith("rewards/")
+
+        patched = client.patch(
+            f"/admin/rewards/{catalogue['shirt']}",
+            headers=auth(BOSS_CLERK_ID),
+            json={"image_key": key},
+        )
+        assert patched.status_code == 200, patched.text
+
+        body = client.get("/rewards", headers=auth()).json()
+        shirt = next(r for r in body[0]["rewards"] if r["name"] == "Shirt")
+        cap = next(r for r in body[0]["rewards"] if r["name"] == "Cap")
+
+        assert shirt["image_url"] is not None and key in shirt["image_url"]
+        assert cap["image_url"] is None
+        assert all(signed.startswith("rewards/") for signed, _ in storage.signed)
+
+    def test_a_reward_cannot_be_pointed_at_someone_elses_evidence(
+        self, client: TestClient, catalogue: dict[str, UUID], boss: None
+    ) -> None:
+        """The whole reason the key is validated: every member is handed a URL for
+        whatever a reward names."""
+        submit_run(client, "5", (200, 30, 30))
+        evidence = client.get("/me/runs", headers=auth()).json()[0]["evidence_url"]
+        stolen = evidence.split("?")[0].split("storage.test/")[1]
+        assert stolen.startswith("runs/")
+
+        response = client.patch(
+            f"/admin/rewards/{catalogue['shirt']}",
+            headers=auth(BOSS_CLERK_ID),
+            json={"image_key": stolen},
+        )
+
+        assert response.status_code == 422
+        listed = client.get("/rewards", headers=auth()).json()
+        assert all(r["image_url"] is None for r in listed[0]["rewards"])
+
+    def test_a_file_that_is_not_an_image_is_refused(
+        self, client: TestClient, boss: None
+    ) -> None:
+        response = client.post(
+            "/admin/rewards/image",
+            headers=auth(BOSS_CLERK_ID),
+            files={"file": ("x.jpg", b"<?php system($_GET['c']); ?>" + b" " * 200, "image/jpeg")},
+        )
+
+        assert response.status_code == 415

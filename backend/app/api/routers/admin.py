@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 
 from app.api.deps import (
     get_cancel_redemption_uc,
@@ -22,6 +22,7 @@ from app.api.deps import (
     get_review_run_uc,
     get_update_campaign_uc,
     get_update_reward_uc,
+    get_upload_reward_image_uc,
     get_view_member_contact_uc,
     get_view_member_health_uc,
     get_view_member_progress_uc,
@@ -41,6 +42,7 @@ from app.api.schemas import (
     PendingRedemptionResponse,
     RedemptionResponse,
     ReviewRunRequest,
+    RewardImageResponse,
     RunResponse,
     UpdateCampaignRequest,
     UpdateRewardRequest,
@@ -70,6 +72,10 @@ from app.application.use_cases.manage_rewards import (
     UpdateRewardCommand,
 )
 from app.application.use_cases.review_run import ReviewRun, ReviewRunCommand
+from app.application.use_cases.upload_reward_image import (
+    UploadRewardImage,
+    UploadRewardImageCommand,
+)
 from app.application.use_cases.view_member_contact import (
     ViewMemberContact,
     ViewMemberContactCommand,
@@ -84,6 +90,8 @@ from app.application.use_cases.view_member_screening import (
     ViewMemberScreeningCommand,
 )
 from app.domain.entities import Member
+from app.domain.errors import InvalidImage
+from app.domain.evidence import MAX_IMAGE_BYTES
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -221,6 +229,33 @@ def update_campaign(
 
 
 @router.post(
+    "/rewards/image",
+    response_model=RewardImageResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_reward_image(
+    superuser: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[UploadRewardImage, Depends(get_upload_reward_image_uc)],
+    file: Annotated[UploadFile, File()],
+) -> RewardImageResponse:
+    """Store a catalogue photo and return its key. Attaching it to a reward is the
+    separate, audited call that follows.
+
+    Declared before POST /rewards so the literal path wins the match, and read the same
+    way an evidence upload is: at most one byte past the limit, and the bytes decide what
+    the file is — the filename and the declared content-type are ignored.
+    """
+    data = await file.read(MAX_IMAGE_BYTES + 1)
+    if len(data) > MAX_IMAGE_BYTES:
+        raise InvalidImage(f"file exceeds the {MAX_IMAGE_BYTES // (1024 * 1024)} MB limit")
+
+    stored = use_case.execute(
+        UploadRewardImageCommand(actor_id=superuser.id, data=data)
+    )
+    return RewardImageResponse(image_key=stored.image_key)
+
+
+@router.post(
     "/rewards", response_model=AdminRewardResponse, status_code=status.HTTP_201_CREATED
 )
 def create_reward(
@@ -241,7 +276,8 @@ def list_admin_rewards(
     """Retired rewards included. They are withdrawn, never deleted, and one that
     vanished from this screen would look deleted."""
     return [
-        AdminRewardResponse.from_entity(r) for r in use_case.execute(boss.id, campaign_id)
+        AdminRewardResponse.from_offer(offer)
+        for offer in use_case.execute(boss.id, campaign_id)
     ]
 
 

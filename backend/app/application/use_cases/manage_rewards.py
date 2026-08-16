@@ -4,6 +4,12 @@ A reward that anyone has ever redeemed is never deleted. Retiring it with
 `is_active=False` takes it out of the catalogue while leaving every past redemption
 readable — deleting it would leave members holding a redemption pointing at nothing, and
 the database's ON DELETE RESTRICT would refuse anyway.
+
+`image_key` is checked, not trusted. It arrives from the client, and a presigned URL for
+whatever it names is handed to every member who opens the rewards page — so a key
+pointing into `runs/` would turn the catalogue into a way to read other people's evidence
+photos. Only the `rewards/` namespace is accepted. Like every other field here, leaving
+it out means "unchanged"; a wrong photo is corrected by uploading the right one.
 """
 
 from __future__ import annotations
@@ -16,6 +22,7 @@ from app.application.ports.admin_unit_of_work import AdminUnitOfWork
 from app.application.use_cases.manage_campaigns import _require_superuser
 from app.domain.audit import AuditAction, AuditEntry
 from app.domain.errors import CampaignNotFound, InvalidRewardError, RewardUnavailable
+from app.domain.evidence import is_reward_image
 from app.domain.redemption import Reward
 
 
@@ -26,6 +33,7 @@ class CreateRewardCommand:
     name: str
     points_cost: Decimal
     stock: int
+    image_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -36,6 +44,7 @@ class UpdateRewardCommand:
     points_cost: Decimal | None = None
     stock: int | None = None
     is_active: bool | None = None
+    image_key: str | None = None
 
 
 class CreateReward:
@@ -55,6 +64,7 @@ class CreateReward:
                 raise InvalidRewardError("stock cannot be negative")
             if not cmd.name.strip():
                 raise InvalidRewardError("name is required")
+            _validate_image_key(cmd.image_key)
 
             reward = Reward(
                 id=uuid4(),
@@ -63,6 +73,7 @@ class CreateReward:
                 points_cost=cmd.points_cost,
                 stock=cmd.stock,
                 is_active=True,
+                image_key=cmd.image_key,
             )
             uow.rewards.add(reward)
             uow.audit.record(
@@ -97,6 +108,9 @@ class UpdateReward:
                 ),
                 stock=cmd.stock if cmd.stock is not None else reward.stock,
                 is_active=cmd.is_active if cmd.is_active is not None else reward.is_active,
+                image_key=(
+                    cmd.image_key if cmd.image_key is not None else reward.image_key
+                ),
             )
             if updated.points_cost <= 0:
                 raise InvalidRewardError("points_cost must be positive")
@@ -104,6 +118,7 @@ class UpdateReward:
                 raise InvalidRewardError("stock cannot be negative")
             if not updated.name.strip():
                 raise InvalidRewardError("name is required")
+            _validate_image_key(cmd.image_key)
 
             uow.rewards.save(updated)
             uow.audit.record(
@@ -121,3 +136,14 @@ class UpdateReward:
             )
             uow.commit()
         return updated
+
+
+def _validate_image_key(key: str | None) -> None:
+    """Only the catalogue's own namespace.
+
+    Without this the field would accept `runs/<someone>/<hash>.jpg`, and the rewards page
+    mints a presigned URL for whatever a reward names — which is every member being handed
+    a link to another member's evidence photo.
+    """
+    if key is not None and not is_reward_image(key):
+        raise InvalidRewardError("image_key must name an uploaded reward image")

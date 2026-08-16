@@ -18,6 +18,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.application.ports.run_extractor import RunDraft
+from app.application.services.reward_images import RewardOffer
 from app.application.use_cases.get_club_overview import (
     ClubOverview,
     MemberCampaignProgress,
@@ -319,15 +320,21 @@ class RewardResponse(BaseModel):
     # Computed against the member's own balance so the UI doesn't recompute affordability
     # from two numbers it might have fetched at different times.
     can_redeem: bool
+    # Presigned and short-lived, minted for this response. Never a stored URL — the
+    # bucket is private, and a link that outlived the page would be a link that works
+    # for anyone who copied it.
+    image_url: str | None
 
     @classmethod
-    def from_entity(cls, reward: Reward, balance: Decimal) -> RewardResponse:
+    def from_offer(cls, offer: RewardOffer, balance: Decimal) -> RewardResponse:
+        reward = offer.reward
         return cls(
             id=reward.id,
             name=reward.name,
             points_cost=reward.points_cost,
             stock=reward.stock,
             can_redeem=reward.stock > 0 and balance >= reward.points_cost,
+            image_url=offer.image_url,
         )
 
 
@@ -346,8 +353,8 @@ class CampaignRewardsResponse(BaseModel):
             name=catalogue.campaign.name,
             points_balance=catalogue.points_balance,
             rewards=[
-                RewardResponse.from_entity(r, catalogue.points_balance)
-                for r in catalogue.rewards
+                RewardResponse.from_offer(offer, catalogue.points_balance)
+                for offer in catalogue.rewards
             ],
         )
 
@@ -400,6 +407,9 @@ class CreateRewardRequest(BaseModel):
     name: str
     points_cost: Decimal = Field(gt=0)
     stock: int = Field(ge=0)
+    # The key returned by POST /admin/rewards/image. Checked in the use case: only the
+    # rewards/ namespace is accepted, so this cannot be pointed at a member's evidence.
+    image_key: str | None = Field(default=None, max_length=255)
 
 
 class UpdateRewardRequest(BaseModel):
@@ -408,6 +418,9 @@ class UpdateRewardRequest(BaseModel):
     stock: int | None = Field(default=None, ge=0)
     # Retiring a reward is how one is removed; it is never deleted.
     is_active: bool | None = None
+    # Omitted means unchanged, like every field here. A wrong photo is corrected by
+    # uploading the right one.
+    image_key: str | None = Field(default=None, max_length=255)
 
 
 class AdminRewardResponse(BaseModel):
@@ -417,13 +430,32 @@ class AdminRewardResponse(BaseModel):
     points_cost: Decimal
     stock: int
     is_active: bool
+    image_url: str | None = None
 
     @classmethod
     def from_entity(cls, reward: Reward) -> AdminRewardResponse:
+        """After a write, when the photo has just been supplied by the caller and the
+        page it returns to re-reads the list anyway."""
         return cls(
             id=reward.id, campaign_id=reward.campaign_id, name=reward.name,
             points_cost=reward.points_cost, stock=reward.stock, is_active=reward.is_active,
         )
+
+    @classmethod
+    def from_offer(cls, offer: RewardOffer) -> AdminRewardResponse:
+        reward = offer.reward
+        return cls(
+            id=reward.id, campaign_id=reward.campaign_id, name=reward.name,
+            points_cost=reward.points_cost, stock=reward.stock, is_active=reward.is_active,
+            image_url=offer.image_url,
+        )
+
+
+class RewardImageResponse(BaseModel):
+    """Where the uploaded photo landed. Attaching it to a reward is a separate call —
+    this one only proves the bytes were an image and are now in the bucket."""
+
+    image_key: str
 
 
 class ErrorResponse(BaseModel):

@@ -12,12 +12,13 @@ from __future__ import annotations
 from uuid import UUID
 
 from app.application.ports.campaign_repository import CampaignRepository
+from app.application.ports.image_storage import ImageStorage
 from app.application.ports.member_repository import MemberRepository
 from app.application.ports.reward_repository import RewardRepository
+from app.application.services.reward_images import RewardOffer, with_images
 from app.domain.campaign import Campaign
 from app.domain.entities import MemberRole
 from app.domain.errors import MemberNotFound, NotAuthorized
-from app.domain.redemption import Reward
 
 
 def _require_superuser(members: MemberRepository, actor_id: UUID) -> None:
@@ -41,10 +42,18 @@ class ListAdminCampaigns:
 
 
 class ListAdminRewards:
-    def __init__(self, members: MemberRepository, rewards: RewardRepository) -> None:
+    def __init__(
+        self,
+        members: MemberRepository,
+        rewards: RewardRepository,
+        storage: ImageStorage,
+    ) -> None:
         self._members = members
         self._rewards = rewards
+        self._storage = storage
 
-    def execute(self, actor_id: UUID, campaign_id: UUID) -> list[Reward]:
+    def execute(self, actor_id: UUID, campaign_id: UUID) -> list[RewardOffer]:
         _require_superuser(self._members, actor_id)
-        return self._rewards.list_for_campaign(campaign_id)
+        # With their photos: whoever is editing the catalogue needs to see which reward
+        # has one and whether it is the right picture.
+        return with_images(self._rewards.list_for_campaign(campaign_id), self._storage)

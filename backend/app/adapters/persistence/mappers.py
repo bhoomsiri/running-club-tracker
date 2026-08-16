@@ -142,6 +142,7 @@ def reward_to_domain(row: models.Reward) -> Reward:
         points_cost=row.points_cost,
         stock=row.stock,
         is_active=row.is_active,
+        image_key=row.image_key,
     )
 
 
@@ -153,6 +154,7 @@ def reward_to_orm(reward: Reward) -> models.Reward:
         points_cost=reward.points_cost,
         stock=reward.stock,
         is_active=reward.is_active,
+        image_key=reward.image_key,
     )
 
 

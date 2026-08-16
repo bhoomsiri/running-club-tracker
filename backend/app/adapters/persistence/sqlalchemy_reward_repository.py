@@ -58,6 +58,7 @@ class SqlAlchemyRewardRepository:
                 points_cost=reward.points_cost,
                 stock=reward.stock,
                 is_active=reward.is_active,
+                image_key=reward.image_key,
             )
         )
         self._session.flush()
