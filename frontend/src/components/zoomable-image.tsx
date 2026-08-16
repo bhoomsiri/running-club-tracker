@@ -8,6 +8,10 @@ import { useEffect, useState } from "react";
  * Used for both kinds of picture in the app — a member's evidence photo and a reward's
  * catalogue photo — because on a phone a 80px square is not enough to check either one.
  *
+ * The caller sets object-fit: a reward photo wants `object-cover` and fills its square,
+ * while a run screenshot wants `object-contain` because cropping it can cut off the very
+ * number someone is checking. Defaulting to one of them here made the other impossible.
+ *
  * Plain `<img>`, deliberately: every URL here is presigned, lives on a host that changes
  * with the environment, and expires in minutes. There is nothing for an image optimiser
  * to cache, and asking it to fetch the object server-side would put a short-lived
@@ -33,7 +37,7 @@ export function ZoomableImage({
         className="shrink-0"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} className={`bg-border object-cover ${className ?? ""}`} />
+        <img src={src} alt={alt} className={`bg-border ${className ?? ""}`} />
       </button>
 
       {open ? <Lightbox src={src} alt={alt} onClose={() => setOpen(false)} /> : null}

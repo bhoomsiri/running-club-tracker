@@ -69,7 +69,7 @@ function RunCard({ entry }: { entry: RunWithEvidence }) {
         <ZoomableImage
           src={entry.evidence_url}
           alt={`หลักฐานการวิ่งวันที่ ${entry.run.run_date}`}
-          className="h-20 w-20 rounded-lg"
+          className="h-20 w-20 rounded-lg object-cover"
         />
 
         <div className="min-w-0 flex-1">

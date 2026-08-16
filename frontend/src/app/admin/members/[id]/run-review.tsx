@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Badge, Card, EmptyState } from "@/components/ui";
+import { ZoomableImage } from "@/components/zoomable-image";
 import { messageFor } from "@/lib/api";
 import { useApi } from "@/lib/api-client";
 import { formatDate, formatDecimal } from "@/lib/format";
@@ -79,15 +80,14 @@ function RunCard({ entry }: { entry: RunWithEvidence }) {
   return (
     <Card>
       <div className="flex flex-col gap-4 sm:flex-row">
-        {/* A plain <img>, not next/image: the URL is a presigned one on whichever host
-            the bucket happens to live, which changes with the environment and cannot be
-            listed in remotePatterns. It also expires in minutes, so there is nothing
-            stable for an image cache to key on either. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        {/* Tappable, because deciding whether a run counts means reading the numbers on
+            somebody's phone screenshot — and a 176px thumbnail is not where that
+            happens. object-contain rather than cover for the same reason: a cropped
+            screenshot is a screenshot with the distance cut off it. */}
+        <ZoomableImage
           src={entry.evidence_url}
           alt={`หลักฐานการวิ่งวันที่ ${entry.run.run_date}`}
-          className="h-48 w-full shrink-0 rounded-lg bg-border object-contain sm:h-32 sm:w-44"
+          className="h-48 w-full rounded-lg object-contain sm:h-32 sm:w-44"
         />
 
         <div className="min-w-0 flex-1">

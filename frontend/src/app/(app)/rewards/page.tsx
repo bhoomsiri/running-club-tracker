@@ -122,7 +122,7 @@ function RewardCard({ reward }: { reward: Reward }) {
           <ZoomableImage
             src={reward.image_url}
             alt={reward.name}
-            className="h-20 w-20 rounded-lg sm:h-24 sm:w-24"
+            className="h-20 w-20 rounded-lg object-cover sm:h-24 sm:w-24"
           />
         ) : null}
 

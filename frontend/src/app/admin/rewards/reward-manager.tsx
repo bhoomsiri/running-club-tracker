@@ -107,7 +107,7 @@ function RewardRow({ reward }: { reward: AdminReward }) {
           <ZoomableImage
             src={reward.image_url}
             alt={reward.name}
-            className="h-16 w-16 rounded-lg"
+            className="h-16 w-16 rounded-lg object-cover"
           />
         ) : null}
         <div className="min-w-0 flex-1">
