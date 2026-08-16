@@ -31,11 +31,11 @@ export function BottomNav() {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center gap-0.5 px-1 py-2.5 text-[11px] sm:flex-row sm:justify-center sm:gap-2 sm:py-3 sm:text-sm ${
-                  active ? "font-semibold text-brand" : "text-muted"
+                className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-2 text-xs sm:min-h-12 sm:flex-row sm:gap-2 sm:text-base ${
+                  active ? "font-semibold text-brand" : "font-medium text-muted"
                 }`}
               >
-                <span aria-hidden className="text-lg sm:text-base">
+                <span aria-hidden className="text-xl sm:text-lg">
                   {item.icon}
                 </span>
                 {item.label}

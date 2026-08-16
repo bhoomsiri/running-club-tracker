@@ -29,8 +29,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <>
       <header className="border-b border-border">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <span className="font-semibold">ชมรมวิ่ง</span>
+        <div className="mx-auto flex min-h-14 max-w-3xl items-center justify-between px-4 py-2">
+          <span className="text-lg font-bold">ชมรมวิ่ง</span>
           <UserButton />
         </div>
       </header>
@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <BottomNav />
 
       {/* Bottom padding clears the fixed nav on phones; it is static from `sm` up. */}
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-24 sm:pb-6">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-28 sm:pb-8">
         {children}
       </main>
     </>

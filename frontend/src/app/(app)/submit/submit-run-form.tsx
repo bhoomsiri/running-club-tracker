@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { Badge, Card } from "@/components/ui";
+import { Badge, Button, Card } from "@/components/ui";
 import { useApi } from "@/lib/api-client";
 import {
   fromDurationSeconds,
@@ -25,6 +25,10 @@ import type { EvidenceUpload, ExtractResult, Run, RunSource } from "@/lib/types"
  * The middle step only ever fills the form in. What gets saved is what the member sees
  * on screen and presses the button for, which is the whole reason the AI's answer is
  * called a draft: it can be wrong, and the person who ran is the one who knows.
+ *
+ * Laid out as two numbered steps with only one of them live at a time. Showing the empty
+ * distance and duration fields before there is a photo to read them from invites people
+ * to fill the form in by hand and then wonder why it changed under them.
  */
 
 /** Below this the reading is offered with a warning rather than presented as fact. */
@@ -158,20 +162,22 @@ export function SubmitRunForm() {
       {error ? (
         <p
           role="alert"
-          className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300"
+          className="rounded-card border border-red-600/40 bg-red-600/10 px-4 py-3.5 text-base font-medium text-red-800 dark:text-red-300"
         >
           {error}
         </p>
       ) : null}
 
       <Card>
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium">1. รูปหลักฐาน</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">
+            <span className="text-muted">1.</span> รูปหลักฐาน
+          </h2>
           {imageKey ? <Badge tone="success">อัปโหลดแล้ว</Badge> : null}
         </div>
 
         {previewUrl ? (
-          <div className="relative mt-3 h-56 w-full overflow-hidden rounded-lg bg-border">
+          <div className="relative mt-4 h-56 w-full overflow-hidden rounded-control bg-border">
             {/* A local blob URL, so Next's optimiser has nothing to fetch. */}
             <Image
               src={previewUrl}
@@ -183,7 +189,7 @@ export function SubmitRunForm() {
           </div>
         ) : null}
 
-        <label className="mt-3 block">
+        <label className="mt-4 block">
           <span className="sr-only">เลือกรูปหลักฐาน</span>
           {/* No `capture`: it forces the camera open and takes the gallery away, and
               most members screenshot their run first and send it later. Without it the
@@ -198,10 +204,10 @@ export function SubmitRunForm() {
               event.target.value = "";
               if (file) void onFileChosen(file);
             }}
-            className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand file:px-4 file:py-2.5 file:text-white disabled:opacity-50"
+            className="block w-full text-base text-muted file:mr-4 file:min-h-12 file:rounded-control file:border-0 file:bg-brand file:px-5 file:font-semibold file:text-on-brand disabled:opacity-50"
           />
         </label>
-        <p className="mt-2 text-xs text-muted">
+        <p className="mt-3 text-sm text-muted">
           แคปหน้าจอจากแอปวิ่ง หรือถ่ายรูปหน้าจอลู่วิ่งก็ได้ — รองรับ jpg, png, webp ไม่เกิน 10 MB
         </p>
 
@@ -211,19 +217,21 @@ export function SubmitRunForm() {
 
       {stage === "form" || stage === "saving" ? (
         <Card>
-          <h2 className="font-medium">2. ตรวจสอบและยืนยัน</h2>
+          <h2 className="text-lg font-semibold">
+            <span className="text-muted">2.</span> ตรวจสอบและยืนยัน
+          </h2>
 
           {notice ? (
-            <p className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-200">
+            <p className="mt-4 rounded-control border border-amber-500/50 bg-amber-500/15 px-4 py-3 text-base font-medium text-amber-900 dark:text-amber-200">
               ⚠️ {notice}
             </p>
           ) : null}
 
-          <p className="mt-3 text-xs text-muted">
+          <p className="mt-3 text-sm text-muted">
             ตัวเลขที่ระบบอ่านมาเป็นเพียงค่าตั้งต้น กรุณาตรวจสอบและแก้ให้ตรงกับที่วิ่งจริงก่อนกดยืนยัน
           </p>
 
-          <div className="mt-4 space-y-4">
+          <div className="mt-5 space-y-5">
             <Field label="ระยะทาง (กม.)" htmlFor="distance">
               <input
                 id="distance"
@@ -249,9 +257,9 @@ export function SubmitRunForm() {
                   onChange={(event) => setMinutes(event.target.value)}
                   placeholder="60"
                   aria-label="นาที"
-                  className={`${inputClass} text-center`}
+                  className={`${inputClass} text-center text-lg`}
                 />
-                <span className="text-muted">นาที</span>
+                <span className="shrink-0 text-base text-muted">นาที</span>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -259,9 +267,9 @@ export function SubmitRunForm() {
                   onChange={(event) => setSeconds(event.target.value)}
                   placeholder="00"
                   aria-label="วินาที"
-                  className={`${inputClass} text-center`}
+                  className={`${inputClass} text-center text-lg`}
                 />
-                <span className="text-muted">วินาที</span>
+                <span className="shrink-0 text-base text-muted">วินาที</span>
               </div>
               {minutes !== "" && durationSeconds === null ? (
                 <FieldError>ใส่นาทีเป็นจำนวนเต็ม และวินาที 0–59</FieldError>
@@ -277,13 +285,13 @@ export function SubmitRunForm() {
                 onChange={(event) => setRunDate(event.target.value)}
                 className={inputClass}
               />
-              <p className="mt-1 text-xs text-muted">
+              <p className="mt-2 text-sm text-muted">
                 กิจกรรมวันละ 10 กม. นับเฉพาะที่ส่งภายในวันถัดไป
               </p>
             </Field>
 
             <fieldset>
-              <legend className="mb-2 text-sm font-medium">ที่มาของรูป</legend>
+              <legend className="mb-2 text-base font-semibold">ที่มาของรูป</legend>
               <div className="grid gap-2">
                 <SourceOption
                   value="app_screenshot"
@@ -303,22 +311,16 @@ export function SubmitRunForm() {
             </fieldset>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void onConfirm()}
-            disabled={!canSubmit}
-            className="mt-6 w-full rounded-lg bg-brand px-4 py-3.5 font-medium text-white active:opacity-80 disabled:opacity-40"
-          >
+          <Button onClick={() => void onConfirm()} disabled={!canSubmit} className="mt-6">
             {stage === "saving" ? "กำลังบันทึก…" : "ยืนยันและบันทึก"}
-          </button>
+          </Button>
         </Card>
       ) : null}
     </div>
   );
 }
 
-const inputClass =
-  "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-brand";
+const inputClass = "input-field";
 
 function Field({
   label,
@@ -331,7 +333,7 @@ function Field({
 }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-medium">
+      <label htmlFor={htmlFor} className="mb-2 block text-base font-semibold">
         {label}
       </label>
       {children}
@@ -340,13 +342,18 @@ function Field({
 }
 
 function FieldError({ children }: { children: React.ReactNode }) {
-  return <p className="mt-1 text-xs text-red-600 dark:text-red-400">{children}</p>;
+  return (
+    <p className="mt-2 text-sm font-medium text-red-700 dark:text-red-400">{children}</p>
+  );
 }
 
 function Progress({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-3 flex items-center gap-2 text-sm text-muted" aria-live="polite">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-brand" />
+    <p
+      className="mt-4 flex items-center gap-3 rounded-control bg-brand-tint px-4 py-3 text-base font-medium text-brand"
+      aria-live="polite"
+    >
+      <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-brand/30 border-t-brand" />
       {children}
     </p>
   );
@@ -368,8 +375,8 @@ function SourceOption({
   const selected = current === value;
   return (
     <label
-      className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 ${
-        selected ? "border-brand bg-brand/10" : "border-border"
+      className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-control border px-4 py-3 ${
+        selected ? "border-brand bg-brand-tint" : "border-border"
       }`}
     >
       <input
@@ -378,11 +385,11 @@ function SourceOption({
         value={value}
         checked={selected}
         onChange={() => onSelect(value)}
-        className="mt-1"
+        className="h-5 w-5 shrink-0"
       />
       <span>
-        <span className="block text-sm font-medium">{label}</span>
-        <span className="block text-xs text-muted">{hint}</span>
+        <span className="block text-base font-semibold">{label}</span>
+        <span className="block text-sm text-muted">{hint}</span>
       </span>
     </label>
   );

@@ -15,17 +15,17 @@ export default function RewardsError({
 
   return (
     <div className="mx-auto max-w-sm py-10 text-center">
-      <p className="text-lg font-medium">โหลดรายการรางวัลไม่สำเร็จ</p>
-      <p className="mt-2 text-sm text-muted">ลองใหม่อีกครั้งได้เลย</p>
+      <p className="text-xl font-bold">โหลดรายการรางวัลไม่สำเร็จ</p>
+      <p className="mt-2 text-base text-muted">ลองใหม่อีกครั้งได้เลย</p>
       <button
         type="button"
         onClick={reset}
-        className="mt-6 w-full rounded-lg bg-brand px-4 py-3 font-medium text-white active:opacity-80"
+        className="btn btn-primary mt-6 w-full"
       >
         ลองใหม่
       </button>
       {error.digest ? (
-        <p className="mt-4 font-mono text-xs text-muted">รหัสอ้างอิง {error.digest}</p>
+        <p className="mt-4 font-mono text-sm text-muted">รหัสอ้างอิง {error.digest}</p>
       ) : null}
     </div>
   );
