@@ -167,6 +167,28 @@ export type CampaignRewards = {
   rewards: Reward[];
 };
 
+/** One line of the club standing. Every member sees every one of these, so it holds a
+ * name, a distance and two counts — and nothing else about anybody. */
+export type LeaderboardEntry = {
+  rank: number;
+  member_id: string;
+  name: string;
+  total_distance_km: string;
+  /** Balance in the campaign that awards points, or null when none does. */
+  points: string | null;
+  run_count: number;
+};
+
+export type Leaderboard = {
+  entries: LeaderboardEntry[];
+  /** The caller's own line, always — so someone far down the list is still told where
+   * they are instead of searching for themselves. */
+  me: LeaderboardEntry;
+  total_members: number;
+  /** What the points column is counting, so the UI labels it rather than guesses. */
+  points_campaign_name: string | null;
+};
+
 /** Club news. The only shape in this file that arrives without a session — the landing
  * page is for people who have not signed up yet. Note what it does not carry: no author,
  * no member id. */

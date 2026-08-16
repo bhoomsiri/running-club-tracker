@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AnnouncementBody } from "@/components/announcement-body";
+import { LeaderboardRow } from "@/components/leaderboard-row";
 import { Badge, Card, EmptyState, ProgressBar } from "@/components/ui";
 import { apiPublic } from "@/lib/api";
 import { apiServer } from "@/lib/api-server";
@@ -8,6 +9,7 @@ import { barWidth, formatDate, formatDecimal, unitLabel } from "@/lib/format";
 import type {
   Announcement,
   CampaignProgress,
+  Leaderboard,
   MemberSummary,
   Redemption,
   Role,
@@ -35,9 +37,10 @@ export default async function DashboardPage() {
   // The news is public and the summary is not, so they are fetched by different
   // clients — but they are fetched together, because two round trips in sequence is a
   // second of blank screen on a phone.
-  const [summary, news] = await Promise.all([
+  const [summary, news, board] = await Promise.all([
     apiServer<MemberSummary>("/me/summary"),
     latestNews(),
+    standing(),
   ]);
 
   return (
@@ -103,6 +106,10 @@ export default async function DashboardPage() {
         </ul>
       )}
 
+      {/* Below the member's own progress, not above it: this screen is about their
+          numbers first, and where they sit among everyone else second. */}
+      {board ? <Standing board={board} /> : null}
+
       <h2 className="mt-8 mb-3 text-sm font-semibold text-muted">ของรางวัลที่แลกแล้ว</h2>
       {summary.redemptions.length === 0 ? (
         <EmptyState>
@@ -132,6 +139,68 @@ export default async function DashboardPage() {
     </>
   );
 }
+
+/** The top of the club plus the member's own place in it. Best-effort like the news:
+ * the dashboard's own numbers are what this page is for, and neither of the extras is
+ * worth failing it. */
+async function standing(): Promise<Leaderboard | null> {
+  try {
+    return await apiServer<Leaderboard>("/leaderboard");
+  } catch {
+    return null;
+  }
+}
+
+
+function Standing({ board }: { board: Leaderboard }) {
+  const top = board.entries.slice(0, 5);
+  const meIsInTop = top.some((entry) => entry.member_id === board.me.member_id);
+
+  return (
+    <section className="mt-8 mb-8">
+      <div className="mb-3 flex items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold text-muted">อันดับสะสมระยะ</h2>
+        <Link href="/leaderboard" className="text-sm text-brand">
+          ดูทั้งหมด ›
+        </Link>
+      </div>
+
+      <Link href="/leaderboard" className="mb-3 block">
+        <Card className="text-center">
+          <p className="text-sm text-muted">อันดับของคุณ</p>
+          <p className="mt-1 text-3xl font-semibold tabular-nums">
+            #{board.me.rank}
+            <span className="ml-1.5 text-base font-normal text-muted">
+              จาก {board.total_members} คน
+            </span>
+          </p>
+        </Card>
+      </Link>
+
+      {top.length === 0 ? null : (
+        <ol className="space-y-2">
+          {top.map((entry) => (
+            <li key={entry.member_id}>
+              <LeaderboardRow
+                entry={entry}
+                isMe={entry.member_id === board.me.member_id}
+                showPoints={false}
+              />
+            </li>
+          ))}
+          {/* Pinned below the top five when the member is not in them, so their own line
+              is on this screen either way. */}
+          {meIsInTop ? null : (
+            <li>
+              <LeaderboardRow entry={board.me} isMe showPoints={false} />
+            </li>
+          )}
+        </ol>
+      )}
+    </section>
+  );
+}
+
 
 /** The latest notice, or nothing at all. A dashboard that fails to load because the
  * notice board is down would be a bad trade for a headline. */
