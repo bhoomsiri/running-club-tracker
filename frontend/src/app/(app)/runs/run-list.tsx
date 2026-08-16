@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 import { Badge, Card } from "@/components/ui";
+import { ZoomableImage } from "@/components/zoomable-image";
 import { formatDate, formatDecimal } from "@/lib/format";
 import { fromDurationSeconds } from "@/lib/run-form";
 import type { ReviewStatus, RunWithEvidence } from "@/lib/types";
@@ -48,32 +47,18 @@ const STATUS: Record<
 };
 
 export function RunList({ runs }: { runs: RunWithEvidence[] }) {
-  const [zoomed, setZoomed] = useState<RunWithEvidence | null>(null);
-
   return (
-    <>
-      <ul className="space-y-3">
-        {runs.map((entry) => (
-          <li key={entry.run.id}>
-            <RunCard entry={entry} onZoom={() => setZoomed(entry)} />
-          </li>
-        ))}
-      </ul>
-
-      {zoomed ? (
-        <Lightbox entry={zoomed} onClose={() => setZoomed(null)} />
-      ) : null}
-    </>
+    <ul className="space-y-3">
+      {runs.map((entry) => (
+        <li key={entry.run.id}>
+          <RunCard entry={entry} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
-function RunCard({
-  entry,
-  onZoom,
-}: {
-  entry: RunWithEvidence;
-  onZoom: () => void;
-}) {
+function RunCard({ entry }: { entry: RunWithEvidence }) {
   const status = STATUS[entry.run.review_status];
   const { minutes, seconds } = fromDurationSeconds(entry.run.duration_seconds);
   const rejected = entry.run.review_status === "rejected";
@@ -81,22 +66,11 @@ function RunCard({
   return (
     <Card className={rejected ? "opacity-80" : ""}>
       <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onZoom}
-          aria-label="ดูรูปหลักฐานขนาดใหญ่"
-          className="shrink-0"
-        >
-          {/* Plain <img>: the URL is presigned on a host that changes with the
-              environment, and it expires in minutes — nothing for an image cache to
-              key on. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={entry.evidence_url}
-            alt={`หลักฐานการวิ่งวันที่ ${entry.run.run_date}`}
-            className="h-20 w-20 rounded-lg bg-border object-cover"
-          />
-        </button>
+        <ZoomableImage
+          src={entry.evidence_url}
+          alt={`หลักฐานการวิ่งวันที่ ${entry.run.run_date}`}
+          className="h-20 w-20 rounded-lg"
+        />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -127,51 +101,5 @@ function RunCard({
         </div>
       </div>
     </Card>
-  );
-}
-
-function Lightbox({
-  entry,
-  onClose,
-}: {
-  entry: RunWithEvidence;
-  onClose: () => void;
-}) {
-  // Escape closes it, and the page behind stops scrolling while it is open.
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
-    };
-  }, [onClose]);
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={`หลักฐานการวิ่งวันที่ ${entry.run.run_date}`}
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={entry.evidence_url}
-        alt={`หลักฐานการวิ่งวันที่ ${entry.run.run_date}`}
-        className="max-h-full max-w-full rounded-lg object-contain"
-      />
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute top-4 right-4 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-black"
-      >
-        ปิด
-      </button>
-    </div>
   );
 }

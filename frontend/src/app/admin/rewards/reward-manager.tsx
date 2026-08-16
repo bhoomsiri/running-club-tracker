@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge, Card, EmptyState } from "@/components/ui";
+import { ZoomableImage } from "@/components/zoomable-image";
 import { ApiError, messageFor } from "@/lib/api";
 import { useApi } from "@/lib/api-client";
 import { formatDecimal } from "@/lib/format";
-import type { AdminReward, Campaign } from "@/lib/types";
+import type { AdminReward, Campaign, RewardImageUpload } from "@/lib/types";
 
 /**
  * The reward catalogue.
@@ -20,6 +21,12 @@ import type { AdminReward, Campaign } from "@/lib/types";
  *
  * Points cost is a string from the input box to the request body. It is what members
  * spend, and the backend keeps it as a Decimal so it survives exactly as typed.
+ *
+ * The photo is uploaded first and attached second: the upload returns a key, and the
+ * create/update call that stores it on the reward is the one that writes the audit row.
+ * A picture uploaded but never attached is an orphan in the bucket, which is the cheap
+ * failure — the expensive one would be a reward pointing at something that was never
+ * checked.
  */
 
 const COST_RE = /^\d{1,4}(\.\d{1,2})?$/;
@@ -96,7 +103,14 @@ function RewardRow({ reward }: { reward: AdminReward }) {
   return (
     <Card className={reward.is_active ? "" : "opacity-60"}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
+        {reward.image_url !== null ? (
+          <ZoomableImage
+            src={reward.image_url}
+            alt={reward.name}
+            className="h-16 w-16 rounded-lg"
+          />
+        ) : null}
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{reward.name}</span>
             {reward.is_active ? null : <Badge>เลิกแจกแล้ว</Badge>}
@@ -104,6 +118,7 @@ function RewardRow({ reward }: { reward: AdminReward }) {
           </div>
           <p className="mt-0.5 text-sm text-muted tabular-nums">
             {formatDecimal(reward.points_cost)} แต้ม · เหลือ {reward.stock} ชิ้น
+            {reward.image_url === null ? " · ยังไม่มีรูป" : ""}
           </p>
         </div>
         <button
@@ -131,15 +146,59 @@ function RewardForm({
   const router = useRouter();
 
   const [name, setName] = useState(reward?.name ?? "");
-  const [cost, setCost] = useState(reward?.points_cost ?? "");
+  // 1 by default: this club's rewards are one-point items, and a cost typed fresh every
+  // time is a cost that eventually gets typed wrong.
+  const [cost, setCost] = useState(reward?.points_cost ?? "1");
   const [stock, setStock] = useState(reward ? String(reward.stock) : "");
   const [active, setActive] = useState(reward?.is_active ?? true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // null means "no new photo" — on edit that leaves the existing one alone, because the
+  // backend reads an absent image_key as unchanged.
+  const [imageKey, setImageKey] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(reward?.image_url ?? null);
+  const [uploading, setUploading] = useState(false);
+  const objectUrl = useRef<string | null>(null);
+
+  useEffect(
+    () => () => {
+      if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+    },
+    [],
+  );
+
   const costOk = COST_RE.test(cost.trim()) && /[1-9]/.test(cost);
   const stockOk = /^\d{1,5}$/.test(stock.trim());
-  const canSave = name.trim() !== "" && costOk && stockOk && !busy;
+  const canSave = name.trim() !== "" && costOk && stockOk && !busy && !uploading;
+
+  async function onFileChosen(file: File) {
+    setError(null);
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const uploaded = await api<RewardImageUpload>("/admin/rewards/image", {
+        method: "POST",
+        body,
+      });
+      setImageKey(uploaded.image_key);
+
+      // Shown from the local file rather than by fetching the object back: the picture
+      // is already on this machine, and the presigned URL arrives with the next reload.
+      if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+      objectUrl.current = URL.createObjectURL(file);
+      setPreview(objectUrl.current);
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof ApiError && uploadError.status === 415
+          ? "ไฟล์นี้ไม่ใช่รูปภาพที่รองรับ — ใช้ JPG, PNG หรือ WEBP"
+          : messageFor(uploadError),
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function save() {
     if (!canSave) return;
@@ -154,6 +213,9 @@ function RewardForm({
             points_cost: cost.trim(),
             stock: Number(stock),
             is_active: active,
+            // Omitted when no new photo was chosen: JSON.stringify drops undefined, and
+            // the backend reads a missing key as "leave it as it is".
+            image_key: imageKey ?? undefined,
           }),
         });
       } else {
@@ -164,6 +226,7 @@ function RewardForm({
             name: name.trim(),
             points_cost: cost.trim(),
             stock: Number(stock),
+            image_key: imageKey ?? undefined,
           }),
         });
       }
@@ -194,6 +257,49 @@ function RewardForm({
           placeholder="เช่น เสื้อวิ่งประจำปี"
           className={inputClass}
         />
+      </div>
+
+      <div>
+        <label
+          htmlFor={`image-${reward?.id ?? "new"}`}
+          className="mb-1 block text-sm font-medium"
+        >
+          รูปของรางวัล <span className="font-normal text-muted">(ไม่บังคับ)</span>
+        </label>
+        <div className="flex items-center gap-3">
+          {preview !== null ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={preview}
+              alt="ตัวอย่างรูปของรางวัล"
+              className="h-20 w-20 shrink-0 rounded-lg bg-border object-cover"
+            />
+          ) : (
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-dashed border-border text-2xl text-muted">
+              🎁
+            </div>
+          )}
+          <div className="min-w-0">
+            <input
+              id={`image-${reward?.id ?? "new"}`}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={uploading}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void onFileChosen(file);
+              }}
+              className="block w-full text-sm file:mr-3 file:rounded-lg file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-sm"
+            />
+            <p className="mt-1 text-xs text-muted">
+              {uploading
+                ? "กำลังอัปโหลด…"
+                : imageKey !== null
+                  ? "อัปโหลดแล้ว — กดบันทึกเพื่อผูกกับของรางวัลนี้"
+                  : "JPG, PNG หรือ WEBP ไม่เกิน 10 MB"}
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

@@ -155,6 +155,8 @@ export type Reward = {
   stock: number;
   /** Computed by the backend against this member's balance — don't recompute it. */
   can_redeem: boolean;
+  /** Presigned and short-lived, minted for this response. Render it now; never store it. */
+  image_url: string | null;
 };
 
 export type CampaignRewards = {
@@ -284,6 +286,13 @@ export type AdminReward = {
   points_cost: string;
   stock: number;
   is_active: boolean;
+  image_url: string | null;
+};
+
+/** What POST /admin/rewards/image returns: where the photo landed. Attaching it to a
+ * reward is the separate call that follows. */
+export type RewardImageUpload = {
+  image_key: string;
 };
 
 /** Why a redemption cannot be handed over yet — the same two checks the fulfil endpoint
