@@ -12,6 +12,7 @@ factory would reject legacy rows and, worse, regenerate their ids.
 from __future__ import annotations
 
 from app.adapters.persistence import models
+from app.domain.announcement import Announcement
 from app.domain.audit import AuditAction, AuditEntry
 from app.domain.campaign import Campaign, CampaignType
 from app.domain.consent import Consent, ConsentPurpose
@@ -312,4 +313,29 @@ def screening_to_orm(screening: Screening) -> models.Screening:
         screened_on=screening.screened_on,
         created_at=screening.created_at,
         updated_at=screening.updated_at,
+    )
+
+
+# ------------------------------------------------------------------- announcements
+
+
+def announcement_to_domain(row: models.Announcement) -> Announcement:
+    return Announcement(
+        id=row.id,
+        title=row.title,
+        body=row.body,
+        is_published=row.is_published,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def announcement_to_orm(announcement: Announcement) -> models.Announcement:
+    return models.Announcement(
+        id=announcement.id,
+        title=announcement.title,
+        body=announcement.body,
+        is_published=announcement.is_published,
+        created_at=announcement.created_at,
+        updated_at=announcement.updated_at,
     )

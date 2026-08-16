@@ -24,6 +24,7 @@ from app.api.errors import register_error_handlers
 from app.api.origin_guard import CloudflareOriginGuard
 from app.api.routers import (
     admin,
+    announcements,
     consent,
     health,
     me,
@@ -101,6 +102,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     register_error_handlers(app)
 
+    # Public: no token, so it is registered like any other router but guards nothing.
+    app.include_router(announcements.router)
     app.include_router(me.router)
     app.include_router(consent.router)
     app.include_router(health.router)

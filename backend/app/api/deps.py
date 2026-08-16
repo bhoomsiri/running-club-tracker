@@ -29,6 +29,9 @@ from app.adapters.persistence.run_submission_unit_of_work import (
 from app.adapters.persistence.sensitive_view_unit_of_work import (
     SqlAlchemySensitiveViewUnitOfWork,
 )
+from app.adapters.persistence.sqlalchemy_announcement_repository import (
+    SqlAlchemyAnnouncementRepository,
+)
 from app.adapters.persistence.sqlalchemy_campaign_repository import (
     SqlAlchemyCampaignRepository,
 )
@@ -64,10 +67,18 @@ from app.application.use_cases.list_admin_catalogue import (
     ListAdminCampaigns,
     ListAdminRewards,
 )
+from app.application.use_cases.list_announcements import (
+    ListAllAnnouncements,
+    ListPublishedAnnouncements,
+)
 from app.application.use_cases.list_members import ListMembers
 from app.application.use_cases.list_pending_redemptions import ListPendingRedemptions
 from app.application.use_cases.list_rewards import ListRewards
 from app.application.use_cases.list_runs import ListMemberRuns, ListMyRuns
+from app.application.use_cases.manage_announcements import (
+    CreateAnnouncement,
+    UpdateAnnouncement,
+)
 from app.application.use_cases.manage_campaigns import CreateCampaign, UpdateCampaign
 from app.application.use_cases.manage_redemptions import CancelRedemption, FulfillRedemption
 from app.application.use_cases.manage_rewards import CreateReward, UpdateReward
@@ -318,6 +329,33 @@ def get_list_admin_campaigns_uc(
     return ListAdminCampaigns(
         SqlAlchemyMemberRepository(session), SqlAlchemyCampaignRepository(session)
     )
+
+
+def get_list_published_announcements_uc(
+    session: Annotated[Session, Depends(get_session)],
+) -> ListPublishedAnnouncements:
+    # No member repository and no actor: this one is answered without a token.
+    return ListPublishedAnnouncements(SqlAlchemyAnnouncementRepository(session))
+
+
+def get_list_all_announcements_uc(
+    session: Annotated[Session, Depends(get_session)],
+) -> ListAllAnnouncements:
+    return ListAllAnnouncements(
+        SqlAlchemyMemberRepository(session), SqlAlchemyAnnouncementRepository(session)
+    )
+
+
+def get_create_announcement_uc(
+    factory: Annotated[sessionmaker[Session], Depends(get_session_factory_dep)],
+) -> CreateAnnouncement:
+    return CreateAnnouncement(SqlAlchemyAdminUnitOfWork(factory, SystemClock()))
+
+
+def get_update_announcement_uc(
+    factory: Annotated[sessionmaker[Session], Depends(get_session_factory_dep)],
+) -> UpdateAnnouncement:
+    return UpdateAnnouncement(SqlAlchemyAdminUnitOfWork(factory, SystemClock()))
 
 
 def get_list_admin_rewards_uc(

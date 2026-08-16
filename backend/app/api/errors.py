@@ -16,6 +16,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.domain.errors import (
+    AnnouncementNotFound,
     CampaignNotFound,
     ConsentRequired,
     DomainError,
@@ -23,6 +24,7 @@ from app.domain.errors import (
     EvidenceNotFound,
     ExtractionFailed,
     InsufficientPoints,
+    InvalidAnnouncementError,
     InvalidAuditEntry,
     InvalidCampaignError,
     InvalidConsentError,
@@ -59,6 +61,7 @@ STATUS_BY_ERROR: dict[type[DomainError], int] = {
     CampaignNotFound: 404,
     RedemptionNotFound: 404,
     EvidenceNotFound: 404,
+    AnnouncementNotFound: 404,
     # 409: the request was well-formed, the world just isn't in a state that allows it.
     InsufficientPoints: 409,
     OutOfStock: 409,
@@ -82,6 +85,7 @@ STATUS_BY_ERROR: dict[type[DomainError], int] = {
     InvalidConsentError: 422,
     InvalidLedgerEntry: 422,
     InvalidAuditEntry: 422,
+    InvalidAnnouncementError: 422,
     UnknownCampaignType: 422,
 }
 

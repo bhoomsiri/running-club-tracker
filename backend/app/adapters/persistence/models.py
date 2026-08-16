@@ -448,6 +448,34 @@ class HealthRecord(Base):
 # ------------------------------------------------------------------------- audit log
 
 
+class Announcement(Base):
+    """Club news. The only table in this schema whose published rows are served to
+    callers with no token at all — so nothing personal belongs in `body`."""
+
+    __tablename__ = "announcement"
+
+    id: Mapped[uuid.UUID] = _pk()
+    title: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    body: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    is_published: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, server_default=sa.false()
+    )
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+    )
+
+    __table_args__ = (
+        # The public list is "published, newest first" and nothing else, so it is the
+        # only index this table needs.
+        sa.Index(
+            "ix_announcement_published_created_at",
+            "created_at",
+            postgresql_where=sa.text("is_published"),
+        ),
+    )
+
+
 class AuditLog(Base):
     """Who touched whose sensitive data, and when. PDPA accountability.
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import TracebackType
 from typing import Protocol
 
+from app.application.ports.announcement_repository import AnnouncementRepository
 from app.application.ports.audit_repository import AuditRepository
 from app.application.ports.campaign_repository import CampaignRepository
 from app.application.ports.clock import Clock
@@ -38,6 +39,9 @@ class AdminUnitOfWork(Protocol):
 
     @property
     def runs(self) -> RunRepository: ...
+
+    @property
+    def announcements(self) -> AnnouncementRepository: ...
 
     @property
     def audit(self) -> AuditRepository: ...

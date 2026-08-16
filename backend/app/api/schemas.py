@@ -32,6 +32,7 @@ from app.application.use_cases.list_runs import RunWithEvidence
 from app.application.use_cases.view_member_health import MemberHealthView
 from app.application.use_cases.view_member_progress import MemberProgressView
 from app.application.use_cases.view_member_screening import MemberScreeningView
+from app.domain.announcement import Announcement
 from app.domain.campaign import Campaign, CampaignType
 from app.domain.consent import Consent
 from app.domain.entities import Member, ReviewStatus, RunEntry, RunSource, Sex
@@ -456,6 +457,63 @@ class RewardImageResponse(BaseModel):
     this one only proves the bytes were an image and are now in the bucket."""
 
     image_key: str
+
+
+# ------------------------------------------------------------------- announcements
+
+
+class AnnouncementResponse(BaseModel):
+    """Returned to the public as well as to members, so it carries nothing but the
+    notice itself — no author, no member id."""
+
+    id: UUID
+    title: str
+    body: str
+    created_at: datetime
+    updated_at: datetime
+
+
+    @classmethod
+    def from_entity(cls, announcement: Announcement) -> AnnouncementResponse:
+        return cls(
+            id=announcement.id,
+            title=announcement.title,
+            body=announcement.body,
+            created_at=announcement.created_at,
+            updated_at=announcement.updated_at,
+        )
+
+
+class AdminAnnouncementResponse(AnnouncementResponse):
+    """The superuser's view: the same notice plus whether anyone else can see it."""
+
+    is_published: bool
+
+    @classmethod
+    def from_entity(cls, announcement: Announcement) -> AdminAnnouncementResponse:
+        return cls(
+            id=announcement.id,
+            title=announcement.title,
+            body=announcement.body,
+            created_at=announcement.created_at,
+            updated_at=announcement.updated_at,
+            is_published=announcement.is_published,
+        )
+
+
+class CreateAnnouncementRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=20_000)
+    # Draft by default: a notice that goes public the instant it is saved is one nobody
+    # gets to proofread.
+    is_published: bool = False
+
+
+class UpdateAnnouncementRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    body: str | None = Field(default=None, min_length=1, max_length=20_000)
+    # Hiding is how a notice is taken down; there is no delete.
+    is_published: bool | None = None
 
 
 class ErrorResponse(BaseModel):

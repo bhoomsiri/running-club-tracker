@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, File, UploadFile, status
 from app.api.deps import (
     get_cancel_redemption_uc,
     get_club_overview_uc,
+    get_create_announcement_uc,
     get_create_campaign_uc,
     get_create_reward_uc,
     get_current_admin,
@@ -17,9 +18,11 @@ from app.api.deps import (
     get_fulfill_redemption_uc,
     get_list_admin_campaigns_uc,
     get_list_admin_rewards_uc,
+    get_list_all_announcements_uc,
     get_list_members_uc,
     get_list_pending_redemptions_uc,
     get_review_run_uc,
+    get_update_announcement_uc,
     get_update_campaign_uc,
     get_update_reward_uc,
     get_upload_reward_image_uc,
@@ -29,9 +32,11 @@ from app.api.deps import (
     get_view_member_screening_uc,
 )
 from app.api.schemas import (
+    AdminAnnouncementResponse,
     AdminRewardResponse,
     CampaignResponse,
     ClubOverviewResponse,
+    CreateAnnouncementRequest,
     CreateCampaignRequest,
     CreateRewardRequest,
     MemberContactResponse,
@@ -44,6 +49,7 @@ from app.api.schemas import (
     ReviewRunRequest,
     RewardImageResponse,
     RunResponse,
+    UpdateAnnouncementRequest,
     UpdateCampaignRequest,
     UpdateRewardRequest,
 )
@@ -52,8 +58,15 @@ from app.application.use_cases.list_admin_catalogue import (
     ListAdminCampaigns,
     ListAdminRewards,
 )
+from app.application.use_cases.list_announcements import ListAllAnnouncements
 from app.application.use_cases.list_members import ListMembers
 from app.application.use_cases.list_pending_redemptions import ListPendingRedemptions
+from app.application.use_cases.manage_announcements import (
+    CreateAnnouncement,
+    CreateAnnouncementCommand,
+    UpdateAnnouncement,
+    UpdateAnnouncementCommand,
+)
 from app.application.use_cases.manage_campaigns import (
     CreateCampaign,
     CreateCampaignCommand,
@@ -226,6 +239,50 @@ def update_campaign(
         )
     )
     return CampaignResponse.from_entity(campaign)
+
+
+@router.get("/announcements", response_model=list[AdminAnnouncementResponse])
+def list_admin_announcements(
+    boss: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[ListAllAnnouncements, Depends(get_list_all_announcements_uc)],
+) -> list[AdminAnnouncementResponse]:
+    """Drafts and hidden notices included — this is where they are found again."""
+    return [AdminAnnouncementResponse.from_entity(a) for a in use_case.execute(boss.id)]
+
+
+@router.post(
+    "/announcements",
+    response_model=AdminAnnouncementResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_announcement(
+    body: CreateAnnouncementRequest,
+    superuser: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[CreateAnnouncement, Depends(get_create_announcement_uc)],
+) -> AdminAnnouncementResponse:
+    announcement = use_case.execute(
+        CreateAnnouncementCommand(actor_id=superuser.id, **body.model_dump())
+    )
+    return AdminAnnouncementResponse.from_entity(announcement)
+
+
+@router.patch(
+    "/announcements/{announcement_id}", response_model=AdminAnnouncementResponse
+)
+def update_announcement(
+    announcement_id: UUID,
+    body: UpdateAnnouncementRequest,
+    superuser: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[UpdateAnnouncement, Depends(get_update_announcement_uc)],
+) -> AdminAnnouncementResponse:
+    # There is no DELETE here either: is_published=false takes a notice off every screen
+    # while leaving it where whoever wrote it can find it.
+    announcement = use_case.execute(
+        UpdateAnnouncementCommand(
+            actor_id=superuser.id, announcement_id=announcement_id, **body.model_dump()
+        )
+    )
+    return AdminAnnouncementResponse.from_entity(announcement)
 
 
 @router.post(

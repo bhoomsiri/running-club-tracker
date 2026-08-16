@@ -112,3 +112,11 @@ class UnresolvedRuns(DomainError):
 
 class EvidenceNotFound(DomainError):
     """No stored image for this key."""
+
+
+class InvalidAnnouncementError(DomainError):
+    """An announcement with no title or no body, or one too long to store."""
+
+
+class AnnouncementNotFound(DomainError):
+    """No announcement with this id."""

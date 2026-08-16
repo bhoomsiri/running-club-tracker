@@ -13,6 +13,7 @@ from decimal import Decimal
 from types import TracebackType
 from uuid import UUID
 
+from app.domain.announcement import Announcement
 from app.domain.audit import AuditEntry
 from app.domain.redemption import (
     LedgerReason,
@@ -337,6 +338,33 @@ class FakeRunReviewUnitOfWork:
         self.rolled_back = True
 
 
+class FakeAnnouncementRepository:
+    def __init__(self, announcements: list[Announcement] | None = None) -> None:
+        self._items: dict[UUID, Announcement] = {a.id: a for a in announcements or []}
+
+    def list_published(self, limit: int | None = None) -> list[Announcement]:
+        # The published filter lives in the repository in the real one too: this list is
+        # served without a token, so it is a control rather than a display choice.
+        rows = sorted(
+            (a for a in self._items.values() if a.is_published),
+            key=lambda a: a.created_at,
+            reverse=True,
+        )
+        return rows if limit is None else rows[:limit]
+
+    def list_all(self) -> list[Announcement]:
+        return sorted(self._items.values(), key=lambda a: a.created_at, reverse=True)
+
+    def get(self, announcement_id: UUID) -> Announcement | None:
+        return self._items.get(announcement_id)
+
+    def add(self, announcement: Announcement) -> None:
+        self._items[announcement.id] = announcement
+
+    def save(self, announcement: Announcement) -> None:
+        self._items[announcement.id] = announcement
+
+
 class FakeAdminUnitOfWork:
     """A superuser mutation: the change and its audit row commit together."""
 
@@ -351,11 +379,15 @@ class FakeAdminUnitOfWork:
         runs: FakeRunRepository,
         audit: FakeAuditRepository,
         clock: FixedClock,
+        announcements: FakeAnnouncementRepository | None = None,
     ) -> None:
         self.members = members
         self.campaigns = campaigns
         self.rewards = rewards
         self.redemptions = redemptions
+        # Defaulted: most admin operations never touch the notice board, and making
+        # every existing caller pass an empty one would say nothing.
+        self.announcements = announcements or FakeAnnouncementRepository()
         self.ledger = ledger
         self.runs = runs
         self.audit = audit

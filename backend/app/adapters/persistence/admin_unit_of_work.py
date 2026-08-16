@@ -6,6 +6,9 @@ from types import TracebackType
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.adapters.persistence.sqlalchemy_announcement_repository import (
+    SqlAlchemyAnnouncementRepository,
+)
 from app.adapters.persistence.sqlalchemy_audit_repository import SqlAlchemyAuditRepository
 from app.adapters.persistence.sqlalchemy_campaign_repository import (
     SqlAlchemyCampaignRepository,
@@ -40,6 +43,7 @@ class SqlAlchemyAdminUnitOfWork:
         self._audit = SqlAlchemyAuditRepository(session)
         self._rewards = SqlAlchemyRewardRepository(session)
         self._redemptions = SqlAlchemyRedemptionRepository(session)
+        self._announcements = SqlAlchemyAnnouncementRepository(session)
         return self
 
     def __exit__(
@@ -56,6 +60,11 @@ class SqlAlchemyAdminUnitOfWork:
         finally:
             self._session.close()
             self._session = None
+
+    @property
+    def announcements(self) -> SqlAlchemyAnnouncementRepository:
+        self._require_active()
+        return self._announcements
 
     @property
     def runs(self) -> SqlAlchemyRunRepository:

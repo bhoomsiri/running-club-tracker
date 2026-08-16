@@ -47,6 +47,8 @@ class AuditAction(StrEnum):
     UPDATE_CAMPAIGN = "update_campaign"
     CREATE_REWARD = "create_reward"
     UPDATE_REWARD = "update_reward"
+    CREATE_ANNOUNCEMENT = "create_announcement"
+    UPDATE_ANNOUNCEMENT = "update_announcement"
     FULFILL_REDEMPTION = "fulfill_redemption"
     CANCEL_REDEMPTION = "cancel_redemption"
 
