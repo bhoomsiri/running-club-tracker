@@ -8,6 +8,15 @@
  * does not match what the system actually does is worse than none, because it is a
  * promise on record.
  *
+ * One bullet is a NOTICE rather than a consent item, and the DPO should be told which:
+ * the leaderboard line. Showing a member's name and distance to the rest of the club
+ * comes from taking part in the club's activity, not from this health-data consent — and
+ * the code matches that reading, because withdrawing consent stops the health data being
+ * processed and does NOT remove anyone from the leaderboard. It is said here because
+ * this is the moment a member is actually reading, not because agreeing to health data
+ * is what permits it. If the club would rather it be a real choice, that is an opt-out
+ * flag on the member and a use case to honour it — not a change to this sentence.
+ *
  * Two claims below are deliberately weaker than they could be, because the code behind
  * them does not exist yet:
  *   - deletion at the end of the retention period is described as something an
@@ -28,7 +37,8 @@ export const CONSENT_PURPOSE = "เก็บข้อมูลสุขภาพ
 export const CONSENT_POINTS = [
   "เก็บอะไร: น้ำหนัก ส่วนสูง ชีพจรขณะพัก และความดันโลหิต เฉพาะที่คุณกรอกเอง — ไม่บังคับกรอกครบทุกช่อง",
   "เก็บไปทำไม: เปรียบเทียบผลก่อนและหลังกิจกรรม เพื่อให้คุณเห็นความเปลี่ยนแปลงของตัวเอง",
-  "ใครเห็นได้: ตัวคุณเอง และผู้ดูแลชมรมที่ได้รับสิทธิ์ ซึ่งทุกครั้งที่เปิดดูจะถูกบันทึกไว้ตรวจสอบได้",
+  "ใครเห็นได้: ข้อมูลสุขภาพ — ตัวคุณเอง และผู้ดูแลชมรมที่ได้รับสิทธิ์ ซึ่งทุกครั้งที่เปิดดูจะถูกบันทึกไว้ตรวจสอบได้",
+  "การเข้าร่วมจะแสดงชื่อ-นามสกุลและระยะสะสมของคุณในตารางอันดับ (leaderboard) ที่สมาชิกในชมรมเห็นได้",
   "เก็บนานแค่ไหน: ชมรมเก็บข้อมูลไว้ตามระยะเวลาที่กำหนด (ประมาณ 2 ปีหลังจบกิจกรรม) และผู้ดูแลจะลบเมื่อครบกำหนด",
   "สิทธิ์ของคุณ: ขอดู แก้ไข และถอนความยินยอมได้เองทุกเมื่อ — หากต้องการลบข้อมูลก่อนกำหนดหรือใช้สิทธิ์อื่นตาม PDPA โปรดติดต่อผู้ดูแลชมรม",
 ] as const;
