@@ -43,13 +43,13 @@ export function RewardManager({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted">
-          ของรางวัลของกิจกรรม <span className="font-medium">{campaign.name}</span>
+        <p className="text-base text-muted">
+          ของรางวัลของกิจกรรม <span className="text-lg font-semibold">{campaign.name}</span>
         </p>
         <button
           type="button"
           onClick={() => setCreating((open) => !open)}
-          className="rounded-lg border border-border px-3 py-2 text-sm"
+          className="btn btn-secondary"
         >
           {creating ? "ยกเลิก" : "+ เพิ่มของรางวัล"}
         </button>
@@ -57,7 +57,7 @@ export function RewardManager({
 
       {creating ? (
         <Card>
-          <p className="mb-3 font-medium">เพิ่มของรางวัลใหม่</p>
+          <p className="mb-3 text-lg font-semibold">เพิ่มของรางวัลใหม่</p>
           <RewardForm campaignId={campaign.id} onDone={() => setCreating(false)} />
         </Card>
       ) : null}
@@ -86,11 +86,11 @@ function RewardRow({ reward }: { reward: AdminReward }) {
     return (
       <Card>
         <div className="mb-3 flex items-center justify-between">
-          <p className="font-medium">แก้ไข {reward.name}</p>
+          <p className="text-lg font-semibold">แก้ไข {reward.name}</p>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="text-sm text-muted underline"
+            className="text-base text-muted underline"
           >
             ยกเลิก
           </button>
@@ -112,7 +112,7 @@ function RewardRow({ reward }: { reward: AdminReward }) {
         ) : null}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{reward.name}</span>
+            <span className="text-lg font-semibold">{reward.name}</span>
             {reward.is_active ? null : <Badge>เลิกแจกแล้ว</Badge>}
             {reward.is_active && reward.stock === 0 ? <Badge>ของหมด</Badge> : null}
           </div>
@@ -124,7 +124,7 @@ function RewardRow({ reward }: { reward: AdminReward }) {
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm"
+          className="btn btn-secondary shrink-0"
         >
           แก้ไข
         </button>
@@ -246,7 +246,7 @@ function RewardForm({
   return (
     <div className="space-y-3">
       <div>
-        <label htmlFor={`name-${reward?.id ?? "new"}`} className="mb-1 block text-sm font-medium">
+        <label htmlFor={`name-${reward?.id ?? "new"}`} className="mb-2 block text-base font-semibold">
           ชื่อของรางวัล
         </label>
         <input
@@ -262,7 +262,7 @@ function RewardForm({
       <div>
         <label
           htmlFor={`image-${reward?.id ?? "new"}`}
-          className="mb-1 block text-sm font-medium"
+          className="mb-2 block text-base font-semibold"
         >
           รูปของรางวัล <span className="font-normal text-muted">(ไม่บังคับ)</span>
         </label>
@@ -291,7 +291,7 @@ function RewardForm({
               }}
               className="block w-full text-sm file:mr-3 file:rounded-lg file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-sm"
             />
-            <p className="mt-1 text-xs text-muted">
+            <p className="mt-2 text-sm text-muted">
               {uploading
                 ? "กำลังอัปโหลด…"
                 : imageKey !== null
@@ -304,7 +304,7 @@ function RewardForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor={`cost-${reward?.id ?? "new"}`} className="mb-1 block text-sm font-medium">
+          <label htmlFor={`cost-${reward?.id ?? "new"}`} className="mb-2 block text-base font-semibold">
             ใช้กี่แต้ม
           </label>
           <input
@@ -318,7 +318,7 @@ function RewardForm({
           />
         </div>
         <div>
-          <label htmlFor={`stock-${reward?.id ?? "new"}`} className="mb-1 block text-sm font-medium">
+          <label htmlFor={`stock-${reward?.id ?? "new"}`} className="mb-2 block text-base font-semibold">
             จำนวนที่มี
           </label>
           <input
@@ -343,7 +343,7 @@ function RewardForm({
           />
           <span>
             เปิดให้แลก
-            <span className="mt-0.5 block text-xs text-muted">
+            <span className="mt-1 block text-sm text-muted">
               ปิดไว้ = เลิกแจก สมาชิกจะไม่เห็นในหน้ารางวัล
               แต่รายการที่เคยแลกไปแล้วยังอยู่ครบ (ไม่มีการลบของรางวัล)
             </span>
@@ -352,7 +352,7 @@ function RewardForm({
       ) : null}
 
       {error ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-base font-medium text-red-700 dark:text-red-400">
           {error}
         </p>
       ) : null}
@@ -361,7 +361,7 @@ function RewardForm({
         type="button"
         onClick={() => void save()}
         disabled={!canSave}
-        className="w-full rounded-lg bg-brand px-4 py-3 font-medium text-white active:opacity-80 disabled:opacity-40 sm:w-auto sm:px-6"
+        className="btn btn-primary w-full sm:w-auto"
       >
         {busy ? "กำลังบันทึก…" : reward ? "บันทึก" : "เพิ่มของรางวัล"}
       </button>
@@ -369,5 +369,4 @@ function RewardForm({
   );
 }
 
-const inputClass =
-  "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-brand";
+const inputClass = "input-field";

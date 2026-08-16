@@ -77,7 +77,7 @@ export function ScreeningForm({
       {SCREENING_SECTIONS.map((section) => (
         <section key={section.title}>
           <h3 className="text-sm font-semibold">{section.title}</h3>
-          <p className="mt-0.5 mb-3 text-xs text-muted">{section.hint}</p>
+          <p className="mt-1 mb-4 text-sm text-muted">{section.hint}</p>
 
           <ul className="space-y-3">
             {section.questions.map((question) => (
@@ -94,11 +94,11 @@ export function ScreeningForm({
                     return (
                       <label
                         key={String(option.value)}
-                        className={`cursor-pointer rounded-lg border px-3 py-2 text-center text-sm ${
+                        className={`flex min-h-12 cursor-pointer items-center justify-center rounded-control border px-3 text-center text-base ${
                           selected
                             ? option.value
-                              ? "border-amber-500 bg-amber-500/15 font-medium"
-                              : "border-brand bg-brand/10 font-medium"
+                              ? "border-amber-500 bg-amber-500/20 font-semibold"
+                              : "border-brand bg-brand-tint font-semibold"
                             : "border-border"
                         }`}
                       >
@@ -158,7 +158,7 @@ export function ScreeningForm({
       </label>
 
       {error ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-base font-medium text-red-700 dark:text-red-400">
           {error}
         </p>
       ) : null}
@@ -167,12 +167,12 @@ export function ScreeningForm({
         type="button"
         onClick={() => void onSubmit()}
         disabled={!allAnswered || !acknowledged || busy}
-        className="w-full rounded-lg bg-brand px-4 py-3.5 font-medium text-white active:opacity-80 disabled:opacity-40"
+        className="btn btn-primary w-full"
       >
         {busy ? "กำลังบันทึก…" : submitLabel}
       </button>
       {!allAnswered ? (
-        <p className="text-center text-xs text-muted">กรุณาตอบให้ครบทุกข้อก่อน</p>
+        <p className="text-center text-sm text-muted">กรุณาตอบให้ครบทุกข้อก่อน</p>
       ) : null}
     </div>
   );

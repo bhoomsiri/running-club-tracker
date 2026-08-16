@@ -79,20 +79,20 @@ export function OverviewTable({ overview }: { overview: ClubOverview }) {
           onChange={(event) => setQuery(event.target.value)}
           placeholder="ค้นหาชื่อหรือหน่วยงาน"
           aria-label="ค้นหาชื่อหรือหน่วยงาน"
-          className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-brand"
+          className="input-field"
         />
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted">เรียงตาม</span>
+          <span className="text-base text-muted">เรียงตาม</span>
           {SORTS.map((option) => (
             <button
               key={option.key}
               type="button"
               onClick={() => setSort(option.key)}
               aria-pressed={sort === option.key}
-              className={`rounded-full px-3 py-1.5 text-sm ${
+              className={`min-h-12 rounded-full px-4 text-base ${
                 sort === option.key
-                  ? "bg-brand font-medium text-white"
+                  ? "bg-brand font-semibold text-on-brand"
                   : "border border-border text-muted"
               }`}
             >
@@ -101,11 +101,12 @@ export function OverviewTable({ overview }: { overview: ClubOverview }) {
           ))}
         </div>
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="tap items-center gap-2.5 text-base">
           <input
             type="checkbox"
             checked={pendingOnly}
             onChange={(event) => setPendingOnly(event.target.checked)}
+            className="h-5 w-5"
           />
           เฉพาะคนที่มีรันรอตรวจ
           {totalPending > 0 ? (
@@ -114,7 +115,7 @@ export function OverviewTable({ overview }: { overview: ClubOverview }) {
         </label>
       </div>
 
-      <p className="mb-3 text-sm text-muted">แสดง {rows.length} คน</p>
+      <p className="mb-3 text-base text-muted">แสดง {rows.length} คน</p>
 
       {rows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
@@ -154,7 +155,7 @@ function MemberRow({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{member.name}</span>
+            <span className="text-lg font-semibold">{member.name}</span>
             {member.role !== "member" ? (
               <Badge tone="brand">{member.role === "admin" ? "ผู้ดูแล" : "ผู้ดูแลระบบ"}</Badge>
             ) : null}
@@ -171,14 +172,14 @@ function MemberRow({
             </p>
           )}
 
-          <p className="mt-1 text-sm text-muted tabular-nums">
+          <p className="mt-2 text-base text-muted tabular-nums">
             {formatDecimal(member.total_distance_km)} กม. · ส่งแล้ว {member.run_count} ครั้ง
           </p>
 
           <div className="mt-2 space-y-2">
             {member.campaigns.map((campaign) => (
               <div key={campaign.campaign_id}>
-                <div className="flex items-baseline justify-between gap-2 text-xs">
+                <div className="flex items-baseline justify-between gap-2 text-sm">
                   <span className="truncate text-muted">{campaign.name}</span>
                   <span className="shrink-0 tabular-nums">
                     {formatDecimal(campaign.value)}

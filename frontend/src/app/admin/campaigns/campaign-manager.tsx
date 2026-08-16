@@ -49,7 +49,7 @@ export function CampaignManager({ campaigns }: { campaigns: Campaign[] }) {
         <button
           type="button"
           onClick={() => setCreating((open) => !open)}
-          className="rounded-lg border border-border px-3 py-2 text-sm"
+          className="btn btn-secondary"
         >
           {creating ? "ยกเลิก" : "+ สร้างกิจกรรม"}
         </button>
@@ -57,7 +57,7 @@ export function CampaignManager({ campaigns }: { campaigns: Campaign[] }) {
 
       {creating ? (
         <Card>
-          <p className="mb-3 font-medium">สร้างกิจกรรมใหม่</p>
+          <p className="mb-3 text-lg font-semibold">สร้างกิจกรรมใหม่</p>
           <CampaignForm onDone={() => setCreating(false)} />
         </Card>
       ) : null}
@@ -84,11 +84,11 @@ function CampaignRow({ campaign }: { campaign: Campaign }) {
     return (
       <Card>
         <div className="mb-3 flex items-center justify-between">
-          <p className="font-medium">แก้ไข {campaign.name}</p>
+          <p className="text-lg font-semibold">แก้ไข {campaign.name}</p>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="text-sm text-muted underline"
+            className="text-base text-muted underline"
           >
             ยกเลิก
           </button>
@@ -103,7 +103,7 @@ function CampaignRow({ campaign }: { campaign: Campaign }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{campaign.name}</span>
+            <span className="text-lg font-semibold">{campaign.name}</span>
             <Badge tone="brand">{TYPE_LABELS[campaign.type] ?? campaign.type}</Badge>
             {campaign.is_active ? null : <Badge>ปิดแล้ว</Badge>}
           </div>
@@ -111,11 +111,11 @@ function CampaignRow({ campaign }: { campaign: Campaign }) {
             {campaign.code} · {formatDate(campaign.starts_on)} –{" "}
             {formatDate(campaign.ends_on)}
           </p>
-          <dl className="mt-1.5 flex flex-wrap gap-x-4 text-xs text-muted tabular-nums">
+          <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted tabular-nums">
             {(CONFIG_FIELDS[campaign.type] ?? []).map((field) => (
               <div key={field.key} className="flex gap-1">
                 <dt>{field.label}</dt>
-                <dd className="font-medium">{String(campaign.config[field.key] ?? "—")}</dd>
+                <dd className="text-lg font-semibold">{String(campaign.config[field.key] ?? "—")}</dd>
               </div>
             ))}
           </dl>
@@ -123,7 +123,7 @@ function CampaignRow({ campaign }: { campaign: Campaign }) {
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm"
+          className="btn btn-secondary shrink-0"
         >
           แก้ไข
         </button>
@@ -258,7 +258,7 @@ function CampaignForm({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-muted">
+          <p className="mt-2 text-sm text-muted">
             เปลี่ยนประเภทหลังสร้างไม่ได้ — แต้มที่คำนวณไปแล้วจะเปลี่ยนความหมาย
           </p>
         </Labelled>
@@ -285,14 +285,14 @@ function CampaignForm({
         </Labelled>
       </div>
       {!datesOk && startsOn !== "" && endsOn !== "" ? (
-        <p className="text-xs text-red-600 dark:text-red-400">
+        <p className="text-sm font-medium text-red-700 dark:text-red-400">
           วันสิ้นสุดต้องไม่ก่อนวันเริ่ม
         </p>
       ) : null}
 
       <div className="rounded-lg border border-border p-3">
-        <p className="text-sm font-medium">เงื่อนไขการคิดแต้ม</p>
-        <p className="mt-0.5 mb-3 text-xs text-amber-700 dark:text-amber-300">
+        <p className="text-base font-semibold">เงื่อนไขการคิดแต้ม</p>
+        <p className="mt-1 mb-3 text-sm text-amber-800 dark:text-amber-300">
           ⚠️ การแก้ค่าเหล่านี้มีผลต่อการคำนวณ — ระบบคิดแต้มจากกฎปัจจุบันเสมอ
           ดังนั้นแต้มของสมาชิกทุกคนจะถูกคำนวณใหม่ตามค่าที่ตั้งไว้ ไม่ใช่ค่าที่ใช้ตอนพวกเขาวิ่ง
         </p>
@@ -325,7 +325,7 @@ function CampaignForm({
           />
           <span>
             เปิดใช้งาน
-            <span className="mt-0.5 block text-xs text-muted">
+            <span className="mt-1 block text-sm text-muted">
               ปิดไว้ = กิจกรรมจบแล้ว สมาชิกจะไม่เห็นในหน้าแดชบอร์ด
               แต่ผลวิ่งและแต้มที่เกิดขึ้นแล้วยังอยู่ครบ
             </span>
@@ -334,7 +334,7 @@ function CampaignForm({
       ) : null}
 
       {error ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-base font-medium text-red-700 dark:text-red-400">
           {error}
         </p>
       ) : null}
@@ -343,7 +343,7 @@ function CampaignForm({
         type="button"
         onClick={() => void save()}
         disabled={!canSave}
-        className="w-full rounded-lg bg-brand px-4 py-3 font-medium text-white active:opacity-80 disabled:opacity-40 sm:w-auto sm:px-6"
+        className="btn btn-primary w-full sm:w-auto"
       >
         {busy ? "กำลังบันทึก…" : campaign ? "บันทึก" : "สร้างกิจกรรม"}
       </button>
@@ -362,7 +362,7 @@ function Labelled({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium">
+      <label htmlFor={id} className="mb-2 block text-base font-semibold">
         {label}
       </label>
       {children}
@@ -370,5 +370,4 @@ function Labelled({
   );
 }
 
-const inputClass =
-  "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-brand";
+const inputClass = "input-field";

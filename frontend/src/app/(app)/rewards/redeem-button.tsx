@@ -36,11 +36,11 @@ export function RedeemButton({
         <button
           type="button"
           disabled
-          className="rounded-lg bg-border px-4 py-2 text-sm font-medium text-muted"
+          className="btn shrink-0 bg-border text-muted"
         >
           แลก
         </button>
-        <p className="mt-1 text-xs text-muted">{disabledReason}</p>
+        <p className="mt-2 text-sm text-muted">{disabledReason}</p>
       </div>
     );
   }
@@ -68,12 +68,12 @@ export function RedeemButton({
         onClick={() => void onRedeem()}
         disabled={busy}
         aria-label={`แลก ${rewardName}`}
-        className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white active:opacity-80 disabled:opacity-50"
+        className="btn btn-primary shrink-0"
       >
         {busy ? "กำลังแลก…" : "แลก"}
       </button>
       {error ? (
-        <p role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-2 text-sm font-medium text-red-700 dark:text-red-400">
           {error}
         </p>
       ) : null}

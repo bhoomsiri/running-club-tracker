@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 
 import { AnnouncementBody } from "@/components/announcement-body";
-import { Card } from "@/components/ui";
+import { ButtonLink, Card, SectionHeading } from "@/components/ui";
 import { apiPublic } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { Announcement } from "@/lib/types";
@@ -47,62 +46,52 @@ export default async function LandingPage() {
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
       <header className="text-center">
-        <p className="text-sm font-medium tracking-wide text-brand">PTRH RunClub</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+        <p className="text-base font-semibold tracking-wide text-brand">PTRH RunClub</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
           ชมรมวิ่ง โรงพยาบาลโพธาราม
         </h1>
-        <p className="mx-auto mt-3 max-w-lg text-muted">
+        <p className="mx-auto mt-4 max-w-lg text-lg text-muted">
           วิ่งด้วยกันทั้งโรงพยาบาล — บันทึกทุกครั้งที่วิ่ง เห็นระยะสะสมของตัวเอง
           และสะสมแต้มแลกของรางวัลไปพร้อมกัน
         </p>
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+        {/* One primary action. Signing in is the quieter twin of signing up, so it is
+            the outline button — a member who already has an account is looking for it,
+            and a member who does not should not have to choose between two greens. */}
+        <div className="mx-auto mt-7 flex max-w-sm flex-col gap-3">
           {userId ? (
-            <Link
-              href="/dashboard"
-              className="rounded-lg bg-brand px-6 py-3.5 font-medium text-white active:opacity-80"
-            >
-              เข้าหน้าของฉัน
-            </Link>
+            <ButtonLink href="/dashboard">เข้าหน้าของฉัน</ButtonLink>
           ) : (
             <>
-              <Link
-                href="/sign-up"
-                className="rounded-lg bg-brand px-6 py-3.5 font-medium text-white active:opacity-80"
-              >
-                สมัครเข้าร่วมชมรม
-              </Link>
-              <Link
-                href="/sign-in"
-                className="rounded-lg border border-border px-6 py-3.5 font-medium active:opacity-80"
-              >
+              <ButtonLink href="/sign-up">สมัครเข้าร่วมชมรม</ButtonLink>
+              <ButtonLink href="/sign-in" tone="secondary">
                 เข้าสู่ระบบ
-              </Link>
+              </ButtonLink>
             </>
           )}
         </div>
       </header>
 
-      <section className="mt-12">
-        <h2 className="mb-3 text-sm font-semibold text-muted">กิจกรรมปีนี้</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+      <section>
+        <SectionHeading>กิจกรรมปีนี้</SectionHeading>
+        <div className="grid gap-4 sm:grid-cols-2">
           {CAMPAIGNS.map((campaign) => (
             <Card key={campaign.title} className="h-full">
-              <p className="text-2xl" aria-hidden>
+              <p className="text-3xl" aria-hidden>
                 {campaign.icon}
               </p>
-              <h3 className="mt-2 font-medium">{campaign.title}</h3>
-              <p className="mt-1 text-sm text-muted">{campaign.blurb}</p>
+              <h3 className="mt-2 text-lg font-semibold">{campaign.title}</h3>
+              <p className="mt-2 text-base text-muted">{campaign.blurb}</p>
             </Card>
           ))}
         </div>
       </section>
 
-      <section className="mt-10">
-        <h2 className="mb-3 text-sm font-semibold text-muted">ข่าวประชาสัมพันธ์</h2>
+      <section>
+        <SectionHeading>ข่าวประชาสัมพันธ์</SectionHeading>
         {news.length === 0 ? (
           <Card>
-            <p className="text-sm text-muted">
+            <p className="text-base text-muted">
               ยังไม่มีประกาศในตอนนี้ — ติดตามข่าวกิจกรรมได้ที่หน้านี้
             </p>
           </Card>
@@ -111,11 +100,11 @@ export default async function LandingPage() {
             {news.map((notice) => (
               <li key={notice.id}>
                 <Card>
-                  <p className="text-xs text-muted tabular-nums">
+                  <p className="text-sm text-muted tabular-nums">
                     {formatDate(notice.created_at)}
                   </p>
-                  <h3 className="mt-1 font-medium">{notice.title}</h3>
-                  <AnnouncementBody body={notice.body} className="mt-2 text-sm" />
+                  <h3 className="mt-1 text-lg font-semibold">{notice.title}</h3>
+                  <AnnouncementBody body={notice.body} className="mt-2 text-base" />
                 </Card>
               </li>
             ))}
@@ -123,23 +112,20 @@ export default async function LandingPage() {
         )}
       </section>
 
-      <section className="mt-12 rounded-xl border border-brand/30 bg-brand/5 p-5 text-center">
-        <p className="font-medium">เริ่มวันนี้ได้เลย</p>
-        <p className="mt-1 text-sm text-muted">
+      <section className="mt-12 rounded-card border border-brand/40 bg-brand-tint p-6 text-center">
+        <p className="text-xl font-bold">เริ่มวันนี้ได้เลย</p>
+        <p className="mt-2 text-base text-muted">
           ไม่ต้องวิ่งเร็ว ไม่ต้องวิ่งไกล — เดินเร็วหรือวิ่งเบา ๆ วันละนิด
           ก็สะสมระยะได้เหมือนกัน
         </p>
         {userId ? null : (
-          <Link
-            href="/sign-up"
-            className="mt-4 inline-block rounded-lg bg-brand px-6 py-3 font-medium text-white active:opacity-80"
-          >
-            สมัครเข้าร่วมชมรม
-          </Link>
+          <div className="mx-auto mt-5 max-w-sm">
+            <ButtonLink href="/sign-up">สมัครเข้าร่วมชมรม</ButtonLink>
+          </div>
         )}
       </section>
 
-      <footer className="mt-12 text-center text-xs text-muted">
+      <footer className="mt-12 text-center text-sm text-muted">
         ชมรมวิ่ง โรงพยาบาลโพธาราม · PTRH RunClub
       </footer>
     </main>

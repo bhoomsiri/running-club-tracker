@@ -16,11 +16,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
           <div className="flex items-baseline gap-3">
-            <span className="font-semibold">ชมรมวิ่ง</span>
-            <span className="text-sm text-muted">ผู้ดูแลระบบ</span>
+            <span className="text-lg font-bold">ชมรมวิ่ง</span>
+            <span className="text-base text-muted">ผู้ดูแลระบบ</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="text-sm text-muted underline">
+            <Link href="/dashboard" className="text-base text-muted underline">
               กลับหน้าสมาชิก
             </Link>
             <UserButton />
@@ -32,7 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link
               key={section.href}
               href={section.href}
-              className="shrink-0 rounded-lg px-3 py-1.5 text-sm text-muted hover:bg-surface"
+              className="tap shrink-0 rounded-control px-3 text-base font-medium text-muted hover:bg-surface"
             >
               {section.label}
             </Link>

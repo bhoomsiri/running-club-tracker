@@ -30,20 +30,20 @@ export function LeaderboardRow({
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-xl border p-3 ${
-        isMe ? "border-brand bg-brand/10" : (PODIUM[entry.rank] ?? "border-border bg-surface")
+      className={`flex min-h-16 items-center gap-3 rounded-card border p-3 ${
+        isMe ? "border-brand bg-brand-tint" : (PODIUM[entry.rank] ?? "border-border bg-surface")
       }`}
     >
-      <span className="w-9 shrink-0 text-center text-lg tabular-nums">
-        {medal ?? <span className="text-sm text-muted">{entry.rank}</span>}
+      <span className="w-10 shrink-0 text-center text-2xl tabular-nums">
+        {medal ?? <span className="text-lg font-semibold text-muted">{entry.rank}</span>}
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">
+        <p className="truncate text-base font-semibold">
           {entry.name}
-          {isMe ? <span className="ml-1.5 text-xs text-brand">(คุณ)</span> : null}
+          {isMe ? <span className="ml-1.5 text-sm text-brand">(คุณ)</span> : null}
         </p>
-        <p className="text-xs text-muted tabular-nums">
+        <p className="text-sm text-muted tabular-nums">
           {entry.run_count} ครั้ง
           {showPoints && entry.points !== null
             ? ` · ${formatDecimal(entry.points)} แต้ม`
@@ -52,8 +52,8 @@ export function LeaderboardRow({
       </div>
 
       <p className="shrink-0 text-right tabular-nums">
-        <span className="font-semibold">{formatDecimal(entry.total_distance_km)}</span>
-        <span className="ml-1 text-xs text-muted">กม.</span>
+        <span className="text-xl font-bold">{formatDecimal(entry.total_distance_km)}</span>
+        <span className="ml-1 text-sm text-muted">กม.</span>
       </p>
     </div>
   );

@@ -99,23 +99,23 @@ export function OnboardingWizard({
   const position = missing.indexOf(current.id) + 1;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <p className="text-sm text-muted">
+        <p className="text-base font-semibold text-brand">
           ขั้นที่ {position} จาก {missing.length}
         </p>
-        <div className="mt-2 flex gap-1.5" aria-hidden>
+        <div className="mt-2 flex gap-2" aria-hidden>
           {missing.map((step) => (
             <span
               key={step}
-              className={`h-1.5 flex-1 rounded-full ${
+              className={`h-2.5 flex-1 rounded-full ${
                 done.includes(step) || step === current.id ? "bg-brand" : "bg-border"
               }`}
             />
           ))}
         </div>
-        <h2 className="mt-4 text-xl font-semibold">{current.title}</h2>
-        <p className="mt-1 text-sm text-muted">{current.blurb}</p>
+        <h2 className="mt-5 text-2xl font-bold tracking-tight">{current.title}</h2>
+        <p className="mt-2 text-base text-muted">{current.blurb}</p>
       </div>
 
       <Card>
@@ -148,7 +148,7 @@ export function OnboardingWizard({
         ) : null}
       </Card>
 
-      <p className="text-center text-xs text-muted">
+      <p className="text-center text-sm text-muted">
         ทุกอย่างแก้ไขได้ภายหลังที่หน้าโปรไฟล์และหน้าข้อมูลสุขภาพ
       </p>
     </div>
@@ -175,18 +175,20 @@ function ConsentStep({ onDone }: { onDone: () => void }) {
 
   return (
     <>
-      <p className="text-sm">{CONSENT_PURPOSE}</p>
-      <ul className="mt-3 space-y-1.5 text-sm text-muted">
+      <p className="text-base font-medium">{CONSENT_PURPOSE}</p>
+      <ul className="mt-4 space-y-3 text-base text-muted">
         {CONSENT_POINTS.map((point) => (
-          <li key={point} className="flex gap-2">
-            <span aria-hidden>•</span>
+          <li key={point} className="flex gap-2.5">
+            <span aria-hidden className="text-brand">
+              •
+            </span>
             <span>{point}</span>
           </li>
         ))}
       </ul>
 
       {error ? (
-        <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-3 text-base font-medium text-red-700 dark:text-red-400">
           {error}
         </p>
       ) : null}
@@ -195,11 +197,11 @@ function ConsentStep({ onDone }: { onDone: () => void }) {
         type="button"
         onClick={() => void grant()}
         disabled={busy}
-        className="mt-5 w-full rounded-lg bg-brand px-4 py-3.5 font-medium text-white active:opacity-80 disabled:opacity-50"
+        className="btn btn-primary mt-5 w-full"
       >
         {busy ? "กำลังบันทึก…" : "ยินยอมและไปต่อ"}
       </button>
-      <p className="mt-2 text-center text-xs text-muted">
+      <p className="mt-3 text-center text-sm text-muted">
         ถอนความยินยอมได้ภายหลังที่หน้าข้อมูลสุขภาพ
       </p>
     </>

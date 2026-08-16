@@ -89,7 +89,7 @@ export function BaselineForm({
     <div className="space-y-4">
       {campaigns.length > 1 ? (
         <div>
-          <label htmlFor="baseline-campaign" className="mb-1.5 block text-sm font-medium">
+          <label htmlFor="baseline-campaign" className="mb-2 block text-base font-semibold">
             กิจกรรม
           </label>
           <select
@@ -109,7 +109,7 @@ export function BaselineForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="baseline-weight" className="mb-1.5 block text-sm font-medium">
+          <label htmlFor="baseline-weight" className="mb-2 block text-base font-semibold">
             น้ำหนัก (กก.)
           </label>
           <input
@@ -124,7 +124,7 @@ export function BaselineForm({
           />
         </div>
         <div>
-          <label htmlFor="baseline-height" className="mb-1.5 block text-sm font-medium">
+          <label htmlFor="baseline-height" className="mb-2 block text-base font-semibold">
             ส่วนสูง (ซม.)
           </label>
           <input
@@ -141,17 +141,17 @@ export function BaselineForm({
       </div>
 
       {previewBmi ? (
-        <div className="rounded-xl border border-border p-3">
+        <div className="rounded-card border border-border p-4">
           <BmiScale bmi={previewBmi} caption="BMI ของคุณ" />
         </div>
       ) : (
-        <p className="text-xs text-muted">
+        <p className="text-sm text-muted">
           กรอกทั้งน้ำหนักและส่วนสูงเพื่อคำนวณ BMI — ต้องมีทั้งคู่ ไม่งั้นจะไม่มีค่าตั้งต้นให้เปรียบเทียบตอนจบกิจกรรม
         </p>
       )}
 
       {error ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-base font-medium text-red-700 dark:text-red-400">
           {error}
         </p>
       ) : null}
@@ -160,7 +160,7 @@ export function BaselineForm({
         type="button"
         onClick={() => void onSubmit()}
         disabled={!canSave}
-        className="w-full rounded-lg bg-brand px-4 py-3.5 font-medium text-white active:opacity-80 disabled:opacity-40"
+        className="btn btn-primary w-full"
       >
         {busy ? "กำลังบันทึก…" : submitLabel}
       </button>
@@ -181,5 +181,4 @@ function computeBmiForPreview(weightKg: string, heightCm: string): string | null
   return value.toFixed(1);
 }
 
-const inputClass =
-  "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-brand";
+const inputClass = "input-field";

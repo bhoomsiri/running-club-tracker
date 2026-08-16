@@ -98,7 +98,7 @@ function SensitiveSection({
     <Card>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-medium">{labels.title}</p>
+          <p className="text-lg font-semibold">{labels.title}</p>
           <p className="mt-0.5 text-sm text-muted">{labels.blurb}</p>
         </div>
         {data === null ? (
@@ -106,7 +106,7 @@ function SensitiveSection({
             type="button"
             onClick={() => void reveal()}
             disabled={busy}
-            className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm disabled:opacity-50"
+            className="btn btn-secondary shrink-0"
           >
             {busy ? "กำลังเปิด…" : labels.button}
           </button>
@@ -129,7 +129,7 @@ function SensitiveSection({
 
       {data !== null ? (
         <div className="mt-4 border-t border-border pt-4">
-          <p className="mb-3 text-xs text-muted">
+          <p className="mb-3 text-base text-muted">
             🔒 การเปิดดูครั้งนี้ถูกบันทึกไว้แล้วตาม PDPA
           </p>
           {section === "health" ? <HealthView view={data as MemberHealth} /> : null}
@@ -145,7 +145,7 @@ function SensitiveSection({
 
 function HealthView({ view }: { view: MemberHealth }) {
   if (view.health.length === 0) {
-    return <p className="text-sm text-muted">สมาชิกยังไม่ได้บันทึกข้อมูลสุขภาพ</p>;
+    return <p className="text-base text-muted">สมาชิกยังไม่ได้บันทึกข้อมูลสุขภาพ</p>;
   }
 
   return (
@@ -203,7 +203,7 @@ function Phase({
 function ScreeningView({ view }: { view: MemberScreening }) {
   const screening = view.screening;
   if (screening === null) {
-    return <p className="text-sm text-muted">สมาชิกยังไม่ได้ทำแบบคัดกรอง</p>;
+    return <p className="text-base text-muted">สมาชิกยังไม่ได้ทำแบบคัดกรอง</p>;
   }
 
   return (
@@ -214,7 +214,7 @@ function ScreeningView({ view }: { view: MemberScreening }) {
         ) : (
           <Badge tone="success">ไม่พบข้อบ่งชี้</Badge>
         )}
-        <span className="text-xs text-muted">
+        <span className="text-base text-muted">
           ตอบเมื่อ {formatDate(screening.screened_on)} · {screening.version}
         </span>
       </div>
@@ -228,7 +228,7 @@ function ScreeningView({ view }: { view: MemberScreening }) {
           return (
             <li
               key={question.key}
-              className={`flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm ${
+              className={`flex items-start gap-2 rounded-control px-2.5 py-2 text-base ${
                 answer ? "bg-amber-500/10" : ""
               }`}
             >

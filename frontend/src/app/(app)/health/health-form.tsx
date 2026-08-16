@@ -125,7 +125,7 @@ export function HealthForm({
 
       <div className="mt-4 space-y-4">
         <div>
-          <label htmlFor="campaign" className="mb-1.5 block text-sm font-medium">
+          <label htmlFor="campaign" className="mb-2 block text-base font-semibold">
             กิจกรรม
           </label>
           <select
@@ -143,13 +143,13 @@ export function HealthForm({
         </div>
 
         <fieldset>
-          <legend className="mb-2 text-sm font-medium">ช่วงที่วัด</legend>
+          <legend className="mb-2 text-base font-semibold">ช่วงที่วัด</legend>
           <div className="grid grid-cols-2 gap-2">
             {PHASES.map((option) => (
               <label
                 key={option.value}
-                className={`cursor-pointer rounded-lg border px-3 py-2.5 text-center ${
-                  phase === option.value ? "border-brand bg-brand/10" : "border-border"
+                className={`flex min-h-14 cursor-pointer flex-col items-center justify-center rounded-control border px-3 py-2 text-center ${
+                  phase === option.value ? "border-brand bg-brand-tint" : "border-border"
                 }`}
               >
                 <input
@@ -160,15 +160,15 @@ export function HealthForm({
                   onChange={() => setPhase(option.value)}
                   className="sr-only"
                 />
-                <span className="block text-sm font-medium">{option.label}</span>
-                <span className="block text-xs text-muted">{option.hint}</span>
+                <span className="block text-base font-semibold">{option.label}</span>
+                <span className="block text-sm text-muted">{option.hint}</span>
               </label>
             ))}
           </div>
         </fieldset>
 
         <div>
-          <label htmlFor="measured-on" className="mb-1.5 block text-sm font-medium">
+          <label htmlFor="measured-on" className="mb-2 block text-base font-semibold">
             วันที่วัด
           </label>
           <input
@@ -182,7 +182,7 @@ export function HealthForm({
           {orderProblem ? (
             <p
               role="alert"
-              className="mt-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
+              className="mt-2 rounded-control border border-amber-500/50 bg-amber-500/15 px-3 py-2.5 text-sm text-amber-900 dark:text-amber-200"
             >
               {orderProblem}
             </p>
@@ -192,7 +192,7 @@ export function HealthForm({
         <div className="grid gap-3 sm:grid-cols-2">
           {VITALS.map((vital) => (
             <div key={vital.key}>
-              <label htmlFor={vital.key} className="mb-1.5 block text-sm font-medium">
+              <label htmlFor={vital.key} className="mb-2 block text-base font-semibold">
                 {vital.label}
               </label>
               <input
@@ -213,7 +213,7 @@ export function HealthForm({
             </div>
           ))}
         </div>
-        <p className="text-xs text-muted">
+        <p className="text-sm text-muted">
           กรอกเฉพาะช่องที่ต้องการได้ ช่องที่เว้นว่างจะไม่ถูกส่งและไม่ถูกเก็บ
         </p>
       </div>
@@ -233,7 +233,7 @@ export function HealthForm({
         type="button"
         onClick={() => void onSave()}
         disabled={!canSave}
-        className="mt-5 w-full rounded-lg bg-brand px-4 py-3.5 font-medium text-white active:opacity-80 disabled:opacity-40"
+        className="btn btn-primary mt-5 w-full"
       >
         {busy ? "กำลังบันทึก…" : "บันทึก"}
       </button>
@@ -241,8 +241,7 @@ export function HealthForm({
   );
 }
 
-const inputClass =
-  "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-brand";
+const inputClass = "input-field";
 
 /**
  * The same rule the backend enforces, checked here so the member is told before they

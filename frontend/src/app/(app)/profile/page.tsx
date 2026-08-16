@@ -27,13 +27,13 @@ export default async function ProfilePage() {
       <div className="space-y-4">
         <Card>
           {/* Already resolved by the backend: full_name_th when there is one. */}
-          <p className="text-lg font-medium">{summary.member.name}</p>
+          <p className="text-xl font-bold">{summary.member.name}</p>
           <p className="mt-1">
             <Badge tone={summary.member.role === "member" ? "neutral" : "brand"}>
               {ROLE_LABELS[summary.member.role]}
             </Badge>
           </p>
-          <p className="mt-3 text-sm text-muted tabular-nums">
+          <p className="mt-3 text-base text-muted tabular-nums">
             ระยะสะสมรวม {formatDecimal(summary.total_distance_km)} กม.
           </p>
         </Card>
@@ -46,8 +46,8 @@ export default async function ProfilePage() {
         <Link href="/health" className="block">
           <Card className="flex items-center justify-between gap-3">
             <div>
-              <p className="font-medium">ข้อมูลสุขภาพและแบบคัดกรอง</p>
-              <p className="mt-0.5 text-sm text-muted">
+              <p className="text-lg font-semibold">ข้อมูลสุขภาพและแบบคัดกรอง</p>
+              <p className="mt-1 text-base text-muted">
                 บันทึกค่าก่อน/หลังกิจกรรม แก้ไขแบบคัดกรอง และจัดการความยินยอม
               </p>
             </div>
@@ -58,8 +58,8 @@ export default async function ProfilePage() {
         </Link>
 
         <Card>
-          <p className="text-sm font-medium">สิทธิ์ของคุณ (PDPA)</p>
-          <p className="mt-2 text-sm text-muted">
+          <p className="text-lg font-semibold">สิทธิ์ของคุณ (PDPA)</p>
+          <p className="mt-2 text-base text-muted">
             คุณขอดู แก้ไข และถอนความยินยอมได้เองทุกเมื่อ — หากต้องการลบข้อมูลก่อนกำหนด
             หรือใช้สิทธิ์อื่นตาม PDPA กรุณาติดต่อผู้ดูแลชมรม
           </p>

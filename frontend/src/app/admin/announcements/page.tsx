@@ -22,8 +22,8 @@ export default async function AdminAnnouncementsPage() {
   return (
     <>
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">ข่าวประชาสัมพันธ์</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="text-2xl font-bold tracking-tight">ข่าวประชาสัมพันธ์</h1>
+        <p className="mt-2 text-base text-muted">
           เขียนประกาศของชมรม เผยแพร่หรือซ่อนได้ตลอด
         </p>
       </header>

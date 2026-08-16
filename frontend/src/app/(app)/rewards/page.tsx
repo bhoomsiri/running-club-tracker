@@ -53,10 +53,10 @@ export default async function RewardsPage() {
         {catalogue.map((campaign) => (
           <section key={campaign.campaign_id}>
             <Card className="mb-4 text-center">
-              <p className="text-sm text-muted">{campaign.name}</p>
-              <p className="mt-1 text-4xl font-semibold tabular-nums">
+              <p className="text-base text-muted">{campaign.name}</p>
+              <p className="stat mt-2">
                 {formatDecimal(campaign.points_balance)}
-                <span className="ml-1.5 text-base font-normal text-muted">แต้ม</span>
+                <span className="ml-2 text-xl font-semibold text-muted">แต้ม</span>
               </p>
             </Card>
 
@@ -93,13 +93,13 @@ function ComingSoon({ campaign }: { campaign: CampaignProgress }) {
             🎽
           </span>
           <div className="min-w-0">
-            <p className="font-medium">รางวัลสำหรับ{campaign.name}</p>
-            <p className="mt-1 text-sm">
+            <p className="text-lg font-semibold">รางวัลสำหรับ{campaign.name}</p>
+            <p className="mt-1 text-base">
               {PLANNED_PRIZE[campaign.code] !== undefined
                 ? `${PLANNED_PRIZE[campaign.code]} — กำลังจัดเตรียม เร็ว ๆ นี้`
                 : "ผู้ดูแลกำลังจัดเตรียมรางวัล เร็ว ๆ นี้"}
             </p>
-            <p className="mt-2 text-sm text-muted tabular-nums">
+            <p className="mt-2 text-base text-muted tabular-nums">
               ตอนนี้คุณสะสมได้ {formatDecimal(campaign.value)}
               {campaign.target !== null ? ` / ${formatDecimal(campaign.target)}` : ""}{" "}
               {unitLabel(campaign.unit)} — ระยะที่ทำไว้แล้วนับครบทุกกิโลเมตร
@@ -127,15 +127,15 @@ function RewardCard({ reward }: { reward: Reward }) {
         ) : null}
 
         <div className="min-w-0 flex-1">
-          <p className="font-medium">{reward.name}</p>
-          <p className="mt-0.5 text-sm text-muted tabular-nums">
-            ใช้ {formatDecimal(reward.points_cost)} แต้ม
+          <p className="text-lg font-semibold">{reward.name}</p>
+          <p className="mt-1 text-base tabular-nums">
+            ใช้ <span className="font-bold">{formatDecimal(reward.points_cost)}</span> แต้ม
           </p>
-          <p className="mt-1.5">
+          <p className="mt-2">
             {soldOut ? (
               <Badge>ของหมด</Badge>
             ) : (
-              <span className="text-xs text-muted tabular-nums">
+              <span className="text-sm text-muted tabular-nums">
                 เหลือ {reward.stock} ชิ้น
               </span>
             )}
