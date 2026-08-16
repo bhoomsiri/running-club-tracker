@@ -92,7 +92,7 @@ function RunCard({ entry }: { entry: RunWithEvidence }) {
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium tabular-nums">
+            <span className="text-lg font-semibold tabular-nums">
               {formatDecimal(entry.run.distance_km)} กม.
             </span>
             <span className="text-sm text-muted tabular-nums">
@@ -114,9 +114,9 @@ function RunCard({ entry }: { entry: RunWithEvidence }) {
                 type="button"
                 onClick={() => void decide(decision.value)}
                 disabled={busy !== null || status === decision.value}
-                className={`rounded-lg px-3 py-2 text-sm disabled:opacity-40 ${
+                className={`min-h-12 rounded-control px-4 text-base disabled:opacity-40 ${
                   status === decision.value
-                    ? "bg-brand font-medium text-white"
+                    ? "bg-brand font-semibold text-on-brand"
                     : "border border-border"
                 }`}
               >

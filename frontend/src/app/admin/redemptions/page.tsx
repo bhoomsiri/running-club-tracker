@@ -17,13 +17,13 @@ export default async function AdminRedemptionsPage() {
 
   return (
     <>
-      <Link href="/admin" className="text-sm text-muted underline">
+      <Link href="/admin" className="text-base text-muted underline">
         ‹ กลับไปภาพรวม
       </Link>
 
       <header className="mt-4 mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">คิวของรางวัล</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="text-2xl font-bold tracking-tight">คิวของรางวัล</h1>
+        <p className="mt-2 text-base text-muted">
           รอส่ง {rows.length} รายการ
           {blocked > 0 ? ` · ยังส่งไม่ได้ ${blocked} รายการ` : ""}
         </p>

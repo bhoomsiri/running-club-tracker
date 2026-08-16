@@ -26,7 +26,7 @@ export function BmiScale({ bmi, caption }: { bmi: string; caption?: string }) {
             <li
               key={row.id}
               aria-current={mine ? "true" : undefined}
-              className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-sm ${
+              className={`flex min-h-11 items-center gap-2.5 rounded-control border px-3 py-2 text-base ${
                 mine ? row.highlight : "border-transparent"
               }`}
             >
@@ -34,7 +34,7 @@ export function BmiScale({ bmi, caption }: { bmi: string; caption?: string }) {
               <span className="w-24 shrink-0 tabular-nums text-muted">{row.range}</span>
               <span className={mine ? "font-semibold" : "text-muted"}>{row.label}</span>
               {mine ? (
-                <span className="ml-auto text-xs font-medium">← คุณอยู่ตรงนี้</span>
+                <span className="ml-auto text-sm font-semibold">← คุณอยู่ตรงนี้</span>
               ) : null}
             </li>
           );
@@ -48,7 +48,7 @@ export function BmiScale({ bmi, caption }: { bmi: string; caption?: string }) {
         </p>
       ) : null}
 
-      <p className="mt-2 text-xs text-muted">
+      <p className="mt-2 text-sm text-muted">
         ใช้เกณฑ์สำหรับชาวเอเชีย ซึ่งกำหนดจุดตัดต่ำกว่าเกณฑ์สากล (23 แทน 25)
       </p>
     </div>

@@ -57,9 +57,9 @@ export default async function AdminRewardsPage({
             <Link
               key={row.id}
               href={`/admin/rewards?campaign=${row.id}`}
-              className={`rounded-full px-3 py-1.5 text-sm ${
+              className={`min-h-12 rounded-full px-4 text-base ${
                 row.id === campaign.id
-                  ? "bg-brand font-medium text-white"
+                  ? "bg-brand font-semibold text-on-brand"
                   : "border border-border text-muted"
               }`}
             >
@@ -77,12 +77,12 @@ export default async function AdminRewardsPage({
 function Header() {
   return (
     <>
-      <Link href="/admin" className="text-sm text-muted underline">
+      <Link href="/admin" className="text-base text-muted underline">
         ‹ กลับไปภาพรวม
       </Link>
       <header className="mt-4 mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">จัดการของรางวัล</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="text-2xl font-bold tracking-tight">จัดการของรางวัล</h1>
+        <p className="mt-2 text-base text-muted">
           เพิ่ม แก้ไข หรือเลิกแจก — ของรางวัลจะไม่ถูกลบ เพราะรายการที่สมาชิกเคยแลกไปแล้วต้องยังอ้างถึงได้
         </p>
       </header>

@@ -82,13 +82,13 @@ function RunCard({ entry }: { entry: RunWithEvidence }) {
             </Badge>
           </div>
 
-          <p className="mt-0.5 text-sm text-muted tabular-nums">
+          <p className="mt-1 text-base text-muted tabular-nums">
             {formatDate(entry.run.run_date)} · {minutes}:{seconds} นาที ·{" "}
             {entry.run.source === "app_screenshot" ? "แคปจากแอป" : "ถ่ายเอง"}
           </p>
 
           <p
-            className={`mt-2 text-xs ${
+            className={`mt-2 text-sm ${
               rejected
                 ? "text-red-700 dark:text-red-300"
                 : entry.run.review_status === "flagged"

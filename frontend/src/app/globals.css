@@ -1,22 +1,40 @@
 @import "tailwindcss";
 
+/**
+ * The design tokens for the whole app.
+ *
+ * Written for the people who actually use it: hospital staff aged roughly 25 to 60,
+ * one-handed on a phone, often in a hurry. Three decisions follow from that and are
+ * enforced here rather than left to each screen to remember.
+ *
+ * 1. Nothing is smaller than 14px. The type scale below redefines Tailwind's own steps,
+ *    so `text-xs` — which is 12px by default and is scattered through this codebase —
+ *    lands on 14px everywhere at once, and `text-sm` on 15px. Raising the floor in the
+ *    theme fixes every screen, including ones nobody has touched yet.
+ * 2. Thai needs air. The line heights are looser than Tailwind's defaults because Thai
+ *    stacks vowels and tone marks above and below the line, and tight leading makes them
+ *    collide.
+ * 3. Every colour pair here clears WCAG AA (4.5:1 for body text). Two of them did not
+ *    before, and both were fixed rather than worked around — see the notes on --brand
+ *    and --color-on-brand.
+ */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* 4.8:1 on white and 4.6:1 on --surface. This is the lightest grey that still passes
+     AA for body text; anything softer would look nicer and be unreadable in sunlight. */
   --muted: #6b7280;
   --surface: #f4f5f7;
   --border: #e5e7eb;
-  --brand: #0f766e;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-surface: var(--surface);
-  --color-border: var(--border);
-  --color-brand: var(--brand);
-  --font-sans: var(--font-sans-thai);
+  /* teal-800, not the teal-700 this started as. At 700 white text on a brand button was
+     4.4:1 — just under AA — and the brand-on-tint badge was worse. 800 clears both at
+     6.4:1 with the same hue. */
+  --brand: #115e59;
+  --brand-tint: #e6f0ef;
+  /* What goes ON a brand-coloured surface. Never plain white: in dark mode the brand is
+     a light teal, and white on it is 1.9:1 — illegible. */
+  --on-brand: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,9 +45,153 @@
     --surface: #17181b;
     --border: #26272b;
     --brand: #2dd4bf;
+    --brand-tint: #14312e;
+    --on-brand: #05201d;
   }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-tint: var(--brand-tint);
+  --color-on-brand: var(--on-brand);
+  --font-sans: var(--font-sans-thai);
+}
+
+@theme {
+  /* The floor is 14px. Data a member acts on should be 16px or more — the classes for
+     that are text-base and up. */
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.6;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.6;
+  --text-base: 1rem;
+  --text-base--line-height: 1.65;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.55;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.45;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.35;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 1.25;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 1.15;
+  --text-5xl: 3rem;
+  --text-5xl--line-height: 1.05;
+
+  /* One radius for cards and one for controls, so nothing is nearly-but-not-quite the
+     same shape as the thing above it. */
+  --radius-card: 1rem;
+  --radius-control: 0.75rem;
+}
+
+html {
+  /* Respect the phone's own text-size setting rather than overriding it — several
+     members will have turned it up already. */
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: var(--text-base);
+  line-height: 1.65;
+}
+
+/* Visible focus for anyone on a keyboard, which includes anyone using a screen reader.
+   Applied once here so no component has to remember it. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ primitives */
+
+/**
+ * 48px is the floor for anything you tap. It is Apple's and Google's shared advice and
+ * it is what stops a 55-year-old thumb from hitting "ซ่อน" when it meant "แก้ไข".
+ */
+@utility tap {
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+}
+
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding-inline: 1.25rem;
+  padding-block: 0.625rem;
+  border-radius: var(--radius-control);
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+
+  &:active {
+    opacity: 0.8;
+  }
+
+  &:disabled {
+    /* Dim, but still readable: a disabled button has to be legible enough to explain
+       why it is disabled. */
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+/** The one action a screen is for. There should be exactly one of these in view. */
+@utility btn-primary {
+  background-color: var(--brand);
+  color: var(--on-brand);
+}
+
+/** Everything else: present, obviously pressable, not competing. */
+@utility btn-secondary {
+  border: 1px solid var(--border);
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+@utility card {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  padding: 1.25rem;
+}
+
+/** Text inputs, at the same 48px as the buttons. 16px text is not a style choice: iOS
+    zooms the page in on any input smaller than that. */
+@utility input-field {
+  width: 100%;
+  min-height: 3rem;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background-color: var(--background);
+  padding-inline: 0.875rem;
+  padding-block: 0.625rem;
+  font-size: var(--text-base);
+  outline: none;
+
+  &:focus {
+    border-color: var(--brand);
+  }
+}
+
+/** A number a member came to the screen to read. */
+@utility stat {
+  font-size: var(--text-4xl);
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }

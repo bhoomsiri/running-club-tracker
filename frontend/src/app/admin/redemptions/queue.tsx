@@ -79,14 +79,14 @@ function QueueRow({ row }: { row: PendingRedemption }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{row.reward_name}</span>
+            <span className="text-lg font-semibold">{row.reward_name}</span>
             {blocked ? <Badge>ยังส่งไม่ได้</Badge> : <Badge tone="success">พร้อมส่ง</Badge>}
           </div>
           <p className="mt-0.5 text-sm text-muted tabular-nums">
             {row.member_name} · ใช้ {formatDecimal(row.redemption.points_spent)} แต้ม ·
             แลกเมื่อ {formatDate(row.redemption.created_at)}
           </p>
-          <p className="mt-0.5 text-xs text-muted tabular-nums">
+          <p className="mt-2 text-base text-muted tabular-nums">
             แต้มคงเหลือตอนนี้ {formatDecimal(row.balance)}
           </p>
         </div>
@@ -96,7 +96,7 @@ function QueueRow({ row }: { row: PendingRedemption }) {
             type="button"
             onClick={() => void act("fulfill")}
             disabled={blocked || busy !== null}
-            className="rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white active:opacity-80 disabled:opacity-40"
+            className="btn btn-primary"
           >
             {busy === "fulfill" ? "กำลังบันทึก…" : "ส่งของแล้ว"}
           </button>
@@ -104,7 +104,7 @@ function QueueRow({ row }: { row: PendingRedemption }) {
             type="button"
             onClick={() => void act("cancel")}
             disabled={busy !== null}
-            className="rounded-lg border border-border px-3 py-2 text-sm disabled:opacity-40"
+            className="btn btn-secondary"
           >
             {busy === "cancel" ? "กำลังยกเลิก…" : "ยกเลิก คืนแต้ม"}
           </button>
@@ -118,7 +118,7 @@ function QueueRow({ row }: { row: PendingRedemption }) {
       ) : null}
 
       {error ? (
-        <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-3 text-base font-medium text-red-700 dark:text-red-400">
           {error}
         </p>
       ) : null}

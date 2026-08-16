@@ -61,7 +61,7 @@ export function EditScreening({ screening }: { screening: Screening | null }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm"
+          className="btn btn-secondary shrink-0"
         >
           {screening ? "แก้ไข" : "เริ่มทำ"}
         </button>

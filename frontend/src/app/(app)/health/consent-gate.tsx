@@ -51,7 +51,7 @@ export function ConsentGate({ consent }: { consent: Consent | null }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-sm font-medium">คุณให้ความยินยอมแล้ว</p>
-            <p className="mt-0.5 text-xs text-muted">
+            <p className="mt-1 text-sm text-muted">
               เมื่อ {formatDate(consent.granted_at)} · ฉบับ {consent.version}
             </p>
           </div>
@@ -59,12 +59,12 @@ export function ConsentGate({ consent }: { consent: Consent | null }) {
             type="button"
             onClick={() => void act("DELETE")}
             disabled={busy}
-            className="rounded-lg border border-border px-3 py-2 text-sm disabled:opacity-50"
+            className="btn btn-secondary"
           >
             {busy ? "กำลังดำเนินการ…" : "ถอนความยินยอม"}
           </button>
         </div>
-        <p className="mt-3 text-xs text-muted">{CONSENT_WITHDRAW_NOTE}</p>
+        <p className="mt-3 text-sm text-muted">{CONSENT_WITHDRAW_NOTE}</p>
         {error ? <ErrorText>{error}</ErrorText> : null}
       </Card>
     );
@@ -95,11 +95,11 @@ export function ConsentGate({ consent }: { consent: Consent | null }) {
         type="button"
         onClick={() => void act("POST")}
         disabled={busy}
-        className="mt-5 w-full rounded-lg bg-brand px-4 py-3 font-medium text-white active:opacity-80 disabled:opacity-50"
+        className="btn btn-primary mt-5 w-full"
       >
         {busy ? "กำลังบันทึก…" : "ยินยอม"}
       </button>
-      <p className="mt-2 text-center text-xs text-muted">
+      <p className="mt-3 text-center text-sm text-muted">
         ไม่ยินยอมก็ใช้งานส่วนอื่นของแอปได้ตามปกติ
       </p>
       {error ? <ErrorText>{error}</ErrorText> : null}
@@ -109,7 +109,7 @@ export function ConsentGate({ consent }: { consent: Consent | null }) {
 
 function ErrorText({ children }: { children: React.ReactNode }) {
   return (
-    <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">
+    <p role="alert" className="mt-3 text-base font-medium text-red-700 dark:text-red-400">
       {children}
     </p>
   );

@@ -37,13 +37,13 @@ export default async function AdminMemberPage({
 
   return (
     <>
-      <Link href="/admin" className="text-sm text-muted underline">
+      <Link href="/admin" className="text-base text-muted underline">
         ‹ กลับไปภาพรวม
       </Link>
 
       <header className="mt-4 mb-6">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             {progress.member.name}
           </h1>
           {progress.member.role !== "member" ? (
@@ -56,24 +56,24 @@ export default async function AdminMemberPage({
           ) : null}
         </div>
         {progress.member.department ? (
-          <p className="mt-1 text-sm">
+          <p className="mt-2 text-base">
             {progress.member.position ? `${progress.member.position} · ` : ""}
             {progress.member.department}
           </p>
         ) : null}
-        <p className="mt-1 text-sm text-muted tabular-nums">
+        <p className="mt-2 text-base text-muted tabular-nums">
           ระยะสะสม {formatDecimal(progress.total_distance_km)} กม. · ส่งแล้ว{" "}
           {progress.run_count} ครั้ง
         </p>
       </header>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold text-muted">ความคืบหน้ากิจกรรม</h2>
+        <h2 className="mb-3 text-lg font-semibold">ความคืบหน้ากิจกรรม</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {progress.campaigns.map((campaign) => (
             <Card key={campaign.campaign_id}>
               <div className="flex items-start justify-between gap-2">
-                <p className="font-medium">{campaign.name}</p>
+                <p className="text-lg font-semibold">{campaign.name}</p>
                 {campaign.completed ? <Badge tone="success">สำเร็จแล้ว</Badge> : null}
               </div>
               <p className="mt-2 tabular-nums">
@@ -106,14 +106,14 @@ export default async function AdminMemberPage({
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold text-muted">
+        <h2 className="mb-3 text-lg font-semibold">
           ผลวิ่งและการตรวจสอบ ({runs.length})
         </h2>
         <RunReviewList runs={runs} />
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-muted">ข้อมูลอ่อนไหว</h2>
+        <h2 className="mb-3 text-lg font-semibold">ข้อมูลอ่อนไหว</h2>
         <SensitivePanel memberId={id} />
       </section>
     </>

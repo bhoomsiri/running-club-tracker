@@ -132,7 +132,7 @@ export function ProfileForm({
       </Field>
 
       <fieldset>
-        <legend className="mb-2 text-sm font-medium">เพศ</legend>
+        <legend className="mb-2 text-base font-semibold">เพศ</legend>
         <div className="grid grid-cols-2 gap-2">
           {(
             [
@@ -142,8 +142,10 @@ export function ProfileForm({
           ).map((option) => (
             <label
               key={option.value}
-              className={`cursor-pointer rounded-lg border px-3 py-2.5 text-center text-sm ${
-                sex === option.value ? "border-brand bg-brand/10 font-medium" : "border-border"
+              className={`flex min-h-12 cursor-pointer items-center justify-center rounded-control border px-3 text-center text-base ${
+                sex === option.value
+                  ? "border-brand bg-brand-tint font-semibold"
+                  : "border-border"
               }`}
             >
               <input
@@ -158,7 +160,7 @@ export function ProfileForm({
             </label>
           ))}
         </div>
-        <p className="mt-1.5 text-xs text-muted">
+        <p className="mt-2 text-sm text-muted">
           ใช้ประกอบการประเมินความเสี่ยงในการออกกำลังกายเท่านั้น
         </p>
       </fieldset>
@@ -185,7 +187,7 @@ export function ProfileForm({
           autoComplete="organization"
           className={inputClass}
         />
-        <p className="mt-1.5 text-xs text-muted">
+        <p className="mt-2 text-sm text-muted">
           ใช้จัดกลุ่มผู้เข้าร่วมและสรุปผลกลับไปยังหน่วยงาน
         </p>
       </Field>
@@ -204,9 +206,9 @@ export function ProfileForm({
         {phone !== "" && !phoneOk ? <FieldError>{PHONE_HINT}</FieldError> : null}
       </Field>
 
-      <div className="rounded-xl border border-border p-3">
+      <div className="rounded-card border border-border p-4">
         <p className="text-sm font-medium">ผู้ติดต่อกรณีฉุกเฉิน</p>
-        <p className="mt-0.5 mb-3 text-xs text-muted">
+        <p className="mt-1 mb-4 text-sm text-muted">
           คนที่ชมรมจะติดต่อได้ทันทีหากเกิดเหตุระหว่างกิจกรรม
         </p>
 
@@ -240,7 +242,7 @@ export function ProfileForm({
       </div>
 
       {error ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-base font-medium text-red-700 dark:text-red-400">
           {error}
         </p>
       ) : null}
@@ -249,7 +251,7 @@ export function ProfileForm({
         type="button"
         onClick={() => void onSubmit()}
         disabled={!canSave}
-        className="w-full rounded-lg bg-brand px-4 py-3.5 font-medium text-white active:opacity-80 disabled:opacity-40"
+        className="btn btn-primary w-full"
       >
         {busy ? "กำลังบันทึก…" : submitLabel}
       </button>
@@ -259,8 +261,7 @@ export function ProfileForm({
 
 const PHONE_HINT = "ใส่เบอร์ในประเทศไทย ขึ้นต้นด้วย 0 เช่น 0812345678";
 
-const inputClass =
-  "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-brand";
+const inputClass = "input-field";
 
 function Field({
   label,
@@ -273,7 +274,7 @@ function Field({
 }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-medium">
+      <label htmlFor={htmlFor} className="mb-2 block text-base font-semibold">
         {label}
       </label>
       {children}
@@ -282,5 +283,5 @@ function Field({
 }
 
 function FieldError({ children }: { children: React.ReactNode }) {
-  return <p className="mt-1 text-xs text-red-600 dark:text-red-400">{children}</p>;
+  return <p className="mt-2 text-sm font-medium text-red-700 dark:text-red-400">{children}</p>;
 }

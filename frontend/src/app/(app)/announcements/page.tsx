@@ -26,11 +26,11 @@ export default async function AnnouncementsPage() {
           {news.map((notice) => (
             <li key={notice.id}>
               <Card>
-                <p className="text-xs text-muted tabular-nums">
+                <p className="text-sm text-muted tabular-nums">
                   {formatDate(notice.created_at)}
                 </p>
-                <h2 className="mt-1 font-medium">{notice.title}</h2>
-                <AnnouncementBody body={notice.body} className="mt-2 text-sm" />
+                <h2 className="mt-1 text-lg font-semibold">{notice.title}</h2>
+                <AnnouncementBody body={notice.body} className="mt-2 text-base" />
               </Card>
             </li>
           ))}

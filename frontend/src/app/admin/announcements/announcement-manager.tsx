@@ -29,11 +29,11 @@ export function AnnouncementManager({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted">ทั้งหมด {announcements.length} รายการ</p>
+        <p className="text-base text-muted">ทั้งหมด {announcements.length} รายการ</p>
         <button
           type="button"
           onClick={() => setWriting((open) => !open)}
-          className="rounded-lg border border-border px-3 py-2 text-sm"
+          className="btn btn-secondary"
         >
           {writing ? "ยกเลิก" : "+ เขียนประกาศใหม่"}
         </button>
@@ -41,7 +41,7 @@ export function AnnouncementManager({
 
       {writing ? (
         <Card>
-          <p className="mb-3 font-medium">ประกาศใหม่</p>
+          <p className="mb-3 text-lg font-semibold">ประกาศใหม่</p>
           <AnnouncementForm onDone={() => setWriting(false)} />
         </Card>
       ) : null}
@@ -70,11 +70,11 @@ function AnnouncementRow({ announcement }: { announcement: AdminAnnouncement }) 
     return (
       <Card>
         <div className="mb-3 flex items-center justify-between gap-3">
-          <p className="min-w-0 truncate font-medium">แก้ไข {announcement.title}</p>
+          <p className="min-w-0 truncate text-lg font-semibold">แก้ไข {announcement.title}</p>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="shrink-0 text-sm text-muted underline"
+            className="tap shrink-0 text-base text-muted underline"
           >
             ยกเลิก
           </button>
@@ -92,14 +92,14 @@ function AnnouncementRow({ announcement }: { announcement: AdminAnnouncement }) 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{announcement.title}</span>
+            <span className="text-lg font-semibold">{announcement.title}</span>
             {announcement.is_published ? (
               <Badge tone="success">เผยแพร่อยู่</Badge>
             ) : (
               <Badge>ร่าง / ซ่อนอยู่</Badge>
             )}
           </div>
-          <p className="mt-0.5 text-xs text-muted tabular-nums">
+          <p className="mt-2 text-base text-muted tabular-nums">
             {formatDate(announcement.created_at)}
           </p>
           <AnnouncementBody
@@ -113,7 +113,7 @@ function AnnouncementRow({ announcement }: { announcement: AdminAnnouncement }) 
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="rounded-lg border border-border px-3 py-2 text-sm"
+            className="btn btn-secondary"
           >
             แก้ไข
           </button>
@@ -152,12 +152,12 @@ function PublishToggle({ announcement }: { announcement: AdminAnnouncement }) {
         type="button"
         onClick={() => void toggle()}
         disabled={busy}
-        className="rounded-lg border border-border px-3 py-2 text-sm disabled:opacity-50"
+        className="btn btn-secondary"
       >
         {busy ? "…" : announcement.is_published ? "ซ่อน" : "เผยแพร่"}
       </button>
       {error ? (
-        <p role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-2 text-sm font-medium text-red-700 dark:text-red-400">
           {error}
         </p>
       ) : null}
@@ -216,13 +216,13 @@ function AnnouncementForm({
 
   return (
     <div className="space-y-3">
-      <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-200">
+      <p className="rounded-control border border-amber-500/50 bg-amber-500/15 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
         ข้อความนี้แสดงบนหน้าแรกของเว็บ ซึ่งเปิดให้ทุกคนอ่านได้โดยไม่ต้องเข้าสู่ระบบ —
         อย่าใส่ชื่อ เบอร์โทร หรือข้อมูลสุขภาพของสมาชิก
       </p>
 
       <div>
-        <label htmlFor={`title-${id}`} className="mb-1 block text-sm font-medium">
+        <label htmlFor={`title-${id}`} className="mb-2 block text-base font-semibold">
           หัวข้อ
         </label>
         <input
@@ -237,7 +237,7 @@ function AnnouncementForm({
       </div>
 
       <div>
-        <label htmlFor={`body-${id}`} className="mb-1 block text-sm font-medium">
+        <label htmlFor={`body-${id}`} className="mb-2 block text-base font-semibold">
           เนื้อหา
         </label>
         <textarea
@@ -249,7 +249,7 @@ function AnnouncementForm({
           maxLength={20000}
           className={`${inputClass} resize-y`}
         />
-        <p className="mt-1 text-xs text-muted">ขึ้นบรรทัดใหม่ได้ ระบบจะแสดงตามที่พิมพ์</p>
+        <p className="mt-2 text-sm text-muted">ขึ้นบรรทัดใหม่ได้ ระบบจะแสดงตามที่พิมพ์</p>
       </div>
 
       <label className="flex items-start gap-2.5 rounded-lg border border-border p-3 text-sm">
@@ -261,14 +261,14 @@ function AnnouncementForm({
         />
         <span>
           เผยแพร่
-          <span className="mt-0.5 block text-xs text-muted">
+          <span className="mt-1 block text-sm text-muted">
             ไม่ติ๊ก = เก็บเป็นร่าง เห็นเฉพาะหน้านี้ ยังไม่มีใครเห็น
           </span>
         </span>
       </label>
 
       {error ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-base font-medium text-red-700 dark:text-red-400">
           {error}
         </p>
       ) : null}
@@ -277,7 +277,7 @@ function AnnouncementForm({
         type="button"
         onClick={() => void save()}
         disabled={!canSave}
-        className="w-full rounded-lg bg-brand px-4 py-3 font-medium text-white active:opacity-80 disabled:opacity-40 sm:w-auto sm:px-6"
+        className="btn btn-primary w-full sm:w-auto"
       >
         {busy ? "กำลังบันทึก…" : announcement ? "บันทึก" : "สร้างประกาศ"}
       </button>
@@ -285,5 +285,4 @@ function AnnouncementForm({
   );
 }
 
-const inputClass =
-  "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-brand";
+const inputClass = "input-field";

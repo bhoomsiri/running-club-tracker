@@ -27,15 +27,15 @@ export default async function AdminPage() {
   return (
     <>
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">ภาพรวมสมาชิก</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="text-2xl font-bold tracking-tight">ภาพรวมสมาชิก</h1>
+        <p className="mt-2 text-base text-muted">
           สมาชิก {overview.members.length} คน · กิจกรรมที่เปิดอยู่ {overview.campaigns.length} รายการ
         </p>
       </header>
 
       <OverviewTable overview={overview} />
 
-      <p className="mt-6 text-xs text-muted">
+      <p className="mt-6 text-sm text-muted">
         หน้านี้ไม่แสดงข้อมูลสุขภาพ แบบคัดกรอง หรือข้อมูลติดต่อ —
         ข้อมูลเหล่านั้นเปิดดูได้ทีละคนผ่านหน้าที่บันทึกการเข้าถึงไว้
       </p>

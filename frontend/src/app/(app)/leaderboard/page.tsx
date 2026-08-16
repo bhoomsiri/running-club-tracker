@@ -28,14 +28,14 @@ export default async function LeaderboardPage() {
       />
 
       <Card className="mb-5 text-center">
-        <p className="text-sm text-muted">อันดับของคุณ</p>
-        <p className="mt-1 text-4xl font-semibold tabular-nums">
+        <p className="text-base text-muted">อันดับของคุณ</p>
+        <p className="stat mt-2">
           #{board.me.rank}
-          <span className="ml-1.5 text-base font-normal text-muted">
+          <span className="ml-2 text-xl font-semibold text-muted">
             จาก {board.total_members} คน
           </span>
         </p>
-        <p className="mt-2 text-sm text-muted tabular-nums">
+        <p className="mt-3 text-base text-muted tabular-nums">
           สะสมแล้ว {formatDecimal(board.me.total_distance_km)} กม. ·{" "}
           {board.me.run_count} ครั้ง
         </p>
@@ -51,7 +51,7 @@ export default async function LeaderboardPage() {
       ) : (
         <>
           {board.points_campaign_name !== null ? (
-            <p className="mb-2 text-xs text-muted">
+            <p className="mb-2 text-sm text-muted">
               คอลัมน์แต้มมาจากกิจกรรม {board.points_campaign_name}
             </p>
           ) : null}
@@ -69,7 +69,7 @@ export default async function LeaderboardPage() {
         </>
       )}
 
-      <p className="mt-6 text-center text-xs text-muted">
+      <p className="mt-6 text-center text-sm text-muted">
         นับเฉพาะผลวิ่งที่ผ่านการตรวจสอบ — รายการที่ไม่ผ่านจะไม่ถูกนับ
       </p>
     </>

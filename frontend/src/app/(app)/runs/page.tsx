@@ -41,7 +41,7 @@ export default async function MyRunsPage() {
         </EmptyState>
       ) : (
         <>
-          <p className="mb-4 text-sm text-muted tabular-nums">
+          <p className="mb-4 text-base text-muted tabular-nums">
             ส่งแล้ว {runs.length} ครั้ง · นับ {counted.length} ครั้ง
             {rejected > 0 ? ` · ไม่ผ่าน ${rejected} ครั้ง` : ""} ·{" "}
             <Link href="/dashboard" className="underline">
@@ -50,7 +50,7 @@ export default async function MyRunsPage() {
           </p>
 
           {rejected > 0 ? (
-            <p className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-200">
+            <p className="mb-4 rounded-card border border-amber-500/50 bg-amber-500/15 px-4 py-3.5 text-base text-amber-900 dark:text-amber-200">
               มีผลวิ่งที่ไม่ผ่านการตรวจสอบ {rejected} ครั้ง — ระยะและแต้มจากรายการเหล่านั้นถูกหักออกแล้ว
               จึงเป็นเหตุผลที่ตัวเลขในแดชบอร์ดอาจน้อยกว่าที่คุณคิด
             </p>

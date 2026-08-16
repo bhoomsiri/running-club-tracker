@@ -21,14 +21,14 @@ export function EditProfile({ profile }: { profile: MemberProfile }) {
       <Card>
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium">ข้อมูลติดต่อและผู้ติดต่อฉุกเฉิน</p>
+            <p className="text-lg font-semibold">ข้อมูลติดต่อและผู้ติดต่อฉุกเฉิน</p>
             {profile.department ? (
-              <p className="mt-0.5 truncate text-sm">
+              <p className="mt-1 truncate text-base">
                 {profile.position ? `${profile.position} · ` : ""}
                 {profile.department}
               </p>
             ) : null}
-            <p className="mt-0.5 text-sm text-muted">
+            <p className="mt-1 text-base text-muted">
               {profile.phone ? `โทร ${profile.phone}` : "ยังไม่ได้กรอกเบอร์โทร"}
               {profile.emergency_contact_name
                 ? ` · ฉุกเฉิน: ${profile.emergency_contact_name}`
@@ -41,13 +41,13 @@ export function EditProfile({ profile }: { profile: MemberProfile }) {
               setOpen(true);
               setSaved(false);
             }}
-            className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm"
+            className="btn btn-secondary shrink-0"
           >
             แก้ไข
           </button>
         </div>
         {saved ? (
-          <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">
+          <p className="mt-3 text-base font-medium text-emerald-800 dark:text-emerald-300">
             บันทึกเรียบร้อยแล้ว
           </p>
         ) : null}
@@ -58,11 +58,11 @@ export function EditProfile({ profile }: { profile: MemberProfile }) {
   return (
     <Card>
       <div className="mb-4 flex items-center justify-between">
-        <p className="font-medium">แก้ไขข้อมูล</p>
+        <p className="text-lg font-semibold">แก้ไขข้อมูล</p>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="text-sm text-muted underline"
+          className="tap text-base text-muted underline"
         >
           ยกเลิก
         </button>
