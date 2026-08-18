@@ -110,15 +110,21 @@ class TestViewMemberScreening:
         assert detail == {"has_screening": True, "yes_count": 1}
         assert "heart_condition" not in str(detail)
 
-    def test_an_admin_may_not(self) -> None:
-        """Health data an admin may read with a trail. Cardiac and medication history is
-        the superuser's alone."""
+    def test_an_admin_may_read_it_and_is_named_in_the_audit_row(self) -> None:
+        """Admins read screening on the same terms as health data: allowed, and recorded
+        under their own name. The trail is the price of the access, not a formality —
+        three people can open this now, and the log has to say which one did."""
         admin, subject = member(MemberRole.ADMIN), member()
+        uow = uow_with(admin, subject, screenings=[screening_for(subject.id)])
 
-        with pytest.raises(NotAuthorized):
-            ViewMemberScreening(uow_with(admin, subject)).execute(
-                ViewMemberScreeningCommand(actor_id=admin.id, subject_id=subject.id)
-            )
+        view = ViewMemberScreening(uow).execute(
+            ViewMemberScreeningCommand(actor_id=admin.id, subject_id=subject.id)
+        )
+
+        assert view.screening is not None
+        entries = uow.audit.committed_entries()
+        assert len(entries) == 1
+        assert entries[0].actor_member_id == admin.id
 
     def test_an_ordinary_member_may_not(self) -> None:
         alice, subject = member(), member()
@@ -210,13 +216,16 @@ class TestViewMemberContact:
         assert "0812345678" not in detail
         assert "สมหญิง" not in detail
 
-    def test_an_admin_may_not(self) -> None:
+    def test_an_admin_may_read_it_and_is_named_in_the_audit_row(self) -> None:
         admin, subject = member(MemberRole.ADMIN), member(with_profile=True)
+        uow = uow_with(admin, subject)
 
-        with pytest.raises(NotAuthorized):
-            ViewMemberContact(uow_with(admin, subject)).execute(
-                ViewMemberContactCommand(actor_id=admin.id, subject_id=subject.id)
-            )
+        seen = ViewMemberContact(uow).execute(
+            ViewMemberContactCommand(actor_id=admin.id, subject_id=subject.id)
+        )
+
+        assert seen.profile.emergency_contact_phone == "0898765432"
+        assert uow.audit.committed_entries()[0].actor_member_id == admin.id
 
     def test_a_refused_read_writes_no_audit_row(self) -> None:
         alice, subject = member(), member(with_profile=True)

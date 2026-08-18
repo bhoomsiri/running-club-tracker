@@ -1,4 +1,4 @@
-"""Every member's progress on one screen, for the superuser.
+"""Every member's progress on one screen, for the club's staff.
 
 What this deliberately does NOT return: health measurements, screening answers, sex,
 phone numbers, the emergency contact. Those are sensitive personal data, and reading
@@ -6,8 +6,10 @@ them is an audited act — a table that loads them for a hundred members at once
 write a hundred audit rows for a glance, or worse, none at all. They belong to a
 drill-down that records who looked at whose, one member at a time.
 
-Superuser only, not admin. An admin may read health data with an audit trail; a list of
-everyone's standing is a different thing, and the club has one person running it.
+Admins as well as the superuser: this is the screen the club's helpers work from, and
+none of it is sensitive — distance, points and run counts are the club's own activity
+records. Everything sensitive stays behind the audited drill-downs, which is what makes
+opening this list up safe to do.
 
 Everything here is derived the same way the member's own screen derives it — the same
 policy, the same rejected-run filter, the same ledger balance — so the two cannot
@@ -27,7 +29,7 @@ from app.application.ports.run_repository import RunRepository
 from app.application.services.points_reconciliation import valid_runs_of
 from app.domain.campaign import Campaign, CampaignProgress
 from app.domain.campaigns import policy_for
-from app.domain.entities import Member, MemberRole, ReviewStatus, RunEntry
+from app.domain.entities import Member, ReviewStatus, RunEntry
 from app.domain.errors import MemberNotFound, NotAuthorized
 
 KM = Decimal("0.001")
@@ -74,8 +76,8 @@ class GetClubOverview:
             raise MemberNotFound(str(actor_id))
         # Checked here as well as at the router: the router gate is convenience, this is
         # the control.
-        if actor.role is not MemberRole.SUPERUSER:
-            raise NotAuthorized("superuser only")
+        if not actor.role.may_view_others_health:
+            raise NotAuthorized("admin only")
 
         campaigns = self._campaigns.list_active()
         # Three queries for the whole club rather than three per member: one for the

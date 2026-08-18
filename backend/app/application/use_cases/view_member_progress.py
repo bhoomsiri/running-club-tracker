@@ -1,4 +1,4 @@
-"""The superuser looking at ONE member's progress.
+"""An admin looking at ONE member's progress.
 
 Not audited, and deliberately so: distance, points and redemptions are the club's own
 activity records, not sensitive personal data, and auditing every glance at a
@@ -25,7 +25,7 @@ from app.application.ports.run_repository import RunRepository
 from app.application.services.points_reconciliation import valid_runs_of
 from app.domain.campaign import Campaign, CampaignProgress
 from app.domain.campaigns import policy_for
-from app.domain.entities import Member, MemberRole, ReviewStatus
+from app.domain.entities import Member, ReviewStatus
 from app.domain.errors import MemberNotFound, NotAuthorized
 from app.domain.redemption import Redemption
 
@@ -68,8 +68,8 @@ class ViewMemberProgress:
         actor = self._members.get(actor_id)
         if actor is None:
             raise MemberNotFound(str(actor_id))
-        if actor.role is not MemberRole.SUPERUSER:
-            raise NotAuthorized("superuser only")
+        if not actor.role.may_view_others_health:
+            raise NotAuthorized("admin only")
 
         subject = self._members.get(subject_id)
         if subject is None:

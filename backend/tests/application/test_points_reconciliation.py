@@ -206,15 +206,27 @@ class TestRejectionReconciles:
         assert entry.subject_member_id == ALICE
         assert entry.detail == {"run_id": str(run.id), "decision": "rejected"}
 
-    def test_an_admin_cannot_review_only_the_superuser_can(self) -> None:
-        """Mutations are superuser-only; an admin may look but not decide."""
+    def test_an_admin_can_review(self) -> None:
+        """Deciding runs is the work the club has helpers for. The points move exactly as
+        they do for the superuser — same reconciliation, same route."""
         harness = Harness()
         run = harness.submit("11", date(2026, 8, 20))
 
-        with pytest.raises(NotAuthorized):
-            harness.review(run.id, ReviewStatus.REJECTED, actor_id=ADMIN)
+        harness.review(run.id, ReviewStatus.REJECTED, actor_id=ADMIN)
 
-        assert harness.points() == Decimal("1.00")
+        assert harness.points() == Decimal("0.00")
+
+    def test_an_admins_decision_is_audited_under_their_own_name(self) -> None:
+        """Three people can decide runs now, so "who rejected this?" has to have an
+        answer that is not just "an admin"."""
+        harness = Harness()
+        run = harness.submit("11", date(2026, 8, 20))
+
+        harness.review(run.id, ReviewStatus.REJECTED, actor_id=ADMIN)
+
+        entry = harness.audit.committed_entries()[-1]
+        assert entry.action is AuditAction.REVIEW_RUN
+        assert entry.actor_member_id == ADMIN
 
     def test_an_ordinary_member_cannot_review(self) -> None:
         harness = Harness()

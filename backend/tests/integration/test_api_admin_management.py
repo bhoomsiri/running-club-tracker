@@ -136,12 +136,15 @@ class TestOnlyTheSuperuserMayMutate:
 
         assert response.status_code == 403
 
-    @pytest.mark.parametrize("who", ["user_alice", "user_admin"])
-    def test_reviewing_a_run_is_403(
-        self, client: TestClient, club: dict[str, UUID], who: str
+    def test_reviewing_a_run_is_403_for_an_ordinary_member(
+        self, client: TestClient, club: dict[str, UUID]
     ) -> None:
+        """Admins are not in this list any more — deciding runs is the work the club has
+        helpers for, and test_api_admin_roles.py proves they can."""
         response = client.post(
-            f"/admin/runs/{club['run']}/review", headers=auth(who), json={"decision": "rejected"}
+            f"/admin/runs/{club['run']}/review",
+            headers=auth("user_alice"),
+            json={"decision": "rejected"},
         )
 
         assert response.status_code == 403
@@ -157,7 +160,9 @@ class TestOnlyTheSuperuserMayMutate:
         assert response.status_code == 403
 
     def test_an_admin_may_still_look(self, client: TestClient, club: dict[str, UUID]) -> None:
-        """Admin = view. The split is deliberate, not an oversight."""
+        """Admin = look at the club and decide runs. What the club *offers* — campaigns,
+        rewards, notices, the redemption queue, and who else may look — stays with the
+        one person answerable for it. The split is deliberate, not an oversight."""
         assert client.get("/admin/members", headers=auth("user_admin")).status_code == 200
 
     def test_none_of_the_refused_calls_left_an_audit_row(

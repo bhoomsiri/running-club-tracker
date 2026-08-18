@@ -13,13 +13,13 @@ import {
 import { apiPublic } from "@/lib/api";
 import { apiServer } from "@/lib/api-server";
 import { barWidth, formatDate, formatDecimal, unitLabel } from "@/lib/format";
+import { isStaff, ROLE_LABELS } from "@/lib/roles";
 import type {
   Announcement,
   CampaignProgress,
   Leaderboard,
   MemberSummary,
   Redemption,
-  Role,
 } from "@/lib/types";
 
 /**
@@ -33,12 +33,6 @@ import type {
  * directly under the number it moves. Everything below that is context: where the club
  * stands, what the club has announced, what has been redeemed.
  */
-
-const ROLE_LABELS: Record<Role, string> = {
-  member: "สมาชิก",
-  admin: "ผู้ดูแล",
-  superuser: "ผู้ดูแลระบบ",
-};
 
 const REDEMPTION_LABELS: Record<Redemption["status"], string> = {
   pending: "รอรับของ",
@@ -153,10 +147,10 @@ export default async function DashboardPage() {
         </ul>
       )}
 
-      {/* Last, and only for the one person who has it: the admin screens are not part of
-          a member's day. The page itself checks again and the backend refuses
-          regardless — this link is navigation, not access control. */}
-      {summary.member.role === "superuser" ? (
+      {/* Last, and only for the few who have it: the admin screens are not part of a
+          member's day. The page itself checks again and the backend refuses regardless —
+          this link is navigation, not access control. */}
+      {isStaff(summary.member.role) ? (
         <Link
           href="/admin"
           className="tap mt-8 justify-between rounded-card border border-border px-4 text-base font-medium"

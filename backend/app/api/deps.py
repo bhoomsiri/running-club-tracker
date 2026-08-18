@@ -87,6 +87,7 @@ from app.application.use_cases.redeem_reward import RedeemReward
 from app.application.use_cases.review_run import ReviewRun
 from app.application.use_cases.save_health_record import SaveHealthRecord
 from app.application.use_cases.save_my_screening import SaveMyScreening
+from app.application.use_cases.set_member_role import SetMemberRole
 from app.application.use_cases.submit_run import SubmitRun
 from app.application.use_cases.sync_member_from_clerk import SyncMemberFromClerk
 from app.application.use_cases.update_my_profile import UpdateMyProfile
@@ -604,3 +605,12 @@ def get_cancel_redemption_uc(
     clock: Annotated[SystemClock, Depends(get_clock)],
 ) -> CancelRedemption:
     return CancelRedemption(_admin_uow(factory, clock))
+
+
+def get_set_member_role_uc(
+    factory: Annotated[sessionmaker[Session], Depends(get_session_factory_dep)],
+    clock: Annotated[SystemClock, Depends(get_clock)],
+) -> SetMemberRole:
+    # The role change and the audit row that explains it commit together, like every
+    # other superuser mutation.
+    return SetMemberRole(_admin_uow(factory, clock))

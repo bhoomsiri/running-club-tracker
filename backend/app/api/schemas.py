@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -38,6 +38,7 @@ from app.domain.campaign import Campaign, CampaignType
 from app.domain.consent import Consent
 from app.domain.entities import (
     Member,
+    MemberRole,
     ReviewStatus,
     RunEntry,
     RunSource,
@@ -559,6 +560,18 @@ class CreateAnnouncementRequest(BaseModel):
     # Draft by default: a notice that goes public the instant it is saved is one nobody
     # gets to proofread.
     is_published: bool = False
+
+
+class UpdateMemberRoleRequest(BaseModel):
+    """Making somebody a helper, or taking it back.
+
+    `superuser` is not in the union on purpose — the superuser comes from the verified
+    Clerk webhook or the bootstrap setting, and the database permits exactly one. Asking
+    for it here is a 422 before any use case runs; the use case refuses it again anyway,
+    because a DTO is a convenience and the rule is not.
+    """
+
+    role: Literal[MemberRole.MEMBER, MemberRole.ADMIN]
 
 
 class UpdateAnnouncementRequest(BaseModel):

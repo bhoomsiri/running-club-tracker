@@ -1,4 +1,4 @@
-"""The superuser reading ONE member's contact details.
+"""An admin reading ONE member's contact details.
 
 Phone number, sex, birth year, emergency contact. Collected so somebody can be reached
 if a member collapses on a run — which is exactly why looking at them is an event worth
@@ -17,7 +17,7 @@ from uuid import UUID
 
 from app.application.ports.sensitive_view_unit_of_work import SensitiveViewUnitOfWork
 from app.domain.audit import AuditAction, AuditEntry
-from app.domain.entities import Member, MemberRole
+from app.domain.entities import Member
 from app.domain.errors import MemberNotFound, NotAuthorized
 
 
@@ -36,8 +36,8 @@ class ViewMemberContact:
             actor = uow.members.get(cmd.actor_id)
             if actor is None:
                 raise MemberNotFound(str(cmd.actor_id))
-            if actor.role is not MemberRole.SUPERUSER:
-                raise NotAuthorized("superuser only")
+            if not actor.role.may_view_others_health:
+                raise NotAuthorized("admin only")
 
             subject = uow.members.get(cmd.subject_id)
             if subject is None:

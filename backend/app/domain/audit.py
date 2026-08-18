@@ -40,6 +40,7 @@ class AuditAction(StrEnum):
     VIEW_CONTACT = "view_contact"
     EDIT_HEALTH = "edit_health"
     EDIT_MEMBER = "edit_member"
+    CHANGE_ROLE = "change_role"
     ADJUST_POINTS = "adjust_points"
     REVERSE_RUN = "reverse_run"
     REVIEW_RUN = "review_run"

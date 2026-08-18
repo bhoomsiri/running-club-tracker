@@ -1,4 +1,4 @@
-"""The superuser reading ONE member's pre-exercise screening.
+"""An admin reading ONE member's pre-exercise screening.
 
 The same three conditions as reading someone's health data, for the same reasons:
 
@@ -10,8 +10,10 @@ The same three conditions as reading someone's health data, for the same reasons
      the audit write fails, the whole thing fails and the caller gets nothing: an access
      that cannot be accounted for must not happen.
 
-Superuser rather than admin. This is a member's cardiac and medication history, and the
-club has one person answerable for it.
+Admins may read it, on the same terms as health data: this is a member's cardiac and
+medication history, so the price of access is a row in audit_log with the reader's name
+on it. That is what makes handing the capability to three people accountable rather than
+merely convenient.
 
 The audit row records that a screening was looked at and how many answers were "yes" —
 never which questions, and never the answers themselves.
@@ -24,7 +26,7 @@ from uuid import UUID
 
 from app.application.ports.sensitive_view_unit_of_work import SensitiveViewUnitOfWork
 from app.domain.audit import AuditAction, AuditEntry
-from app.domain.entities import Member, MemberRole
+from app.domain.entities import Member
 from app.domain.errors import MemberNotFound, NotAuthorized
 from app.domain.screening import Screening
 
@@ -50,8 +52,8 @@ class ViewMemberScreening:
             actor = uow.members.get(cmd.actor_id)
             if actor is None:
                 raise MemberNotFound(str(cmd.actor_id))
-            if actor.role is not MemberRole.SUPERUSER:
-                raise NotAuthorized("superuser only")
+            if not actor.role.may_view_others_health:
+                raise NotAuthorized("admin only")
 
             subject = uow.members.get(cmd.subject_id)
             if subject is None:

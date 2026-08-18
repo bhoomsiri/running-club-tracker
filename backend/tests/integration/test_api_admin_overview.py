@@ -98,11 +98,12 @@ class TestAccess:
     def test_an_ordinary_member_is_refused(self, client: TestClient, club: None) -> None:
         assert client.get("/admin/overview", headers=auth("user_alice")).status_code == 403
 
-    def test_an_admin_is_refused_too(
+    def test_an_admin_may_read_it(
         self, client: TestClient, club: None, session_factory: sessionmaker[Session]
     ) -> None:
-        """An admin may read health data with an audit trail. A list of everyone's
-        standing is a different thing, and the club has one person running it."""
+        """This is the screen the club's helpers work from. Nothing on it is sensitive —
+        distance, points and run counts — and everything that is stays behind the audited
+        drill-downs, which is what makes opening the list up safe."""
         with session_factory() as session:
             session.add(
                 models.Member(
@@ -112,7 +113,7 @@ class TestAccess:
             )
             session.commit()
 
-        assert client.get("/admin/overview", headers=auth("user_admin")).status_code == 403
+        assert client.get("/admin/overview", headers=auth("user_admin")).status_code == 200
 
     def test_it_needs_a_token(self, client: TestClient, club: None) -> None:
         assert client.get("/admin/overview").status_code == 401

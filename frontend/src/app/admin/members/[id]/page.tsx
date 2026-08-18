@@ -4,19 +4,25 @@ import { redirect } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
 import { apiServer } from "@/lib/api-server";
 import { barWidth, formatDecimal, unitLabel } from "@/lib/format";
+import { isStaff, isSuperuser, ROLE_LABELS } from "@/lib/roles";
 import type { MemberProgress, MemberSummary, RunWithEvidence } from "@/lib/types";
 
+import { RoleToggle } from "./role-toggle";
 import { RunReviewList } from "./run-review";
 import { SensitivePanel } from "./sensitive-panel";
 
 /**
- * One member, seen by the superuser.
+ * One member, seen by the club's staff.
  *
  * Only the non-sensitive half loads with the page: standing, campaign progress and the
  * runs with their evidence. Health, screening and contact details each sit behind their
  * own button, because fetching them writes an audit row — loading them here would mean
  * three rows every time anyone opened anyone's page, and an audit log full of glances is
  * one nobody reads.
+ *
+ * Admins and the superuser see the same page. The one difference is the role control at
+ * the bottom, which decides who else may reach any of this and so belongs to the one
+ * person answerable for it.
  */
 export default async function AdminMemberPage({
   params,
@@ -26,7 +32,7 @@ export default async function AdminMemberPage({
   const { id } = await params;
 
   const summary = await apiServer<MemberSummary>("/me/summary");
-  if (summary.member.role !== "superuser") {
+  if (!isStaff(summary.member.role)) {
     redirect("/dashboard");
   }
 
@@ -47,9 +53,7 @@ export default async function AdminMemberPage({
             {progress.member.name}
           </h1>
           {progress.member.role !== "member" ? (
-            <Badge tone="brand">
-              {progress.member.role === "admin" ? "ผู้ดูแล" : "ผู้ดูแลระบบ"}
-            </Badge>
+            <Badge tone="brand">{ROLE_LABELS[progress.member.role]}</Badge>
           ) : null}
           {progress.pending_review_count > 0 ? (
             <Badge>รอตรวจ {progress.pending_review_count}</Badge>
@@ -116,6 +120,13 @@ export default async function AdminMemberPage({
         <h2 className="mb-3 text-lg font-semibold">ข้อมูลอ่อนไหว</h2>
         <SensitivePanel memberId={id} />
       </section>
+
+      {isSuperuser(summary.member.role) ? (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold">สิทธิ์การใช้งาน</h2>
+          <RoleToggle member={progress.member} />
+        </section>
+      ) : null}
     </>
   );
 }

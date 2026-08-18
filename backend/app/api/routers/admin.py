@@ -22,6 +22,7 @@ from app.api.deps import (
     get_list_members_uc,
     get_list_pending_redemptions_uc,
     get_review_run_uc,
+    get_set_member_role_uc,
     get_update_announcement_uc,
     get_update_campaign_uc,
     get_update_reward_uc,
@@ -51,6 +52,7 @@ from app.api.schemas import (
     RunResponse,
     UpdateAnnouncementRequest,
     UpdateCampaignRequest,
+    UpdateMemberRoleRequest,
     UpdateRewardRequest,
 )
 from app.application.use_cases.get_club_overview import GetClubOverview
@@ -85,6 +87,7 @@ from app.application.use_cases.manage_rewards import (
     UpdateRewardCommand,
 )
 from app.application.use_cases.review_run import ReviewRun, ReviewRunCommand
+from app.application.use_cases.set_member_role import SetMemberRole, SetMemberRoleCommand
 from app.application.use_cases.upload_reward_image import (
     UploadRewardImage,
     UploadRewardImageCommand,
@@ -111,7 +114,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/overview", response_model=ClubOverviewResponse)
 def club_overview(
-    boss: Annotated[Member, Depends(get_current_superuser)],
+    admin: Annotated[Member, Depends(get_current_admin)],
     use_case: Annotated[GetClubOverview, Depends(get_club_overview_uc)],
 ) -> ClubOverviewResponse:
     """Everyone's standing on one screen.
@@ -120,7 +123,7 @@ def club_overview(
     those is an audited act about one named member; a table cannot do it for a hundred
     people at once and still mean anything.
     """
-    return ClubOverviewResponse.from_overview(use_case.execute(boss.id))
+    return ClubOverviewResponse.from_overview(use_case.execute(admin.id))
 
 
 @router.get("/members", response_model=list[MemberResponse])
@@ -135,36 +138,36 @@ def list_members(
 @router.get("/members/{member_id}/summary", response_model=MemberProgressResponse)
 def member_progress(
     member_id: UUID,
-    boss: Annotated[Member, Depends(get_current_superuser)],
+    admin: Annotated[Member, Depends(get_current_admin)],
     use_case: Annotated[ViewMemberProgress, Depends(get_view_member_progress_uc)],
 ) -> MemberProgressResponse:
     """Activity records only, so no audit row. The three endpoints below are the ones
     that touch sensitive data, and each of those writes one."""
-    return MemberProgressResponse.from_view(use_case.execute(boss.id, member_id))
+    return MemberProgressResponse.from_view(use_case.execute(admin.id, member_id))
 
 
 @router.get("/members/{member_id}/screening", response_model=MemberScreeningResponse)
 def member_screening(
     member_id: UUID,
-    boss: Annotated[Member, Depends(get_current_superuser)],
+    admin: Annotated[Member, Depends(get_current_admin)],
     use_case: Annotated[ViewMemberScreening, Depends(get_view_member_screening_uc)],
 ) -> MemberScreeningResponse:
     """Audited: the row is committed before the answers are returned."""
     return MemberScreeningResponse.from_view(
-        use_case.execute(ViewMemberScreeningCommand(actor_id=boss.id, subject_id=member_id))
+        use_case.execute(ViewMemberScreeningCommand(actor_id=admin.id, subject_id=member_id))
     )
 
 
 @router.get("/members/{member_id}/contact", response_model=MemberContactResponse)
 def member_contact(
     member_id: UUID,
-    boss: Annotated[Member, Depends(get_current_superuser)],
+    admin: Annotated[Member, Depends(get_current_admin)],
     use_case: Annotated[ViewMemberContact, Depends(get_view_member_contact_uc)],
 ) -> MemberContactResponse:
     """Audited. Collected so someone can be reached in an emergency, which is precisely
     why opening them is an event the club should be able to account for."""
     return MemberContactResponse.from_entity(
-        use_case.execute(ViewMemberContactCommand(actor_id=boss.id, subject_id=member_id))
+        use_case.execute(ViewMemberContactCommand(actor_id=admin.id, subject_id=member_id))
     )
 
 
@@ -186,20 +189,43 @@ def view_member_health(
 def review_run(
     run_id: UUID,
     body: ReviewRunRequest,
-    superuser: Annotated[Member, Depends(get_current_superuser)],
+    admin: Annotated[Member, Depends(get_current_admin)],
     use_case: Annotated[ReviewRun, Depends(get_review_run_uc)],
 ) -> RunResponse:
     # A mutation, so it is always audited — regardless of how sensitive the run was to
     # merely look at.
     run = use_case.execute(
-        ReviewRunCommand(actor_id=superuser.id, run_id=run_id, decision=body.decision)
+        ReviewRunCommand(actor_id=admin.id, run_id=run_id, decision=body.decision)
     )
     return RunResponse.from_entity(run)
 
 
 # --------------------------------------------------------- superuser mutations
-# Every endpoint below is superuser-only and writes an audit row. Admins may look at
-# the club's data; changing it is a different capability.
+# Every endpoint below is superuser-only and writes an audit row. Admins may look at the
+# club's data and decide runs; changing what the club offers — and who may look — is a
+# different capability.
+
+
+@router.patch("/members/{member_id}/role", response_model=MemberResponse)
+def set_member_role(
+    member_id: UUID,
+    body: UpdateMemberRoleRequest,
+    superuser: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[SetMemberRole, Depends(get_set_member_role_uc)],
+) -> MemberResponse:
+    """Make somebody a helper, or take it back.
+
+    The endpoint that widens access to everyone else's data, so it is the narrowest one
+    here: superuser only, member/admin only, never the superuser's own row, and audited
+    whether or not anything changed. The role is read from the database on every request,
+    so removing it takes effect on the demoted admin's very next call.
+    """
+    member = use_case.execute(
+        SetMemberRoleCommand(
+            actor_id=superuser.id, subject_id=member_id, role=body.role
+        )
+    )
+    return MemberResponse.from_entity(member)
 
 
 @router.post(

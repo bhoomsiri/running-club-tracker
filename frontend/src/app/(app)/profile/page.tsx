@@ -4,15 +4,10 @@ import { PageHeader } from "@/components/page-header";
 import { Badge, Card } from "@/components/ui";
 import { apiServer } from "@/lib/api-server";
 import { formatDecimal } from "@/lib/format";
-import type { MemberProfile, MemberSummary, Role } from "@/lib/types";
+import { ROLE_LABELS } from "@/lib/roles";
+import type { MemberProfile, MemberSummary } from "@/lib/types";
 
 import { EditProfile } from "./edit-profile";
-
-const ROLE_LABELS: Record<Role, string> = {
-  member: "สมาชิก",
-  admin: "ผู้ดูแล",
-  superuser: "ผู้ดูแลระบบ",
-};
 
 export default async function ProfilePage() {
   const [summary, profile] = await Promise.all([

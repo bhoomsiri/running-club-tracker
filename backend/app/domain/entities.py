@@ -36,8 +36,23 @@ class MemberRole(StrEnum):
         return self in (MemberRole.ADMIN, MemberRole.SUPERUSER)
 
     @property
+    def may_review_runs(self) -> bool:
+        """Deciding whether a submitted run counts.
+
+        Admins share this with the superuser: it is the daily work of the club and the
+        reason there are helpers at all. It is a capability of its own rather than a
+        reuse of `may_view_others_health` because the two are unrelated — one is reading
+        someone's health, the other is settling their points — and they may well be
+        granted to different people later. It is deliberately NOT `may_edit_records`:
+        deciding a run is a decision the club expects to be made, while correcting
+        another member's records is not.
+        """
+        return self in (MemberRole.ADMIN, MemberRole.SUPERUSER)
+
+    @property
     def may_edit_records(self) -> bool:
-        """Correcting other people's data is the superuser's alone."""
+        """Correcting other people's data is the superuser's alone — and so is handing
+        out roles, which is the same power one step removed."""
         return self is MemberRole.SUPERUSER
 
 

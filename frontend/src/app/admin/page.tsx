@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 
 import { apiServer } from "@/lib/api-server";
+import { isStaff } from "@/lib/roles";
 import type { ClubOverview, MemberSummary } from "@/lib/types";
 
 import { OverviewTable } from "./overview-table";
 
 /**
- * The club-wide view, for the superuser.
+ * The club-wide view, for the staff — admins and the superuser.
  *
  * Outside the (app) route group on purpose, for the same reason /onboarding is: the
  * superuser is exempt from the onboarding gate, so running them through it would be
@@ -14,11 +15,11 @@ import { OverviewTable } from "./overview-table";
  *
  * The guard here is a courtesy — a nicer answer than a raw 403 for someone who followed
  * a link they should not have. The control is the backend, which refuses /admin/overview
- * to anyone who is not the superuser whatever this page does.
+ * to anyone who is not staff whatever this page does.
  */
 export default async function AdminPage() {
   const summary = await apiServer<MemberSummary>("/me/summary");
-  if (summary.member.role !== "superuser") {
+  if (!isStaff(summary.member.role)) {
     redirect("/dashboard");
   }
 

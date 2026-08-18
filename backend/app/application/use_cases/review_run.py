@@ -1,4 +1,4 @@
-"""An admin decides whether a submitted run counts.
+"""An admin or the superuser decides whether a submitted run counts.
 
 Rejecting is not a delete: the run stays, marked, and the points it was worth are
 reconciled back down. That way the history still shows what was submitted and what was
@@ -44,11 +44,12 @@ class ReviewRun:
             actor = uow.members.get(cmd.actor_id)
             if actor is None:
                 raise MemberNotFound(str(cmd.actor_id))
-            # Mutations are the superuser's alone; an admin may look but not decide.
-            # If admins should help review one day, that is a new `may_moderate`
-            # capability on the role, not a loosening of this check.
-            if not actor.role.may_edit_records:
-                raise NotAuthorized("superuser only")
+            # Admins decide runs alongside the superuser — that is the work the club
+            # needed helpers for. It is its own capability rather than a loosening of
+            # `may_edit_records`, which still means "may correct another member's
+            # records" and still belongs to the superuser alone.
+            if not actor.role.may_review_runs:
+                raise NotAuthorized("admin only")
 
             run = uow.runs.get(cmd.run_id)
             if run is None:
