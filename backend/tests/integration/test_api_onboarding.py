@@ -24,6 +24,7 @@ PROFILE = {
     "sex": "male",
     "position": "พยาบาลวิชาชีพชำนาญการ",
     "department": "กลุ่มงานการพยาบาล",
+    "shirt_size": "2XL",
     "phone": "081-234-5678",
     "emergency_contact_name": "สมหญิง ใจดี",
     "emergency_contact_phone": "0898765432",
@@ -74,6 +75,23 @@ class TestProfile:
         assert client.get("/me/profile", headers=auth(ALICE)).json()["full_name_th"] == (
             "สมชาย ใจดี"
         )
+
+    def test_the_shirt_size_round_trips(self, client: TestClient) -> None:
+        """It is read straight off this response when the shirts are ordered, so it has
+        to come back exactly as it went in — "2XL", not "XL2" or the enum's name."""
+        response = client.patch("/me/profile", headers=auth(ALICE), json=PROFILE)
+
+        assert response.json()["shirt_size"] == "2XL"
+        assert client.get("/me/profile", headers=auth(ALICE)).json()["shirt_size"] == "2XL"
+
+    def test_a_size_outside_the_list_is_refused(self, client: TestClient) -> None:
+        """The set is closed on purpose: the club prints one run of shirts, and a size
+        nobody stocks is discovered at the printer rather than here."""
+        response = client.patch(
+            "/me/profile", headers=auth(ALICE), json={**PROFILE, "shirt_size": "XXL"}
+        )
+
+        assert response.status_code == 422
 
     def test_a_bad_value_is_422_and_changes_nothing(self, client: TestClient) -> None:
         client.patch("/me/profile", headers=auth(ALICE), json=PROFILE)

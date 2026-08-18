@@ -49,6 +49,25 @@ class Sex(StrEnum):
     FEMALE = "female"
 
 
+class ShirtSize(StrEnum):
+    """Which finisher shirt to order for this member.
+
+    A closed set rather than free text, because these values end up on a purchase order:
+    "L" and "ไซส์ L" and "l" are one size to a person and three to a spreadsheet. The
+    club prints one run of shirts and cannot re-order for a typo.
+    """
+
+    XS = "XS"
+    S = "S"
+    M = "M"
+    L = "L"
+    XL = "XL"
+    XL2 = "2XL"
+    XL3 = "3XL"
+    XL4 = "4XL"
+    XL5 = "5XL"
+
+
 @dataclass(frozen=True)
 class MemberProfile:
     """What the club needs in order to run an activity safely.
@@ -61,8 +80,12 @@ class MemberProfile:
     `position` and `department` are the member's job and unit at the hospital. They are
     ordinary personal data rather than the มาตรา 26 kind — which is why, unlike `sex`
     and the emergency contact, they may appear in an admin list without an audit row.
-    They are free text on purpose: a fixed list of departments would be wrong within a
-    year, and the club is not the system of record for the hospital's org chart.
+    They stay free text here even though the form offers a picker: the list of units is
+    the hospital's to change, not this app's, and a member whose unit is missing from it
+    types their own. A column constrained to today's org chart would reject them.
+
+    `shirt_size` is different — it is a closed set (`ShirtSize`), because it is read off
+    when the finisher shirts are ordered and there is no re-order for a typo.
     """
 
     full_name_th: str | None = None
@@ -70,6 +93,7 @@ class MemberProfile:
     sex: Sex | None = None
     position: str | None = None
     department: str | None = None
+    shirt_size: ShirtSize | None = None
     phone: str | None = None
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
@@ -84,6 +108,7 @@ class MemberProfile:
                 self.sex,
                 self.position,
                 self.department,
+                self.shirt_size,
                 self.phone,
                 self.emergency_contact_name,
                 self.emergency_contact_phone,
@@ -151,6 +176,7 @@ def build_profile(
     sex: Sex,
     position: str,
     department: str,
+    shirt_size: ShirtSize,
     phone: str,
     emergency_contact_name: str,
     emergency_contact_phone: str,
@@ -163,6 +189,7 @@ def build_profile(
         sex=sex,
         position=_required_text("position", position, MAX_WORK_FIELD),
         department=_required_text("department", department, MAX_WORK_FIELD),
+        shirt_size=shirt_size,
         phone=_validate_phone("phone", phone),
         emergency_contact_name=_required_text(
             "emergency_contact_name", emergency_contact_name, MAX_CONTACT_NAME

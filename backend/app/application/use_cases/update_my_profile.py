@@ -13,7 +13,7 @@ from uuid import UUID
 
 from app.application.ports.clock import Clock
 from app.application.ports.member_repository import MemberRepository
-from app.domain.entities import Member, Sex, build_profile
+from app.domain.entities import Member, Sex, ShirtSize, build_profile
 from app.domain.errors import MemberNotFound
 
 
@@ -25,6 +25,7 @@ class UpdateMyProfileCommand:
     sex: Sex
     position: str
     department: str
+    shirt_size: ShirtSize
     phone: str
     emergency_contact_name: str
     emergency_contact_phone: str
@@ -48,6 +49,7 @@ class UpdateMyProfile:
             sex=cmd.sex,
             position=cmd.position,
             department=cmd.department,
+            shirt_size=cmd.shirt_size,
             phone=cmd.phone,
             emergency_contact_name=cmd.emergency_contact_name,
             emergency_contact_phone=cmd.emergency_contact_phone,

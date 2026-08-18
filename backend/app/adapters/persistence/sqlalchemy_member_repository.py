@@ -72,6 +72,7 @@ class SqlAlchemyMemberRepository:
                 sex=profile.sex.value if profile.sex else None,
                 position=profile.position,
                 department=profile.department,
+                shirt_size=profile.shirt_size.value if profile.shirt_size else None,
                 phone=profile.phone,
                 emergency_contact_name=profile.emergency_contact_name,
                 emergency_contact_phone=profile.emergency_contact_phone,

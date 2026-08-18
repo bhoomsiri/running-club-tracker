@@ -28,6 +28,9 @@ export function EditProfile({ profile }: { profile: MemberProfile }) {
                 {profile.department}
               </p>
             ) : null}
+            {profile.shirt_size ? (
+              <p className="mt-1 text-base">เสื้อไซส์ {profile.shirt_size}</p>
+            ) : null}
             <p className="mt-1 text-base text-muted">
               {profile.phone ? `โทร ${profile.phone}` : "ยังไม่ได้กรอกเบอร์โทร"}
               {profile.emergency_contact_name

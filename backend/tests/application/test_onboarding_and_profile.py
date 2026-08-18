@@ -24,7 +24,7 @@ from app.application.use_cases.update_my_profile import (
     UpdateMyProfileCommand,
 )
 from app.domain.consent import Consent, ConsentPurpose
-from app.domain.entities import Member, MemberRole, Sex
+from app.domain.entities import Member, MemberRole, Sex, ShirtSize
 from app.domain.errors import InvalidMemberError
 from app.domain.health import HealthPhase, HealthRecord
 from app.domain.screening import QUESTION_KEYS, Screening
@@ -46,6 +46,7 @@ PROFILE_FIELDS = {
     "sex": Sex.MALE,
     "position": "พยาบาลวิชาชีพชำนาญการ",
     "department": "กลุ่มงานการพยาบาล",
+    "shirt_size": ShirtSize.L,
     "phone": "081-234-5678",
     "emergency_contact_name": "สมหญิง ใจดี",
     "emergency_contact_phone": "0898765432",
@@ -157,6 +158,13 @@ class TestOnboardingStatus:
 
         assert PROFILE in build_status(subject).execute(subject.id).missing
 
+    def test_a_profile_without_a_shirt_size_does_not_count(self) -> None:
+        """Everyone gets a finisher shirt, so a size is not optional — and members who
+        joined before the field existed are sent back through the step to give one."""
+        subject = member().with_profile(_complete_profile(shirt_size=None))
+
+        assert PROFILE in build_status(subject).execute(subject.id).missing
+
     def test_a_baseline_without_height_does_not_count(self) -> None:
         """Weight alone yields no BMI, so there would be nothing to compare against —
         and by the time anyone notices, the moment to measure has passed."""
@@ -226,6 +234,7 @@ class TestUpdateMyProfile:
         assert stored is not None
         assert stored.profile.full_name_th == "สมชาย ใจดี"
         assert stored.profile.department == "กลุ่มงานการพยาบาล"
+        assert stored.profile.shirt_size is ShirtSize.L
 
     def test_a_blank_department_is_refused(self) -> None:
         """Every member is hospital staff, and a unit is how the club places them —
@@ -303,6 +312,7 @@ def _complete_profile(**overrides: object):  # type: ignore[no-untyped-def]
         "sex": Sex.MALE,
         "position": "พยาบาลวิชาชีพชำนาญการ",
         "department": "กลุ่มงานการพยาบาล",
+        "shirt_size": ShirtSize.L,
         "phone": "0812345678",
         "emergency_contact_name": "สมหญิง ใจดี",
         "emergency_contact_phone": "0898765432",

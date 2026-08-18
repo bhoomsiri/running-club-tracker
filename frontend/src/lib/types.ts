@@ -207,12 +207,17 @@ export type AdminAnnouncement = Announcement & {
 
 export type Sex = "male" | "female";
 
+/** The finisher shirt sizes, exactly as the backend's `ShirtSize` spells them. Anything
+ * else is a 422 — see lib/shirt-sizes.ts for the list and the measurements. */
+export type ShirtSize = "XS" | "S" | "M" | "L" | "XL" | "2XL" | "3XL" | "4XL" | "5XL";
+
 export type MemberProfile = {
   full_name_th: string | null;
   birth_year: number | null;
   sex: Sex | null;
   position: string | null;
   department: string | null;
+  shirt_size: ShirtSize | null;
   phone: string | null;
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
@@ -225,6 +230,7 @@ export type UpdateProfileRequest = {
   sex: Sex;
   position: string;
   department: string;
+  shirt_size: ShirtSize;
   phone: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;

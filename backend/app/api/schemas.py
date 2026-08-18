@@ -36,7 +36,14 @@ from app.application.use_cases.view_member_screening import MemberScreeningView
 from app.domain.announcement import Announcement
 from app.domain.campaign import Campaign, CampaignType
 from app.domain.consent import Consent
-from app.domain.entities import Member, ReviewStatus, RunEntry, RunSource, Sex
+from app.domain.entities import (
+    Member,
+    ReviewStatus,
+    RunEntry,
+    RunSource,
+    Sex,
+    ShirtSize,
+)
 from app.domain.health import HealthComparison, HealthPhase, HealthRecord
 from app.domain.redemption import Redemption, Reward
 from app.domain.screening import Screening
@@ -577,6 +584,9 @@ class UpdateProfileRequest(BaseModel):
     sex: Sex
     position: str = Field(min_length=1, max_length=160)
     department: str = Field(min_length=1, max_length=160)
+    # A closed set, so anything but one of the nine sizes is a 422 rather than a value
+    # nobody can order a shirt against.
+    shirt_size: ShirtSize
     phone: str = Field(min_length=9, max_length=16)
     emergency_contact_name: str = Field(min_length=1, max_length=200)
     emergency_contact_phone: str = Field(min_length=9, max_length=16)
@@ -595,6 +605,7 @@ class MemberProfileResponse(BaseModel):
     sex: str | None
     position: str | None
     department: str | None
+    shirt_size: str | None
     phone: str | None
     emergency_contact_name: str | None
     emergency_contact_phone: str | None
@@ -609,6 +620,7 @@ class MemberProfileResponse(BaseModel):
             sex=profile.sex.value if profile.sex else None,
             position=profile.position,
             department=profile.department,
+            shirt_size=profile.shirt_size.value if profile.shirt_size else None,
             phone=profile.phone,
             emergency_contact_name=profile.emergency_contact_name,
             emergency_contact_phone=profile.emergency_contact_phone,

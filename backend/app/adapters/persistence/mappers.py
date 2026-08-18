@@ -24,6 +24,7 @@ from app.domain.entities import (
     RunEntry,
     RunSource,
     Sex,
+    ShirtSize,
 )
 from app.domain.health import HealthPhase, HealthRecord
 from app.domain.redemption import (
@@ -51,6 +52,7 @@ def member_to_domain(row: models.Member) -> Member:
             sex=Sex(row.sex) if row.sex else None,
             position=row.position,
             department=row.department,
+            shirt_size=ShirtSize(row.shirt_size) if row.shirt_size else None,
             phone=row.phone,
             emergency_contact_name=row.emergency_contact_name,
             emergency_contact_phone=row.emergency_contact_phone,

@@ -80,6 +80,9 @@ class Member(Base):
     # so unlike the columns around them these may be shown in an admin list.
     position: Mapped[str | None] = mapped_column(sa.String(160))
     department: Mapped[str | None] = mapped_column(sa.String(160))
+    # Which finisher shirt to order. Ordinary personal data as well — a size on a
+    # packing list, not a health measurement.
+    shirt_size: Mapped[str | None] = mapped_column(sa.String(4))
     phone: Mapped[str | None] = mapped_column(sa.String(16))
     emergency_contact_name: Mapped[str | None] = mapped_column(sa.String(200))
     emergency_contact_phone: Mapped[str | None] = mapped_column(sa.String(16))
