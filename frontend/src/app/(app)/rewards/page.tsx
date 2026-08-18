@@ -2,8 +2,9 @@ import { PageHeader } from "@/components/page-header";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { ZoomableImage } from "@/components/zoomable-image";
 import { apiServer } from "@/lib/api-server";
+import { getMySummary } from "@/lib/me";
 import { formatDecimal, unitLabel } from "@/lib/format";
-import type { CampaignProgress, CampaignRewards, MemberSummary, Reward } from "@/lib/types";
+import type { CampaignProgress, CampaignRewards, Reward } from "@/lib/types";
 
 import { RedeemButton } from "./redeem-button";
 
@@ -32,7 +33,7 @@ const PLANNED_PRIZE: Record<string, string> = {
 export default async function RewardsPage() {
   const [catalogue, summary] = await Promise.all([
     apiServer<CampaignRewards[]>("/rewards"),
-    apiServer<MemberSummary>("/me/summary"),
+    getMySummary(),
   ]);
 
   // A null balance is the backend saying this campaign's policy tracks no points, which

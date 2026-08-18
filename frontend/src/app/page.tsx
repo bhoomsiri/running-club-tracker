@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { AnnouncementBody } from "@/components/announcement-body";
 import { ButtonLink, Card, SectionHeading } from "@/components/ui";
 import { apiPublic } from "@/lib/api";
+import { CAMPAIGN_COPY } from "@/lib/campaign-copy";
 import { formatDate } from "@/lib/format";
 import type { Announcement } from "@/lib/types";
 
@@ -23,21 +24,6 @@ import type { Announcement } from "@/lib/types";
  * minutes of staleness on a notice board is nobody's problem; a cold API call in front
  * of every first-time visitor is.
  */
-
-const CAMPAIGNS = [
-  {
-    icon: "🏃",
-    title: "สะสมระยะ 100 กิโลเมตร",
-    blurb:
-      "วิ่งสะสมไปเรื่อย ๆ ตลอดปี ทุกกิโลเมตรที่ส่งเข้ามานับหมด ครบ 100 กม. รับเสื้อ finisher",
-  },
-  {
-    icon: "🎁",
-    title: "วันละ 10 กิโลเมตร สะสมแลกของรางวัล",
-    blurb:
-      "วันไหนวิ่งครบ 10 กม. ได้แต้ม สะสมแต้มไว้แลกของรางวัลจากชมรมได้ตลอดปี",
-  },
-];
 
 export default async function LandingPage() {
   const { userId } = await auth();
@@ -75,8 +61,8 @@ export default async function LandingPage() {
       <section>
         <SectionHeading>กิจกรรมปีนี้</SectionHeading>
         <div className="grid gap-4 sm:grid-cols-2">
-          {CAMPAIGNS.map((campaign) => (
-            <Card key={campaign.title} className="h-full">
+          {CAMPAIGN_COPY.map((campaign) => (
+            <Card key={campaign.code} className="h-full">
               <p className="text-3xl" aria-hidden>
                 {campaign.icon}
               </p>

@@ -2,14 +2,9 @@ import { BmiScale } from "@/components/bmi-scale";
 import { PageHeader } from "@/components/page-header";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { apiServer } from "@/lib/api-server";
+import { getMySummary } from "@/lib/me";
 import { formatDate, formatDecimal } from "@/lib/format";
-import type {
-  Consent,
-  HealthComparison,
-  HealthRecord,
-  MemberSummary,
-  Screening,
-} from "@/lib/types";
+import type { Consent, HealthComparison, HealthRecord, Screening } from "@/lib/types";
 
 import { ConsentGate } from "./consent-gate";
 import { EditScreening } from "./edit-screening";
@@ -29,7 +24,7 @@ import { HealthForm } from "./health-form";
 export default async function HealthPage() {
   const [consent, summary, screening] = await Promise.all([
     apiServer<Consent | null>("/consent"),
-    apiServer<MemberSummary>("/me/summary"),
+    getMySummary(),
     apiServer<Screening | null>("/screening"),
   ]);
 

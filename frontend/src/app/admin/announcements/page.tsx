@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { apiServer } from "@/lib/api-server";
-import type { AdminAnnouncement, MemberSummary } from "@/lib/types";
+import { getMySummary } from "@/lib/me";
+import type { AdminAnnouncement } from "@/lib/types";
 
 import { AnnouncementManager } from "./announcement-manager";
 
@@ -12,7 +13,7 @@ import { AnnouncementManager } from "./announcement-manager";
  * so one that vanished from this screen would look deleted and be written again.
  */
 export default async function AdminAnnouncementsPage() {
-  const summary = await apiServer<MemberSummary>("/me/summary");
+  const summary = await getMySummary();
   if (summary.member.role !== "superuser") {
     redirect("/dashboard");
   }

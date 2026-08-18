@@ -2,12 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { apiServer } from "@/lib/api-server";
-import type { MemberSummary, PendingRedemption } from "@/lib/types";
+import { getMySummary } from "@/lib/me";
+import type { PendingRedemption } from "@/lib/types";
 
 import { RedemptionQueue } from "./queue";
 
 export default async function AdminRedemptionsPage() {
-  const summary = await apiServer<MemberSummary>("/me/summary");
+  const summary = await getMySummary();
   if (summary.member.role !== "superuser") {
     redirect("/dashboard");
   }

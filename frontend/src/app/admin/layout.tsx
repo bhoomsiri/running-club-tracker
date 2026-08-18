@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 
-import { apiServer } from "@/lib/api-server";
+import { getMySummary } from "@/lib/me";
 import { isSuperuser } from "@/lib/roles";
-import type { MemberSummary } from "@/lib/types";
 
 /**
  * Its own shell: the admin screens are not part of the member navigation.
@@ -24,7 +23,7 @@ const SECTIONS = [
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const summary = await apiServer<MemberSummary>("/me/summary");
+  const summary = await getMySummary();
   const boss = isSuperuser(summary.member.role);
   const sections = SECTIONS.filter((section) => boss || !section.superuserOnly);
 

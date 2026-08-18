@@ -1,8 +1,11 @@
 import { UserButton } from "@clerk/nextjs";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { BottomNav } from "@/components/bottom-nav";
 import { apiServer } from "@/lib/api-server";
+import { getMySummary } from "@/lib/me";
+import { isStaff } from "@/lib/roles";
 import type { OnboardingStatus } from "@/lib/types";
 
 /**
@@ -19,6 +22,11 @@ import type { OnboardingStatus } from "@/lib/types";
  * The superuser is exempt, decided by the backend rather than by a role check here:
  * somebody has to reach the admin screens on a fresh deployment, and that person cannot
  * be locked out by a gate they are there to configure.
+ *
+ * The admin link lives up here beside the avatar, not at the bottom of the dashboard
+ * where it started: staff reach for it from wherever they happen to be, and a link you
+ * have to scroll past your own redemptions to find is one you navigate by URL instead.
+ * It is navigation — /admin checks the role again and the backend refuses regardless.
  */
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const status = await apiServer<OnboardingStatus>("/me/onboarding");
@@ -26,12 +34,26 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     redirect("/onboarding");
   }
 
+  // After the gate, never before: a member who has not consented is redirected above
+  // rather than having their summary fetched to decide what to put in a header.
+  const summary = await getMySummary();
+
   return (
     <>
       <header className="border-b border-border">
-        <div className="mx-auto flex min-h-14 max-w-3xl items-center justify-between px-4 py-2">
+        <div className="mx-auto flex min-h-14 max-w-3xl items-center justify-between gap-3 px-4 py-2">
           <span className="text-lg font-bold">ชมรมวิ่ง</span>
-          <UserButton />
+          <div className="flex items-center gap-2">
+            {isStaff(summary.member.role) ? (
+              <Link
+                href="/admin"
+                className="tap shrink-0 rounded-control border border-border px-3 text-base font-medium"
+              >
+                แผงผู้ดูแล
+              </Link>
+            ) : null}
+            <UserButton />
+          </div>
         </div>
       </header>
 

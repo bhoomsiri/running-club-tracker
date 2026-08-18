@@ -1,24 +1,18 @@
 import Link from "next/link";
 
 import { AnnouncementBody } from "@/components/announcement-body";
+import { CampaignCard } from "@/components/campaign-card";
 import { LeaderboardRow } from "@/components/leaderboard-row";
-import {
-  Badge,
-  ButtonLink,
-  Card,
-  EmptyState,
-  ProgressBar,
-  SectionHeading,
-} from "@/components/ui";
+import { Badge, ButtonLink, Card, EmptyState, SectionHeading } from "@/components/ui";
 import { apiPublic } from "@/lib/api";
 import { apiServer } from "@/lib/api-server";
-import { barWidth, formatDate, formatDecimal, unitLabel } from "@/lib/format";
-import { isStaff, ROLE_LABELS } from "@/lib/roles";
+import { formatDate, formatDecimal } from "@/lib/format";
+import { getMySummary } from "@/lib/me";
+import { ROLE_LABELS } from "@/lib/roles";
 import type {
   Announcement,
   CampaignProgress,
   Leaderboard,
-  MemberSummary,
   Redemption,
 } from "@/lib/types";
 
@@ -51,7 +45,7 @@ export default async function DashboardPage() {
   // clients — but they are fetched together, because two round trips in sequence is a
   // second of blank screen on a phone.
   const [summary, news, board] = await Promise.all([
-    apiServer<MemberSummary>("/me/summary"),
+    getMySummary(),
     latestNews(),
     standing(),
   ]);
@@ -97,17 +91,19 @@ export default async function DashboardPage() {
         </Link>
       ) : null}
 
-      <SectionHeading>กิจกรรมปีนี้</SectionHeading>
+      <SectionHeading
+        action={
+          <Link href="/activities" className="text-base font-medium text-brand">
+            ดูทั้งหมด ›
+          </Link>
+        }
+      >
+        กิจกรรมปีนี้
+      </SectionHeading>
       {summary.campaigns.length === 0 ? (
         <EmptyState>ยังไม่มีกิจกรรมที่เปิดอยู่</EmptyState>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {summary.campaigns.map((campaign) => (
-            <li key={campaign.campaign_id}>
-              <CampaignCard campaign={campaign} />
-            </li>
-          ))}
-        </ul>
+        <Campaigns campaigns={summary.campaigns} />
       )}
 
       {/* Below the member's own progress, not above it: this screen is about their
@@ -147,21 +143,47 @@ export default async function DashboardPage() {
         </ul>
       )}
 
-      {/* Last, and only for the few who have it: the admin screens are not part of a
-          member's day. The page itself checks again and the backend refuses regardless —
-          this link is navigation, not access control. */}
-      {isStaff(summary.member.role) ? (
-        <Link
-          href="/admin"
-          className="tap mt-8 justify-between rounded-card border border-border px-4 text-base font-medium"
-        >
-          <span>ภาพรวมสมาชิกทั้งชมรม</span>
-          <span aria-hidden className="text-muted">
-            ›
-          </span>
-        </Link>
-      ) : null}
+      {/* The admin link used to sit here, at the bottom of a member's own screen. It is
+          in the header now, beside the avatar: staff reach for it from every page, not
+          only after scrolling past their redemptions. */}
     </>
+  );
+}
+
+/**
+ * Two activities fit side by side; more than two do not.
+ *
+ * Past that the cards go into a horizontal snap scroller rather than a taller and taller
+ * column — the dashboard's job is to show the member their standing at a glance, and an
+ * activity list that pushes everything else off the screen defeats it. `ดูทั้งหมด` above
+ * is the way to see them all.
+ */
+function Campaigns({ campaigns }: { campaigns: CampaignProgress[] }) {
+  if (campaigns.length <= 2) {
+    return (
+      <ul className="grid gap-4 sm:grid-cols-2">
+        {campaigns.map((campaign) => (
+          <li key={campaign.campaign_id}>
+            <CampaignCard campaign={campaign} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    // Negative margins let the row bleed to the screen edge, so a half-visible next card
+    // says "there is more this way" without a scrollbar to explain it.
+    <ul className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2">
+      {campaigns.map((campaign) => (
+        <li
+          key={campaign.campaign_id}
+          className="w-[82%] shrink-0 snap-start sm:w-[calc(50%-0.5rem)]"
+        >
+          <CampaignCard campaign={campaign} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -237,49 +259,4 @@ async function latestNews(): Promise<Announcement | null> {
   } catch {
     return null;
   }
-}
-
-function CampaignCard({ campaign }: { campaign: CampaignProgress }) {
-  const unit = unitLabel(campaign.unit);
-
-  return (
-    <Card className="h-full">
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-lg font-semibold">{campaign.name}</h3>
-        {campaign.completed ? <Badge tone="success">สำเร็จแล้ว</Badge> : null}
-      </div>
-
-      <p className="mt-3 tabular-nums">
-        <span className="text-3xl font-bold">{formatDecimal(campaign.value)}</span>
-        {campaign.target !== null ? (
-          <span className="text-lg text-muted"> / {formatDecimal(campaign.target)}</span>
-        ) : null}
-        <span className="ml-1.5 text-base text-muted">{unit}</span>
-      </p>
-
-      {/* A campaign without a target has nothing to be a percentage of. */}
-      {campaign.percent !== null ? (
-        <div className="mt-3">
-          <ProgressBar
-            percent={barWidth(campaign.percent)}
-            label={`ความคืบหน้า ${campaign.name}`}
-          />
-          <p className="mt-2 text-right text-sm text-muted tabular-nums">
-            {formatDecimal(campaign.percent)}%
-          </p>
-        </div>
-      ) : null}
-
-      {/* Only the reward campaign tracks points; the 100 km one sends null. */}
-      {campaign.points_balance !== null ? (
-        <p className="mt-4 border-t border-border pt-3 text-base">
-          แต้มคงเหลือ{" "}
-          <span className="text-xl font-bold tabular-nums">
-            {formatDecimal(campaign.points_balance)}
-          </span>{" "}
-          แต้ม
-        </p>
-      ) : null}
-    </Card>
-  );
 }

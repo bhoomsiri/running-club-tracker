@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 
 import { apiServer } from "@/lib/api-server";
+import { getMySummary } from "@/lib/me";
 import { isStaff } from "@/lib/roles";
-import type { ClubOverview, MemberSummary } from "@/lib/types";
+import type { ClubOverview } from "@/lib/types";
 
 import { OverviewTable } from "./overview-table";
 
@@ -18,7 +19,7 @@ import { OverviewTable } from "./overview-table";
  * to anyone who is not staff whatever this page does.
  */
 export default async function AdminPage() {
-  const summary = await apiServer<MemberSummary>("/me/summary");
+  const summary = await getMySummary();
   if (!isStaff(summary.member.role)) {
     redirect("/dashboard");
   }

@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 
 import { EmptyState } from "@/components/ui";
 import { apiServer } from "@/lib/api-server";
-import type { AdminReward, Campaign, MemberSummary } from "@/lib/types";
+import { getMySummary } from "@/lib/me";
+import type { AdminReward, Campaign } from "@/lib/types";
 
 import { RewardManager } from "./reward-manager";
 
@@ -19,7 +20,7 @@ export default async function AdminRewardsPage({
 }: {
   searchParams: Promise<{ campaign?: string }>;
 }) {
-  const summary = await apiServer<MemberSummary>("/me/summary");
+  const summary = await getMySummary();
   if (summary.member.role !== "superuser") {
     redirect("/dashboard");
   }

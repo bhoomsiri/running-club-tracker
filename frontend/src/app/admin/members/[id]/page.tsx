@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 
 import { Badge, Card } from "@/components/ui";
 import { apiServer } from "@/lib/api-server";
+import { getMySummary } from "@/lib/me";
 import { barWidth, formatDecimal, unitLabel } from "@/lib/format";
 import { isStaff, isSuperuser, ROLE_LABELS } from "@/lib/roles";
-import type { MemberProgress, MemberSummary, RunWithEvidence } from "@/lib/types";
+import type { MemberProgress, RunWithEvidence } from "@/lib/types";
 
 import { RoleToggle } from "./role-toggle";
 import { RunReviewList } from "./run-review";
@@ -31,7 +32,7 @@ export default async function AdminMemberPage({
 }) {
   const { id } = await params;
 
-  const summary = await apiServer<MemberSummary>("/me/summary");
+  const summary = await getMySummary();
   if (!isStaff(summary.member.role)) {
     redirect("/dashboard");
   }

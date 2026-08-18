@@ -3,15 +3,16 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { Badge, Card } from "@/components/ui";
 import { apiServer } from "@/lib/api-server";
+import { getMySummary } from "@/lib/me";
 import { formatDecimal } from "@/lib/format";
 import { ROLE_LABELS } from "@/lib/roles";
-import type { MemberProfile, MemberSummary } from "@/lib/types";
+import type { MemberProfile } from "@/lib/types";
 
 import { EditProfile } from "./edit-profile";
 
 export default async function ProfilePage() {
   const [summary, profile] = await Promise.all([
-    apiServer<MemberSummary>("/me/summary"),
+    getMySummary(),
     apiServer<MemberProfile>("/me/profile"),
   ]);
 
