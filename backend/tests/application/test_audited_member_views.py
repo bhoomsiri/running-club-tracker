@@ -43,7 +43,7 @@ def member(role: MemberRole = MemberRole.MEMBER, *, with_profile: bool = False) 
     return built.with_profile(
         MemberProfile(
             full_name_th="สมชาย ใจดี",
-            birth_year=1990,
+            birth_date=date(1990, 5, 20),
             sex=Sex.MALE,
             phone="0812345678",
             emergency_contact_name="สมหญิง ใจดี",

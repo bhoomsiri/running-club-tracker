@@ -213,7 +213,8 @@ export type ShirtSize = "XS" | "S" | "M" | "L" | "XL" | "2XL" | "3XL" | "4XL" | 
 
 export type MemberProfile = {
   full_name_th: string | null;
-  birth_year: number | null;
+  /** ISO `YYYY-MM-DD`, always ค.ศ. — never parsed, only displayed or sent back. */
+  birth_date: string | null;
   sex: Sex | null;
   position: string | null;
   department: string | null;
@@ -226,7 +227,7 @@ export type MemberProfile = {
 
 export type UpdateProfileRequest = {
   full_name_th: string;
-  birth_year: number;
+  birth_date: string;
   sex: Sex;
   position: string;
   department: string;
@@ -301,7 +302,8 @@ export type MemberProgress = {
 /** Sensitive. Only ever arrives from the audited endpoint, one member at a time. */
 export type MemberContact = {
   subject: Member;
-  birth_year: number | null;
+  /** ISO `YYYY-MM-DD`, always ค.ศ. — never parsed, only displayed or sent back. */
+  birth_date: string | null;
   sex: Sex | null;
   phone: string | null;
   emergency_contact_name: string | null;

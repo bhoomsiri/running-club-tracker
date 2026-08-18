@@ -9,6 +9,7 @@ sends, so this cannot become a way to promote yourself.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from uuid import UUID
 
 from app.application.ports.clock import Clock
@@ -21,7 +22,7 @@ from app.domain.errors import MemberNotFound
 class UpdateMyProfileCommand:
     member_id: UUID  # from the verified token, never from the request body
     full_name_th: str
-    birth_year: int
+    birth_date: date
     sex: Sex
     position: str
     department: str
@@ -45,7 +46,7 @@ class UpdateMyProfile:
         # with half an emergency contact is not useful to anyone at the roadside.
         profile = build_profile(
             full_name_th=cmd.full_name_th,
-            birth_year=cmd.birth_year,
+            birth_date=cmd.birth_date,
             sex=cmd.sex,
             position=cmd.position,
             department=cmd.department,

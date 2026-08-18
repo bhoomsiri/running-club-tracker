@@ -42,7 +42,7 @@ VERSION = "v2"
 
 PROFILE_FIELDS = {
     "full_name_th": "สมชาย ใจดี",
-    "birth_year": 1990,
+    "birth_date": date(1990, 5, 20),
     "sex": Sex.MALE,
     "position": "พยาบาลวิชาชีพชำนาญการ",
     "department": "กลุ่มงานการพยาบาล",
@@ -223,6 +223,11 @@ class TestUpdateMyProfile:
         members = FakeMemberRepository([subject])
         return UpdateMyProfile(members, FixedClock(NOW)), members
 
+    def save(self, use_case: UpdateMyProfile, subject: Member, **overrides: object) -> Member:
+        return use_case.execute(
+            UpdateMyProfileCommand(member_id=subject.id, **{**PROFILE_FIELDS, **overrides})  # type: ignore[arg-type]
+        )
+
     def test_it_stores_the_profile(self) -> None:
         subject = member()
         use_case, members = self.build(subject)
@@ -270,17 +275,56 @@ class TestUpdateMyProfile:
                 )
             )
 
-    def test_this_years_birth_year_is_refused(self) -> None:
-        """Catches the current year typed where a birth year was meant."""
+    def test_todays_date_is_refused(self) -> None:
+        """Catches today typed where a birth date was meant — which is what an untouched
+        date picker offers on some phones."""
         subject = member()
         use_case, _ = self.build(subject)
 
-        with pytest.raises(InvalidMemberError, match="birth_year"):
-            use_case.execute(
-                UpdateMyProfileCommand(
-                    member_id=subject.id, **{**PROFILE_FIELDS, "birth_year": 2026}  # type: ignore[arg-type]
-                )
-            )
+        with pytest.raises(InvalidMemberError, match="10 years old"):
+            self.save(use_case, subject, birth_date=NOW.date())
+
+    def test_a_future_birth_date_is_refused(self) -> None:
+        subject = member()
+        use_case, _ = self.build(subject)
+
+        with pytest.raises(InvalidMemberError, match="future"):
+            self.save(use_case, subject, birth_date=date(2027, 1, 1))
+
+    def test_a_date_before_1900_is_refused(self) -> None:
+        subject = member()
+        use_case, _ = self.build(subject)
+
+        with pytest.raises(InvalidMemberError, match="1900"):
+            self.save(use_case, subject, birth_date=date(1899, 12, 31))
+
+    def test_someone_a_day_short_of_ten_is_refused(self) -> None:
+        """The rule the year column could not express: at NOW (16 Aug 2026) this member
+        turns ten tomorrow, and 2026 − 2016 = 10 would have let them in."""
+        subject = member()
+        use_case, _ = self.build(subject)
+
+        with pytest.raises(InvalidMemberError, match="10 years old"):
+            self.save(use_case, subject, birth_date=date(2016, 8, 17))
+
+    def test_someone_who_turns_ten_today_is_accepted(self) -> None:
+        """The birthday counts on the day itself, not the day after."""
+        subject = member()
+        use_case, _ = self.build(subject)
+
+        updated = self.save(use_case, subject, birth_date=date(2016, 8, 16))
+
+        assert updated.profile.birth_date == date(2016, 8, 16)
+
+    def test_the_whole_date_is_stored(self) -> None:
+        subject = member()
+        use_case, members = self.build(subject)
+
+        use_case.execute(UpdateMyProfileCommand(member_id=subject.id, **PROFILE_FIELDS))  # type: ignore[arg-type]
+
+        stored = members.get(subject.id)
+        assert stored is not None
+        assert stored.profile.birth_date == date(1990, 5, 20)
 
     def test_updating_a_profile_never_touches_the_role(self) -> None:
         """There is no field for it on the command, and this pins that: the profile
@@ -308,7 +352,7 @@ def _complete_profile(**overrides: object):  # type: ignore[no-untyped-def]
 
     fields = {
         "full_name_th": "สมชาย ใจดี",
-        "birth_year": 1990,
+        "birth_date": date(1990, 5, 20),
         "sex": Sex.MALE,
         "position": "พยาบาลวิชาชีพชำนาญการ",
         "department": "กลุ่มงานการพยาบาล",

@@ -22,19 +22,31 @@ import type { MemberProfile, Sex, ShirtSize } from "@/lib/types";
  * is saved as typed, and the list only grows when lib/roster-options.ts is edited.
  */
 
-const CURRENT_YEAR = new Date().getFullYear();
-const MIN_BIRTH_YEAR = 1900;
-const MAX_BIRTH_YEAR = CURRENT_YEAR - 10;
-/** A four-digit year above this is a พ.ศ. year typed where ค.ศ. was asked for — the
- * commonest mistake on this form, and one that fails validation with no clue why. */
-const LOOKS_BUDDHIST_ABOVE = 2200;
-const BUDDHIST_OFFSET = 543;
+/** The same bounds `build_profile` enforces, so a date this form accepts is not then
+ * refused by the API. `max` and `min` also stop the picker offering an impossible day. */
+const MIN_AGE_YEARS = 10;
+const EARLIEST_BIRTH_DATE = "1900-01-01";
 
 /** Same shape the backend accepts, so a number that passes here is not rejected there. */
 const PHONE_RE = /^0\d{8,9}$/;
 
 function normalisePhone(value: string): string {
   return value.replace(/[\s-]/g, "").trim();
+}
+
+/** Today, and the latest birth date that clears the club's minimum age — both as the
+ * `YYYY-MM-DD` a date input speaks. Computed in the browser's own zone, which for
+ * everyone here is Bangkok's, so "today" means the day they are looking at. */
+function isoDate(value: Date): string {
+  const local = new Date(value.getTime() - value.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function latestAllowedBirthDate(): string {
+  const today = new Date();
+  return isoDate(
+    new Date(today.getFullYear() - MIN_AGE_YEARS, today.getMonth(), today.getDate()),
+  );
 }
 
 export function ProfileForm({
@@ -49,9 +61,9 @@ export function ProfileForm({
   const api = useApi();
 
   const [fullName, setFullName] = useState(initial?.full_name_th ?? "");
-  const [birthYear, setBirthYear] = useState(
-    initial?.birth_year ? String(initial.birth_year) : "",
-  );
+  // Already `YYYY-MM-DD` on the wire, which is exactly what a date input wants — no
+  // parsing, no Date object, no timezone to get wrong on the way in or out.
+  const [birthDate, setBirthDate] = useState(initial?.birth_date ?? "");
   const [sex, setSex] = useState<Sex | "">(() => initial?.sex ?? "");
   const [position, setPosition] = useState(initial?.position ?? "");
   const [department, setDepartment] = useState(initial?.department ?? "");
@@ -64,16 +76,18 @@ export function ProfileForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const yearValue = Number(birthYear);
-  const yearOk =
-    /^\d{4}$/.test(birthYear) && yearValue >= MIN_BIRTH_YEAR && yearValue <= MAX_BIRTH_YEAR;
-  const looksBuddhist = /^\d{4}$/.test(birthYear) && yearValue > LOOKS_BUDDHIST_ABOVE;
+  const oldEnoughBy = latestAllowedBirthDate();
+  // String comparison, not date arithmetic: ISO dates sort correctly as text, and the
+  // value never leaves that form on its way to the API.
+  const birthDateOk =
+    birthDate >= EARLIEST_BIRTH_DATE && birthDate <= oldEnoughBy && birthDate !== "";
+  const tooYoung = birthDate !== "" && birthDate > oldEnoughBy;
   const phoneOk = PHONE_RE.test(normalisePhone(phone));
   const contactPhoneOk = PHONE_RE.test(normalisePhone(contactPhone));
 
   const canSave =
     fullName.trim() !== "" &&
-    yearOk &&
+    birthDateOk &&
     sex !== "" &&
     position.trim() !== "" &&
     department.trim() !== "" &&
@@ -94,7 +108,7 @@ export function ProfileForm({
         method: "PATCH",
         body: JSON.stringify({
           full_name_th: fullName.trim(),
-          birth_year: yearValue,
+          birth_date: birthDate,
           sex,
           position: position.trim(),
           department: department.trim(),
@@ -126,29 +140,24 @@ export function ProfileForm({
         />
       </Field>
 
-      <Field label="ปีเกิด (ค.ศ.)" htmlFor="birth-year">
+      {/* A date picker rather than a year box, which is what finally settles the พ.ศ.
+          problem: there is no number to type in the wrong era. The phone's own calendar
+          may well *display* Buddhist years — that is the member's locale, and it is
+          right for them — while the value this input holds is always ISO ค.ศ., which is
+          exactly what goes to the API. */}
+      <Field label="วันเกิด" htmlFor="birth-date">
         <input
-          id="birth-year"
-          type="text"
-          inputMode="numeric"
-          value={birthYear}
-          onChange={(event) => setBirthYear(event.target.value)}
-          placeholder="1990"
+          id="birth-date"
+          type="date"
+          value={birthDate}
+          onChange={(event) => setBirthDate(event.target.value)}
+          min={EARLIEST_BIRTH_DATE}
+          max={oldEnoughBy}
+          autoComplete="bday"
           className={inputClass}
         />
-        <p className="mt-2 text-sm text-muted">
-          กรอกเป็น ค.ศ. เช่น 1990 (พ.ศ. − {BUDDHIST_OFFSET} = ค.ศ.)
-        </p>
-        {/* A wrong-era year is the mistake this form gets, so it is answered with the
-            arithmetic already done rather than with the range it failed. */}
-        {looksBuddhist ? (
-          <FieldError>
-            กรุณากรอกเป็น ค.ศ. — พ.ศ. {yearValue} คือ ค.ศ. {yearValue - BUDDHIST_OFFSET}
-          </FieldError>
-        ) : birthYear !== "" && !yearOk ? (
-          <FieldError>
-            ใส่ปีเป็น ค.ศ. 4 หลัก ระหว่าง {MIN_BIRTH_YEAR}–{MAX_BIRTH_YEAR}
-          </FieldError>
+        {tooYoung ? (
+          <FieldError>ผู้เข้าร่วมต้องมีอายุอย่างน้อย {MIN_AGE_YEARS} ปี</FieldError>
         ) : null}
       </Field>
 

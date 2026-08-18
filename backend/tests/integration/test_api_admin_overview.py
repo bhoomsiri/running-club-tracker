@@ -195,7 +195,7 @@ class TestWhatItMustNotReturn:
         "bmi",
         "sex",
         "phone",
-        "birth_year",
+        "birth_date",
         "emergency_contact_name",
         "emergency_contact_phone",
     )

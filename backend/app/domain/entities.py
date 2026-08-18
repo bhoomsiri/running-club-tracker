@@ -101,10 +101,16 @@ class MemberProfile:
 
     `shirt_size` is different — it is a closed set (`ShirtSize`), because it is read off
     when the finisher shirts are ordered and there is no re-order for a typo.
+
+    `birth_date` is the full date rather than the year it started as: a year cannot say
+    whether somebody has had their birthday yet, and the club's minimum age is a rule
+    about a person on a day, not about an arithmetic difference between two years. The
+    extra precision does make the row slightly more identifying, which belongs in the
+    PDPA data inventory alongside the rest of the profile.
     """
 
     full_name_th: str | None = None
-    birth_year: int | None = None
+    birth_date: date | None = None
     sex: Sex | None = None
     position: str | None = None
     department: str | None = None
@@ -119,7 +125,7 @@ class MemberProfile:
             value is not None
             for value in (
                 self.full_name_th,
-                self.birth_year,
+                self.birth_date,
                 self.sex,
                 self.position,
                 self.department,
@@ -176,9 +182,11 @@ MAX_FULL_NAME = 200
 MAX_CONTACT_NAME = 200
 # Hospital job titles and unit names run long ("พยาบาลวิชาชีพชำนาญการ", "กลุ่มงาน…").
 MAX_WORK_FIELD = 160
-MIN_BIRTH_YEAR = 1900
-# Nobody younger than this is running a club activity unaccompanied; it also catches a
-# birth year typed where the current year was meant.
+# The floor on a birth date. Nothing older than this is a living member of staff; it is
+# the same 1900 the year-based column used, so no date the old rule accepted is refused.
+EARLIEST_BIRTH_DATE = date(1900, 1, 1)
+# Nobody younger than this is running a club activity unaccompanied; it also catches
+# today's date typed where a birth date was meant.
 MIN_AGE_YEARS = 10
 
 _PHONE_RE = re.compile(r"^0\d{8,9}$")
@@ -187,7 +195,7 @@ _PHONE_RE = re.compile(r"^0\d{8,9}$")
 def build_profile(
     *,
     full_name_th: str,
-    birth_year: int,
+    birth_date: date,
     sex: Sex,
     position: str,
     department: str,
@@ -200,7 +208,7 @@ def build_profile(
     """The one place a profile is validated, whichever path builds it."""
     return MemberProfile(
         full_name_th=_required_text("full_name_th", full_name_th, MAX_FULL_NAME),
-        birth_year=_validate_birth_year(birth_year, now),
+        birth_date=_validate_birth_date(birth_date, now),
         sex=sex,
         position=_required_text("position", position, MAX_WORK_FIELD),
         department=_required_text("department", department, MAX_WORK_FIELD),
@@ -224,12 +232,28 @@ def _required_text(field_name: str, value: str, limit: int) -> str:
     return cleaned
 
 
-def _validate_birth_year(year: int, now: datetime) -> int:
-    if not (MIN_BIRTH_YEAR <= year <= now.year - MIN_AGE_YEARS):
-        raise InvalidMemberError(
-            f"birth_year must be between {MIN_BIRTH_YEAR} and {now.year - MIN_AGE_YEARS}"
-        )
-    return year
+def _validate_birth_date(value: date, now: datetime) -> date:
+    """Three ways a birth date can be wrong, and all three are typing mistakes.
+
+    The age rule is the one that matters — it is why this is checked at all — and it is
+    computed from the whole date rather than from the difference between two years:
+    somebody who turns ten next month is nine today, and a club activity is not the place
+    to discover that a year subtraction disagreed.
+    """
+    today = club_today(now)
+    if value > today:
+        raise InvalidMemberError("birth_date cannot be in the future")
+    if value < EARLIEST_BIRTH_DATE:
+        raise InvalidMemberError(f"birth_date cannot be before {EARLIEST_BIRTH_DATE}")
+    if _age_on(value, today) < MIN_AGE_YEARS:
+        raise InvalidMemberError(f"member must be at least {MIN_AGE_YEARS} years old")
+    return value
+
+
+def _age_on(birth_date: date, today: date) -> int:
+    """Whole years lived — the birthday counts on the day itself, not the day after."""
+    had_birthday = (today.month, today.day) >= (birth_date.month, birth_date.day)
+    return today.year - birth_date.year - (0 if had_birthday else 1)
 
 
 def _validate_phone(field_name: str, value: str) -> str:

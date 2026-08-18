@@ -20,7 +20,7 @@ SCREENED_ON = "2026-08-01"
 
 PROFILE = {
     "full_name_th": "สมชาย ใจดี",
-    "birth_year": 1990,
+    "birth_date": "1990-05-20",
     "sex": "male",
     "position": "พยาบาลวิชาชีพชำนาญการ",
     "department": "กลุ่มงานการพยาบาล",
@@ -146,7 +146,7 @@ class TestProfile:
             assert "emergency_contact_name" not in member
             assert "emergency_contact_phone" not in member
             assert "phone" not in member
-            assert "birth_year" not in member
+            assert "birth_date" not in member
 
         # The other side of the same line: a job title and a unit are ordinary personal
         # data, so they are here on purpose. Pinning it means a later change that moves

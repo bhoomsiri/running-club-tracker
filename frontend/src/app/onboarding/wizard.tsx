@@ -43,7 +43,7 @@ const STEPS: { id: OnboardingStep; title: string; blurb: string }[] = [
   {
     id: "profile",
     title: "ข้อมูลทั่วไป",
-    blurb: "ชื่อ ปีเกิด เพศ ตำแหน่ง หน่วยงาน ไซส์เสื้อ และผู้ติดต่อกรณีฉุกเฉิน",
+    blurb: "ชื่อ วันเกิด เพศ ตำแหน่ง หน่วยงาน ไซส์เสื้อ และผู้ติดต่อกรณีฉุกเฉิน",
   },
   {
     id: "screening",

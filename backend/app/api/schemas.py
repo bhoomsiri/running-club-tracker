@@ -593,7 +593,7 @@ class UpdateProfileRequest(BaseModel):
     written by the verified webhook, never by a client."""
 
     full_name_th: str = Field(min_length=1, max_length=200)
-    birth_year: int
+    birth_date: date
     sex: Sex
     position: str = Field(min_length=1, max_length=160)
     department: str = Field(min_length=1, max_length=160)
@@ -614,7 +614,7 @@ class MemberProfileResponse(BaseModel):
     """
 
     full_name_th: str | None
-    birth_year: int | None
+    birth_date: date | None
     sex: str | None
     position: str | None
     department: str | None
@@ -629,7 +629,7 @@ class MemberProfileResponse(BaseModel):
         profile = member.profile
         return cls(
             full_name_th=profile.full_name_th,
-            birth_year=profile.birth_year,
+            birth_date=profile.birth_date,
             sex=profile.sex.value if profile.sex else None,
             position=profile.position,
             department=profile.department,
@@ -820,7 +820,7 @@ class MemberContactResponse(BaseModel):
     """Sensitive. Only ever returned by the audited endpoint, never by a list."""
 
     subject: MemberResponse
-    birth_year: int | None
+    birth_date: date | None
     sex: str | None
     phone: str | None
     emergency_contact_name: str | None
@@ -831,7 +831,7 @@ class MemberContactResponse(BaseModel):
         profile = member.profile
         return cls(
             subject=MemberResponse.from_entity(member),
-            birth_year=profile.birth_year,
+            birth_date=profile.birth_date,
             sex=profile.sex.value if profile.sex else None,
             phone=profile.phone,
             emergency_contact_name=profile.emergency_contact_name,

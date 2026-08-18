@@ -48,7 +48,7 @@ def member_to_domain(row: models.Member) -> Member:
         created_at=row.created_at,
         profile=MemberProfile(
             full_name_th=row.full_name_th,
-            birth_year=row.birth_year,
+            birth_date=row.birth_date,
             sex=Sex(row.sex) if row.sex else None,
             position=row.position,
             department=row.department,

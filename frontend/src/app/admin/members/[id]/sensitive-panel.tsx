@@ -37,7 +37,7 @@ const LABELS: Record<Section, { title: string; blurb: string; button: string }> 
   },
   contact: {
     title: "ข้อมูลติดต่อและผู้ติดต่อฉุกเฉิน",
-    blurb: "ปีเกิด เพศ เบอร์โทร และผู้ติดต่อกรณีฉุกเฉิน",
+    blurb: "วันเกิด เพศ เบอร์โทร และผู้ติดต่อกรณีฉุกเฉิน",
     button: "เปิดดูข้อมูลติดต่อ",
   },
 };
@@ -245,18 +245,36 @@ function ScreeningView({ view }: { view: MemberScreening }) {
 }
 
 function ContactView({ view }: { view: MemberContact }) {
-  const age =
-    view.birth_year === null ? null : new Date().getFullYear() - view.birth_year;
+  const age = ageOn(view.birth_date);
 
   return (
     <dl className="space-y-1.5 text-sm">
-      <Row label="อายุ" value={age === null ? "—" : `${age} ปี (เกิด ${view.birth_year})`} />
+      <Row
+        label="อายุ"
+        value={
+          age === null || view.birth_date === null
+            ? "—"
+            : `${age} ปี (เกิด ${formatDate(view.birth_date)})`
+        }
+      />
       <Row label="เพศ" value={view.sex === null ? "—" : (SEX_LABELS[view.sex] ?? view.sex)} />
       <Row label="เบอร์โทร" value={view.phone ?? "—"} />
       <Row label="ผู้ติดต่อฉุกเฉิน" value={view.emergency_contact_name ?? "—"} />
       <Row label="เบอร์ผู้ติดต่อ" value={view.emergency_contact_phone ?? "—"} />
     </dl>
   );
+}
+
+/** Whole years lived, counting the birthday on the day itself — the same rule the
+ * backend applies when it decides whether somebody is old enough to join. */
+function ageOn(birthDate: string | null): number | null {
+  if (birthDate === null) return null;
+  const [year, month, day] = birthDate.split("-").map(Number);
+  const today = new Date();
+  const hadBirthday =
+    today.getMonth() + 1 > month ||
+    (today.getMonth() + 1 === month && today.getDate() >= day);
+  return today.getFullYear() - year - (hadBirthday ? 0 : 1);
 }
 
 function Row({ label, value }: { label: string; value: string }) {

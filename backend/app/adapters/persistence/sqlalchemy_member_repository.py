@@ -68,7 +68,7 @@ class SqlAlchemyMemberRepository:
             .where(models.Member.id == member_id)
             .values(
                 full_name_th=profile.full_name_th,
-                birth_year=profile.birth_year,
+                birth_date=profile.birth_date,
                 sex=profile.sex.value if profile.sex else None,
                 position=profile.position,
                 department=profile.department,

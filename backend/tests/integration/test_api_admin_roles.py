@@ -74,7 +74,7 @@ def club(session_factory: sessionmaker[Session]) -> dict[str, UUID]:
         session.add(
             models.Member(
                 id=ids["alice"], clerk_user_id=ALICE, display_name="Alice",
-                full_name_th="อลิศ ใจดี", sex="female", birth_year=1990,
+                full_name_th="อลิศ ใจดี", sex="female", birth_date=date(1990, 5, 20),
                 phone="0812345678", emergency_contact_name="สมหญิง ใจดี",
                 emergency_contact_phone="0898765432",
             )

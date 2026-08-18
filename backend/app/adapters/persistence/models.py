@@ -74,7 +74,7 @@ class Member(Base):
     # sex and the emergency contact are sensitive: they must not appear in a response an
     # admin can reach without an audit row.
     full_name_th: Mapped[str | None] = mapped_column(sa.String(200))
-    birth_year: Mapped[int | None] = mapped_column(sa.SmallInteger)
+    birth_date: Mapped[date | None] = mapped_column(sa.Date)
     sex: Mapped[str | None] = mapped_column(sa.String(6))
     # Job and unit at the hospital. Ordinary personal data, not the sensitive kind —
     # so unlike the columns around them these may be shown in an admin list.
@@ -96,9 +96,12 @@ class Member(Base):
     __table_args__ = (
         sa.CheckConstraint("role IN ('member', 'admin', 'superuser')", name="role_valid"),
         sa.CheckConstraint("sex IS NULL OR sex IN ('male', 'female')", name="sex_valid"),
+        # A floor only. "Not in the future" and the minimum age both depend on the day
+        # the row is written, and a CHECK may not call CURRENT_DATE — those live in
+        # `build_profile`, which is the one path that writes this column.
         sa.CheckConstraint(
-            "birth_year IS NULL OR birth_year BETWEEN 1900 AND 2200",
-            name="birth_year_range",
+            "birth_date IS NULL OR birth_date >= DATE '1900-01-01'",
+            name="birth_date_floor",
         ),
         # There can be only one superuser, enforced by the database rather than by
         # convention. `role` is only ever written by the verified Clerk webhook or the
