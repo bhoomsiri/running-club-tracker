@@ -156,6 +156,9 @@ export function ProfileForm({
           autoComplete="bday"
           className={inputClass}
         />
+        {/* A date input looks like a text box until you find the icon, and typing into
+            one is fiddly on a phone. Saying where to tap costs a line. */}
+        <p className="mt-2 text-sm text-muted">แตะไอคอนปฏิทินเพื่อเลือกวันเกิด</p>
         {tooYoung ? (
           <FieldError>ผู้เข้าร่วมต้องมีอายุอย่างน้อย {MIN_AGE_YEARS} ปี</FieldError>
         ) : null}
