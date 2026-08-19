@@ -1,0 +1,28 @@
+# Findings Trivy should stop reporting, and why.
+#
+# Read by both scans: the filesystem scan in ci.yml (dependencies, secrets, Dockerfile
+# misconfiguration) and the image scan in deploy.yml, which runs between `docker build`
+# and `docker push` so a CRITICAL never reaches Artifact Registry.
+#
+# Before adding a line here, check that the answer is not simply to upgrade. Both scans
+# already pass `--ignore-unfixed`, so anything reaching this file HAS a released fix —
+# which makes an entry here a decision to ship a known-vulnerable dependency. That can be
+# the right call (the vulnerable code path is unreachable from this app, the fix needs a
+# major upgrade that has to be planned), but it is a decision, and it needs a name and a
+# date so the next person can tell a considered exception from an abandoned one.
+#
+# Format — one CVE per line, with the two comment lines above it:
+#
+#   # <why this is acceptable here — the specific reason, not "false positive">
+#   # <who / YYYY-MM-DD / when to look again>
+#   CVE-2026-12345
+#
+# Review this file whenever the deploy checklist is revisited. An exception with a
+# review date in the past is a finding of its own.
+#
+# What these scans do NOT prove: the secret scanner matches well-known token formats
+# (GitHub, AWS, Stripe and similar). It does not recognise every provider's key shape —
+# a Clerk secret key or a database URL with a password in it passes straight through. It
+# is a net for the obvious mistake, not a guarantee that nothing sensitive is committed.
+#
+# Nothing is ignored at the moment: the current tree scans clean at HIGH and CRITICAL.

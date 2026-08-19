@@ -64,3 +64,54 @@ jobs:
 
       - name: pip-audit
         run: pip install pip-audit && pip-audit
+
+  # Supply chain: what the code depends on, what it accidentally carries, and how the
+  # image is configured. Its own job so it runs beside the test suite rather than after
+  # it — a dependency CVE and a failing test are independent facts, and waiting five
+  # minutes to learn the second one is wasted time.
+  #
+  # pip-audit above still runs: it reads the resolved Python environment, while Trivy
+  # reads lockfiles across both halves of the repo. The overlap is deliberate.
+  supply-chain:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # to publish the SARIF into the Security tab
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to a release, never @master: a scanner that runs on every push with
+      # write access to the Security tab is exactly the action you do not want silently
+      # updating itself.
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          # vuln: dependencies with known CVEs. secret: a key committed by accident.
+          # misconfig: the Dockerfile and compose file (root user, missing healthcheck).
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          # A CVE with no released fix cannot be acted on, and a gate that cannot be
+          # satisfied is one people learn to skip. They still reach the Security tab.
+          ignore-unfixed: true
+          exit-code: "1"
+          trivyignores: .trivyignore
+          format: sarif
+          output: trivy-fs.sarif
+          # Not optional, despite looking like a detail. With format=sarif the action
+          # unsets --severity so the report carries every level — which also means
+          # exit-code stops applying to HIGH,CRITICAL and starts applying to anything at
+          # all. This repo has one LOW finding (DS-0026, no HEALTHCHECK in the
+          # Dockerfile: Cloud Run uses its own probes, so adding one to please a scanner
+          # would be cargo cult), and without this line that LOW would fail the build.
+          limit-severities-for-sarif: true
+
+      # always(): a failing scan is precisely when the findings need to be readable
+      # somewhere other than a log that scrolls past.
+      - name: Publish the findings
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs

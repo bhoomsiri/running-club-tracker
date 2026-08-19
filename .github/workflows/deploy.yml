@@ -25,6 +25,12 @@ jobs:
   # never drift apart.
   test:
     uses: ./.github/workflows/ci.yml
+    # A called workflow cannot grant itself more than the caller has, and its
+    # supply-chain job publishes a SARIF report. Without this the scan runs and the
+    # upload 403s on main while passing on pull requests — the confusing half-failure.
+    permissions:
+      contents: read
+      security-events: write
 
   deploy:
     needs: test
@@ -49,7 +55,7 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
 
-      - name: Build and push the image
+      - name: Build the image
         env:
           PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
         run: |
@@ -58,9 +64,32 @@ jobs:
           # Tagged with the commit sha, so what is running is always traceable back to
           # a commit — and a rollback is `gcloud run deploy --image ...:<old sha>`.
           docker build -t "$BASE:${{ github.sha }}" -t "$BASE:latest" backend
-          docker push "$BASE:${{ github.sha }}"
-          docker push "$BASE:latest"
+          echo "BASE=$BASE" >> "$GITHUB_ENV"
           echo "IMAGE=$BASE:${{ github.sha }}" >> "$GITHUB_ENV"
+
+      # Between build and push, deliberately. The image exists only in this runner's
+      # docker daemon at this point, so a CRITICAL finding stops here: nothing reaches
+      # Artifact Registry, nothing reaches Cloud Run, and there is no bad tag to clean
+      # up afterwards. Scanning the built image rather than the repository is what
+      # catches the other half — the CVEs that come from the base image and the system
+      # packages in it, which no lockfile mentions.
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          # Base-image CVEs with no upstream fix would otherwise block every deploy
+          # until Debian ships a patch, which is not a decision this gate should make.
+          ignore-unfixed: true
+          exit-code: "1"
+          trivyignores: .trivyignore
+
+      - name: Push the image
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE"
+          docker push "$BASE:latest"
 
       - name: Deploy to Cloud Run
         run: |

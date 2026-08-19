@@ -32,6 +32,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8080
 
+# The base image is rebuilt on its own schedule, so it lags Debian's security updates by
+# days at a time — long enough for the image scan in deploy.yml to hold a release over a
+# patch that already exists upstream. Applying them here closes that window at build
+# time, which is the only place this image can be patched: Cloud Run containers are
+# replaced, never updated in place.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /install /usr/local
 
 WORKDIR /app
