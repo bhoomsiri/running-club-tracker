@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -16,6 +16,18 @@ from app.adapters.persistence import models
 pytestmark = pytest.mark.integration
 
 CAMPAIGN = UUID("22222222-2222-2222-2222-222222222222")
+
+RUN_DATE = date(2026, 8, 20)
+# Submitted the same day it was run, pinned rather than left to the database's now().
+#
+# The campaign below sets submit_within_days=1, and the daily-threshold policy drops a
+# run whose created_at is later than run_date + that window. With created_at defaulting
+# to "whenever the suite happens to run", these fixtures described a run submitted the
+# day it was run in August 2026 and a run submitted months late by December — so the
+# review tests, which reconcile points against the policy, passed until 21 August 2026
+# and failed every day after. The dates now move together, so the fixture means the same
+# thing whenever it runs.
+SUBMITTED_AT = datetime(2026, 8, 20, 12, 0, tzinfo=UTC)
 
 
 @pytest.fixture
@@ -59,8 +71,9 @@ def club(session_factory: sessionmaker[Session]) -> dict[str, UUID]:
         session.add(
             models.RunEntry(
                 id=ids["run"], member_id=ids["alice"], distance_km=Decimal("11"),
-                duration_seconds=1800, run_date=date(2026, 8, 20), evidence_key="k",
+                duration_seconds=1800, run_date=RUN_DATE, evidence_key="k",
                 evidence_sha256="a" * 64, source="app_screenshot",
+                created_at=SUBMITTED_AT,
             )
         )
         session.flush()
