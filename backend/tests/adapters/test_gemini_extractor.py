@@ -10,9 +10,13 @@ stopped, the less there is to go wrong.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import date
 from decimal import Decimal
 from typing import Any
+
+import pytest
+from google.genai.errors import ClientError
 
 from app.adapters.extraction.gemini_extractor import GeminiExtractor
 
@@ -150,12 +154,59 @@ class TestHostileOutput:
         assert len(draft.warnings[0]) == 200
 
 
+    def test_a_third_decimal_is_rounded_to_the_two_the_form_accepts(self) -> None:
+        """The draft is typed into the member's form on their behalf, and the form takes
+        two decimals (lib/run-form.ts). A third one showed them a validation error
+        against a number they had not entered.
+
+        Asserted as a string on purpose: Decimal("5.24") == Decimal("5.240"), so an
+        equality check would pass whatever the exponent was.
+        """
+        draft = extractor(response(distance_km=5.243)).extract(b"image", "jpeg")
+
+        assert str(draft.distance_km) == "5.24"
+
+
 class TestFailures:
     def test_an_api_error_becomes_an_empty_draft_not_a_crash(self) -> None:
         draft = extractor(error=RuntimeError("quota exceeded")).extract(b"image", "jpeg")
 
         assert draft.distance_km is None
         assert draft.warnings
+
+    def test_the_failure_is_logged_with_its_type_and_status(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Without these two facts the log said only that extraction had failed, which
+        cannot tell a retired model (404) from exhausted credits (429) from a bad key
+        (400) — all three of which have happened."""
+        error = ClientError(429, {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED"}})
+
+        with caplog.at_level(logging.WARNING):
+            draft = extractor(error=error).extract(b"image", "jpeg")
+
+        message = caplog.text
+        assert "ClientError" in message
+        assert "429" in message
+        # Unchanged behaviour: the member still gets a draft to fill in themselves.
+        assert draft.distance_km is None
+        assert draft.warnings
+
+    def test_the_log_carries_no_image_and_no_response_body(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Rule #8. Google's transport errors quote the request URL, and the API key
+        rides in it — so the exception's own message is never logged either."""
+        error = ClientError(
+            400, {"error": {"code": 400, "message": "API key not valid: AIzaSECRET"}}
+        )
+
+        with caplog.at_level(logging.WARNING):
+            extractor(error=error).extract(b"screenshot-bytes", "jpeg")
+
+        assert "AIzaSECRET" not in caplog.text
+        assert "screenshot-bytes" not in caplog.text
+        assert "API key not valid" not in caplog.text
 
     def test_the_image_is_sent_with_its_real_mime_type(self) -> None:
         client = StubClient(response())

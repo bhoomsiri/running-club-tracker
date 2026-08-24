@@ -23,12 +23,18 @@ from typing import Any
 
 from google import genai
 from google.genai import types
+from google.genai.errors import APIError
 
 from app.application.ports.run_extractor import RunDraft
 
 logger = logging.getLogger(__name__)
 
-MODEL = "gemini-2.5-flash"
+# An alias, not a version. `gemini-2.5-flash` was pinned here until Google retired it
+# for new projects, and the only symptom was every extraction failing with a 404 that
+# the handler below swallowed. An alias moves with them instead; the response is parsed
+# strictly against a fixed shape and confirmed by a human either way, so a model swap
+# underneath cannot put an unchecked number in front of anyone.
+MODEL = "gemini-flash-latest"
 
 PROMPT = """You are reading a screenshot from a running app (Strava, Nike Run Club, Garmin
 or similar), or a photo of a treadmill display.
@@ -78,9 +84,29 @@ class GeminiExtractor:
             # Not JSON at all: the model ignored the format, possibly because the image
             # told it to. Nothing is salvaged from it.
             return RunDraft(warnings=["ไม่สามารถอ่านข้อมูลจากรูปได้ กรุณากรอกเอง"])
-        except Exception:
-            # Never log the image or the response — it is a member's personal data.
-            logger.warning("extraction failed", extra={"action": "extract_run"})
+        except Exception as error:
+            # The exception's type and, for an API error, its HTTP status. Neither is
+            # personal data, and between them they are the difference between "the model
+            # was retired" (404), "the credits ran out" (429) and "the key is wrong"
+            # (400) — which this line could not tell apart when it said only that
+            # extraction had failed.
+            #
+            # Deliberately NOT logged: the image, the response body, the exception's own
+            # message, or a traceback. Google's transport errors quote the request URL,
+            # and the API key travels in it. Rule #8 holds.
+            #
+            # In the message rather than only in `extra`, because nothing configures a
+            # formatter that would render `extra` — that is why the original line
+            # arrived in Cloud Run as four bare words.
+            status = error.code if isinstance(error, APIError) else None
+            logger.warning(
+                "extraction failed: %s status=%s",
+                type(error).__name__,
+                status,
+                extra={"action": "extract_run"},
+            )
+            # Unchanged: the member gets a draft they can fill in themselves. A failure
+            # here is an inconvenience, never a blocked submission.
             return RunDraft(warnings=["ระบบอ่านรูปไม่สำเร็จ กรุณากรอกเอง"])
 
         if not isinstance(payload, dict):
@@ -118,7 +144,12 @@ def _decimal(value: Any) -> Decimal | None:
         return None
     try:
         # via str: a JSON float would carry binary rounding into a distance.
-        return Decimal(str(value)).quantize(Decimal("0.001"))
+        #
+        # Two decimals, matching the submit form's own rule (lib/run-form.ts accepts at
+        # most two). The column holds three, but a draft is text typed into a field on
+        # the member's behalf: a third decimal here put "5.243" into the box and showed
+        # the member a validation error against something they had not typed.
+        return Decimal(str(value)).quantize(Decimal("0.01"))
     except (InvalidOperation, ValueError, TypeError):
         return None
 
