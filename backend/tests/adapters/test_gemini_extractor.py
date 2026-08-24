@@ -11,24 +11,44 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
 from typing import Any
 
+import httpx
 import pytest
-from google.genai.errors import ClientError
+from google.genai.errors import ClientError, ServerError
 
-from app.adapters.extraction.gemini_extractor import GeminiExtractor
+from app.adapters.extraction.gemini_extractor import (
+    REQUEST_TIMEOUT_MS,
+    RETRY_BACKOFF_SECONDS,
+    GeminiExtractor,
+)
+
+# Backoff the tests can afford. The real values are asserted separately, in
+# TestRetries::test_the_worst_case_fits_inside_cloud_runs_request_timeout.
+NO_WAITING = (0.0, 0.0)
 
 
 class StubModels:
-    def __init__(self, text: str | None, error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        text: str | None,
+        error: Exception | None = None,
+        errors: Sequence[Exception] = (),
+    ) -> None:
         self._text = text
         self._error = error
+        # Raised in order, one per call, before `error`/`text` apply — a model that fails
+        # and then recovers.
+        self._errors = list(errors)
         self.calls: list[dict[str, Any]] = []
 
     def generate_content(self, **kwargs: Any) -> Any:
         self.calls.append(kwargs)
+        if self._errors:
+            raise self._errors.pop(0)
         if self._error:
             raise self._error
 
@@ -39,12 +59,28 @@ class StubModels:
 
 
 class StubClient:
-    def __init__(self, text: str | None = None, error: Exception | None = None) -> None:
-        self.models = StubModels(text, error)
+    def __init__(
+        self,
+        text: str | None = None,
+        error: Exception | None = None,
+        errors: Sequence[Exception] = (),
+    ) -> None:
+        self.models = StubModels(text, error, errors)
 
 
-def extractor(text: str | None = None, error: Exception | None = None) -> GeminiExtractor:
-    return GeminiExtractor(api_key="unused", client=StubClient(text, error))
+def extractor(
+    text: str | None = None,
+    error: Exception | None = None,
+    errors: Sequence[Exception] = (),
+) -> GeminiExtractor:
+    return GeminiExtractor(
+        api_key="unused", client=StubClient(text, error, errors), backoff_seconds=NO_WAITING
+    )
+
+
+def overloaded() -> ServerError:
+    """What Gemini returns when its own capacity is the problem."""
+    return ServerError(503, {"error": {"code": 503, "status": "UNAVAILABLE"}})
 
 
 def response(**fields: Any) -> str:
@@ -214,3 +250,73 @@ class TestFailures:
 
         assert client.models.calls[0]["model"]
         assert client.models.calls[0]["config"].response_mime_type == "application/json"
+
+
+class TestRetries:
+    """Launch day: the model answered 503 to every attempt, the SDK retried five times
+    with exponential backoff, and one extraction took 392s — long after Cloud Run had cut
+    the request at 60s. The member never saw the "fill it in yourself" draft the failure
+    path exists to give them. So the retry policy lives here now, where it is bounded and
+    a stub can prove it.
+    """
+
+    def test_a_503_is_sent_again_and_the_recovered_attempt_is_used(self) -> None:
+        client = StubClient(response(), errors=[overloaded()])
+        run = GeminiExtractor(
+            api_key="unused", client=client, backoff_seconds=NO_WAITING
+        ).extract(b"image", "jpeg")
+
+        assert run.distance_km == Decimal("5.25")
+        assert len(client.models.calls) == 2
+
+    def test_retrying_stops_and_the_member_gets_a_draft_to_fill_in(self) -> None:
+        client = StubClient(error=overloaded())
+        draft = GeminiExtractor(
+            api_key="unused", client=client, backoff_seconds=NO_WAITING
+        ).extract(b"image", "jpeg")
+
+        assert len(client.models.calls) == len(NO_WAITING) + 1
+        assert draft.distance_km is None
+        assert draft.warnings
+
+    def test_a_4xx_is_never_sent_again(self) -> None:
+        """A retired model, a bad key and an exhausted quota all answer the same way
+        however often they are asked — and every ask is billed."""
+        client = StubClient(error=ClientError(429, {"error": {"code": 429}}))
+        GeminiExtractor(api_key="unused", client=client, backoff_seconds=NO_WAITING).extract(
+            b"image", "jpeg"
+        )
+
+        assert len(client.models.calls) == 1
+
+    def test_a_timeout_is_never_sent_again(self) -> None:
+        """It has already spent 15s of the 60s budget; a 5xx comes back in under one."""
+        client = StubClient(error=httpx.ReadTimeout("timed out"))
+        draft = GeminiExtractor(
+            api_key="unused", client=client, backoff_seconds=NO_WAITING
+        ).extract(b"image", "jpeg")
+
+        assert len(client.models.calls) == 1
+        assert draft.warnings
+
+    def test_the_worst_case_fits_inside_cloud_runs_request_timeout(self) -> None:
+        """The actual regression: every attempt bounded, but no bound on the total.
+
+        60s is `--timeout` in deploy.yml. If that ever drops, this fails here rather than
+        in front of a member.
+        """
+        attempts = len(RETRY_BACKOFF_SECONDS) + 1
+        worst_case = attempts * (REQUEST_TIMEOUT_MS / 1000) + sum(RETRY_BACKOFF_SECONDS)
+
+        assert worst_case < 60
+
+    def test_the_sdk_does_not_retry_underneath_this_one(self) -> None:
+        """Without this the two policies multiply: 3 attempts here x 5 inside the SDK,
+        each sleeping up to 60s. Reaches into the client because that is where the
+        setting has to land to have any effect.
+        """
+        http_options = GeminiExtractor(api_key="unused")._client._api_client._http_options
+
+        assert http_options.retry_options is not None
+        assert http_options.retry_options.attempts == 1
+        assert http_options.timeout == REQUEST_TIMEOUT_MS

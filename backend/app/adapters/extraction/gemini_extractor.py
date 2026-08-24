@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -34,7 +35,28 @@ logger = logging.getLogger(__name__)
 # the handler below swallowed. An alias moves with them instead; the response is parsed
 # strictly against a fixed shape and confirmed by a human either way, so a model swap
 # underneath cannot put an unchecked number in front of anyone.
-MODEL = "gemini-flash-latest"
+#
+# `gemini-flash-latest` was the alias until launch day, when it stopped answering: the
+# same screenshot, measured against this prompt, gave 503 or a 20s read timeout on every
+# attempt, while `-lite` answered in 1.6–2.4s. (`gemini-2.0-flash` and `gemini-2.5-flash`
+# both 404 for this project.) Lite is also the cheaper model, and reading four numbers
+# off a screenshot is not work that needs the larger one.
+MODEL = "gemini-flash-lite-latest"
+
+# The two numbers that keep a bad day for Gemini from becoming a bad day for the member.
+#
+# Cloud Run kills the request at 60s. The SDK's own retry policy is five attempts with
+# exponential backoff capped at 60s per sleep, so one extraction spent 392s before
+# returning — Cloud Run had cut the connection at 60s, six minutes before the graceful
+# "fill it in yourself" draft below was ready. The member saw a spinner and then an
+# error, which is the one outcome this adapter exists to prevent.
+#
+# So: the SDK's retry is turned off (attempts=1) and the policy lives here, where a test
+# with a stub client can actually prove it. Worst case is
+# 3 x 15s + 0.5s + 1s = 46.5s, inside the 60s budget, and in practice a 5xx comes back
+# in well under a second — the sum only approaches 46.5s if every attempt also hangs.
+REQUEST_TIMEOUT_MS = 15_000
+RETRY_BACKOFF_SECONDS = (0.5, 1.0)
 
 PROMPT = """You are reading a screenshot from a running app (Strava, Nike Run Club, Garmin
 or similar), or a photo of a treadmill display.
@@ -59,26 +81,27 @@ MAX_DURATION_SECONDS = 86_400
 
 
 class GeminiExtractor:
-    def __init__(self, api_key: str, model: str = MODEL, client: Any | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str = MODEL,
+        client: Any | None = None,
+        backoff_seconds: tuple[float, ...] = RETRY_BACKOFF_SECONDS,
+    ) -> None:
         self._model = model
-        self._client = client or genai.Client(api_key=api_key)
+        self._backoff = backoff_seconds
+        self._client = client or genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                timeout=REQUEST_TIMEOUT_MS,
+                # One attempt per call. Retrying is this adapter's job now — see above.
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
+        )
 
     def extract(self, image: bytes, kind: str) -> RunDraft:
         try:
-            response = self._client.models.generate_content(
-                model=self._model,
-                contents=types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_bytes(data=image, mime_type=f"image/{kind}"),
-                        types.Part.from_text(text=PROMPT),
-                    ],
-                ),
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    temperature=0,
-                ),
-            )
+            response = self._generate(image, kind)
             payload = json.loads(response.text or "")
         except json.JSONDecodeError:
             # Not JSON at all: the model ignored the format, possibly because the image
@@ -113,6 +136,46 @@ class GeminiExtractor:
             return RunDraft(warnings=["ไม่สามารถอ่านข้อมูลจากรูปได้ กรุณากรอกเอง"])
 
         return _to_draft(payload)
+
+    def _generate(self, image: bytes, kind: str) -> Any:
+        """One call per backoff entry, plus a final one. Only a 5xx is sent again."""
+        for delay in self._backoff:
+            try:
+                return self._call(image, kind)
+            except Exception as error:
+                if not _is_transient(error):
+                    raise
+                time.sleep(delay)
+        return self._call(image, kind)
+
+    def _call(self, image: bytes, kind: str) -> Any:
+        return self._client.models.generate_content(
+            model=self._model,
+            contents=types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_bytes(data=image, mime_type=f"image/{kind}"),
+                    types.Part.from_text(text=PROMPT),
+                ],
+            ),
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0,
+            ),
+        )
+
+
+def _is_transient(error: Exception) -> bool:
+    """Whether sending the same screenshot again could plausibly work.
+
+    A 5xx is the model's own capacity problem and the next attempt often succeeds. A 4xx
+    is not: a retired model, a rejected key or an exhausted quota answers the same way
+    however many times it is asked, and each ask is billable. A timeout is not retried
+    either — it has already spent 15s of a 60s budget, where a 5xx comes back in under a
+    second.
+    """
+    # `code` is declared int but is read off the response body, so it can arrive as None.
+    return isinstance(error, APIError) and isinstance(error.code, int) and 500 <= error.code < 600
 
 
 def _to_draft(payload: dict[str, Any]) -> RunDraft:
