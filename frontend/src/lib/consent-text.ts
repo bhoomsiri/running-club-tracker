@@ -1,14 +1,16 @@
 /**
- * PLACEHOLDER WORDING — not legally reviewed.
+ * REVIEWED WORDING — approved as it stands. Do not edit casually.
  *
  * This is the text a member agrees to before the club may hold their health data, which
- * under Thailand's PDPA is sensitive personal data (มาตรา 26). It must be checked by the
- * hospital's PDPA officer / DPO against actual practice before launch: what is
- * collected, why, who can see it, how long it is kept, and how to withdraw. Wording that
- * does not match what the system actually does is worse than none, because it is a
- * promise on record.
+ * under Thailand's PDPA is sensitive personal data (มาตรา 26). โรงพยาบาลโพธาราม's PDPA
+ * officer / DPO checked it against actual practice and approved it unchanged: what is
+ * collected, why, who can see it, how long it is kept, and how to withdraw. The club
+ * launched on it and members have consented under it (CONSENT_VERSION v2).
  *
- * One bullet is a NOTICE rather than a consent item, and the DPO should be told which:
+ * That makes every sentence here a promise on record, and the bar for touching one
+ * higher than it was while this was a draft — see the versioning note at the end.
+ *
+ * One bullet is a NOTICE rather than a consent item, and the DPO was told which:
  * the leaderboard line. Showing a member's name and distance to the rest of the club
  * comes from taking part in the club's activity, not from this health-data consent — and
  * the code matches that reading, because withdrawing consent stops the health data being
@@ -23,13 +25,14 @@
  *     administrator does, not something that happens automatically. There is no purge
  *     job; health_record.retention_until is written and nothing reads it yet.
  *   - erasure on request points at a person, because there is no self-service use case.
- * Both are deferred (see Phase 8 of the deploy checklist). When either is built, this
- * text can promise more — and the promise will then be true.
+ * Both are still deferred, and the wording was approved on that basis. When either is
+ * built, this text can promise more — and the promise will then be true.
  *
  * When the wording changes in substance, bump CONSENT_VERSION on the backend. Every
  * member who agreed to the old text is then treated as not having consented and is
  * asked again — which is the point, and why this file does not hold a version of its
- * own to drift out of step.
+ * own to drift out of step. Members have already consented under v2 in production, so
+ * that re-consent is now real people being asked again, not a hypothetical.
  */
 
 export const CONSENT_PURPOSE = "เก็บข้อมูลสุขภาพเพื่อวัดผลก่อน/หลังกิจกรรมของชมรม";

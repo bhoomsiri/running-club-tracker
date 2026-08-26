@@ -68,7 +68,11 @@ class Settings(BaseSettings):
     # v2: the consent screen now tells members that their name and distance appear on
     # the club leaderboard. Anyone who agreed to v1 never saw that sentence, so counting
     # them as having agreed to it would be the one thing a consent record must never do.
-    # Expect a v3 when the hospital's DPO finalises the wording before launch.
+    #
+    # v2 is final. The hospital's DPO reviewed this wording and approved it unchanged, so
+    # the v3 this comment used to expect never happened — the club launched on v2 and
+    # members have consented under it. The next bump is whatever genuinely changes the
+    # text next, not a review that is already done.
     consent_version: str = "v2"
 
     # Accountability logs outlive the data they describe: you must still be able to show
