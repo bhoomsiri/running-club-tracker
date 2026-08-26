@@ -94,10 +94,27 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           set -euo pipefail
-          # No --set-env-vars here on purpose: the service's environment (DATABASE_URL,
-          # Clerk, R2, GEMINI_API_KEY, CF_ORIGIN_SECRET...) is configured once on the
-          # service itself, so secrets never pass through a workflow log. gcloud updates
-          # only the fields named below and leaves that configuration untouched.
+          # Two kinds of configuration, handled differently.
+          #
+          # The six values below are secrets, and they live in Secret Manager. What
+          # travels here is a NAME, never a value: `database-url:latest` is a reference
+          # Cloud Run resolves for itself, so nothing sensitive passes through this
+          # workflow, its log, or the service's plaintext environment. Rotating one means
+          # adding a new version of that secret — no code change and no commit.
+          #
+          # Everything else (CLERK_ISSUER, the URLs, APP_ENV, TRUST_PROXY...) is not
+          # secret and stays configured once on the service itself, which is why there is
+          # still no --set-env-vars: gcloud updates only the fields named here and leaves
+          # the rest alone.
+          #
+          # --set-secrets REPLACES the whole set — "all existing secrets will be removed
+          # first", per gcloud. A seventh secret therefore goes in this list; adding it
+          # anywhere else silently unmounts these six.
+          #
+          # --remove-env-vars is what makes the switch one-way. It strips the old
+          # plaintext copies in the SAME revision that mounts the secret versions, so no
+          # revision ever exists holding both, and rolling back to a revision that still
+          # has the plaintext is a deliberate act rather than an accident.
           #
           # --allow-unauthenticated because Cloudflare, not IAM, is the front door; what
           # keeps the raw *.run.app URL shut is the CF_ORIGIN_SECRET guard in the app.
@@ -112,6 +129,8 @@ jobs:
             --memory 512Mi \
             --timeout 60s \
             --allow-unauthenticated \
+            --set-secrets=DATABASE_URL=database-url:latest,CF_ORIGIN_SECRET=cf-origin-secret:latest,CLERK_WEBHOOK_SECRET=clerk-webhook-secret:latest,S3_ACCESS_KEY=s3-access-key:latest,S3_SECRET_KEY=s3-secret-key:latest,GEMINI_API_KEY=gemini-api-key:latest \
+            --remove-env-vars=DATABASE_URL,CF_ORIGIN_SECRET,CLERK_WEBHOOK_SECRET,S3_ACCESS_KEY,S3_SECRET_KEY,GEMINI_API_KEY \
             --quiet
 
       - name: Show the deployed revision
@@ -145,7 +164,13 @@ jobs:
 
       - name: alembic upgrade head
         env:
-          # The Neon connection string, from GitHub Secrets. If Neon's IP allow-list is
-          # enabled it has to permit GitHub's runners, whose addresses are not fixed.
+          # The Neon connection string, from GitHub Secrets. Deliberately NOT the Secret
+          # Manager copy the service now uses: alembic runs on a GitHub runner, which is
+          # not the Cloud Run service and has no runtime service account to read Secret
+          # Manager with. Two stores holding the same string is the cost of that; rotate
+          # the database password and BOTH have to be updated.
+          #
+          # If Neon's IP allow-list is enabled it has to permit GitHub's runners, whose
+          # addresses are not fixed.
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: alembic upgrade head
