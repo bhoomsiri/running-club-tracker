@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 
 from app.domain.calendar import club_today
 from app.domain.errors import InvalidMemberError, InvalidRunError
+from app.domain.pace import pace_min_per_km
 
 MAX_DISPLAY_NAME = 120
 
@@ -312,6 +313,11 @@ class RunEntry:
         """A rejected run earns nothing and counts toward no campaign's progress.
         Flagged runs still count — they are awaiting a decision, not refused."""
         return self.review_status is ReviewStatus.REJECTED
+
+    @property
+    def pace_min_per_km(self) -> Decimal:
+        """Minutes per kilometre. Shown to admins so a flag says what it is about."""
+        return pace_min_per_km(self.distance_km, self.duration_seconds)
 
     @classmethod
     def create(

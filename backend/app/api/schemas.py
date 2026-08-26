@@ -46,6 +46,7 @@ from app.domain.entities import (
     ShirtSize,
 )
 from app.domain.health import HealthComparison, HealthPhase, HealthRecord
+from app.domain.pace import is_pace_plausible
 from app.domain.redemption import Redemption, Reward
 from app.domain.screening import Screening
 
@@ -294,6 +295,11 @@ class RunResponse(BaseModel):
     run_date: date
     source: str
     review_status: str
+    # Derived, not stored. Sent so the review screen can say what a flag is about, and
+    # sent as a verdict rather than as a band, so the rule stays in the domain and the
+    # frontend has no 5-to-11 of its own to drift out of step.
+    pace_min_per_km: Decimal
+    pace_is_plausible: bool
     created_at: datetime
 
     @classmethod
@@ -306,6 +312,8 @@ class RunResponse(BaseModel):
             run_date=run.run_date,
             source=run.source.value,
             review_status=run.review_status.value,
+            pace_min_per_km=run.pace_min_per_km,
+            pace_is_plausible=is_pace_plausible(run.distance_km, run.duration_seconds),
             created_at=run.created_at,
         )
 

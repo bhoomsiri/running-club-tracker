@@ -28,6 +28,24 @@ const STATUS: Record<Run["review_status"], { label: string; tone: "neutral" | "s
   rejected: { label: "ไม่ผ่าน", tone: "neutral" },
 };
 
+/**
+ * Decimal minutes per kilometre as runners read it: 5.714 -> "5:43".
+ *
+ * Display only. Whether the pace is plausible is `pace_is_plausible`, decided by the
+ * backend against the band in app/domain/pace.py — this rounding never feeds a verdict,
+ * which is why a float is harmless here.
+ */
+function formatPace(minutes: string): string {
+  const value = Number(minutes);
+  if (!Number.isFinite(value)) return minutes;
+  const whole = Math.floor(value);
+  const seconds = Math.round((value - whole) * 60);
+  // 5.999 rounds to 60 seconds, which is 6:00 and not 5:60.
+  return seconds === 60
+    ? `${whole + 1}:00`
+    : `${whole}:${String(seconds).padStart(2, "0")}`;
+}
+
 const DECISIONS: { value: ReviewDecision; label: string }[] = [
   { value: "ok", label: "ผ่าน" },
   { value: "flagged", label: "พักไว้" },
@@ -100,6 +118,18 @@ function RunCard({ entry }: { entry: RunWithEvidence }) {
             </span>
             <Badge tone={STATUS[status].tone}>{STATUS[status].label}</Badge>
           </div>
+
+          {/* Why a run is sitting here. A flag says "look at this"; the pace says what
+              there is to look at — 2:30/km is a distance read in miles, 24:00/km is a
+              duration typed in minutes. Neither is an accusation. */}
+          <p
+            className={`mt-1 text-sm tabular-nums ${
+              entry.run.pace_is_plausible ? "text-muted" : "font-medium text-amber-700 dark:text-amber-400"
+            }`}
+          >
+            เพซ {formatPace(entry.run.pace_min_per_km)} นาที/กม.
+            {entry.run.pace_is_plausible ? null : " · ผิดปกติ ควรตรวจตัวเลข"}
+          </p>
 
           <p className="mt-1 text-sm text-muted">
             วิ่งวันที่ {formatDate(entry.run.run_date)} · ส่งเมื่อ{" "}

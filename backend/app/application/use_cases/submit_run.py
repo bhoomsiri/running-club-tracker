@@ -10,6 +10,10 @@ Evidence reuse is handled in two different ways on purpose:
     human to look at, not auto-refused — two people can legitimately photograph the same
     finish-line board, and accusing a member automatically would be worse than a review.
 
+An implausible pace flags the run the same way and for the same reason. It is far more
+often a typo or a misread screenshot than anyone cheating, and a member who has just
+finished a run should not be arguing with a form about it.
+
 Points are settled in the same transaction as the run, by reconciling the ledger against
 what each active campaign's policy says the member has now earned — not by crediting a
 fixed amount per run. That distinction is what makes a "10 km in a day" campaign work,
@@ -35,6 +39,7 @@ from app.domain.calendar import club_today
 from app.domain.entities import ReviewStatus, RunEntry, RunSource
 from app.domain.errors import DuplicateEvidence, InvalidRunError, NotAuthorized
 from app.domain.evidence import digest_from_key, is_owned_by
+from app.domain.pace import is_pace_plausible
 
 
 @dataclass(frozen=True)
@@ -75,6 +80,12 @@ class SubmitRun:
                     f"{cmd.run_date} is outside every active campaign's window"
                 )
 
+            # Two different reasons to want a second pair of eyes, one outcome. The
+            # evidence is someone else's, or the numbers describe a run nobody ran — a
+            # distance read in miles, a duration typed in minutes. Neither is refused
+            # here: the run is recorded, it still earns, and an admin decides.
+            implausible_pace = not is_pace_plausible(cmd.distance_km, cmd.duration_seconds)
+
             run = RunEntry.create(
                 member_id=cmd.member_id,
                 distance_km=cmd.distance_km,
@@ -84,8 +95,9 @@ class SubmitRun:
                 evidence_sha256=digest,
                 source=cmd.source,
                 now=now,
-                # Used by someone else already: a human decides, the run is still recorded.
-                review_status=ReviewStatus.FLAGGED if existing else ReviewStatus.OK,
+                review_status=(
+                    ReviewStatus.FLAGGED if existing or implausible_pace else ReviewStatus.OK
+                ),
             )
             uow.runs.add(run)
 

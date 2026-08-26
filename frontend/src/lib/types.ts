@@ -109,6 +109,10 @@ export type Run = {
   run_date: string;
   source: RunSource;
   review_status: ReviewStatus;
+  /** Minutes per kilometre, derived by the backend. `pace_is_plausible` is the backend's
+   * verdict, not a range to re-check here — the band lives in app/domain/pace.py. */
+  pace_min_per_km: string;
+  pace_is_plausible: boolean;
   created_at: string;
 };
 

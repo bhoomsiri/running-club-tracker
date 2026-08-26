@@ -211,6 +211,82 @@ class TestSubmitRun:
             SubmitRun(submission_uow()).execute(command)
 
 
+class TestPaceIsFlaggedNotRefused:
+    """A pace outside 5–11 min/km is usually a typo or a misread screenshot, not
+    cheating. The run is recorded, it still earns, and an admin decides — the same
+    treatment reused evidence gets, for the same reason."""
+
+    def command(
+        self, member_id: UUID, key: str, distance_km: str, duration_seconds: int
+    ) -> SubmitRunCommand:
+        return SubmitRunCommand(
+            member_id=member_id, distance_km=Decimal(distance_km),
+            duration_seconds=duration_seconds, run_date=date(2026, 6, 1),
+            image_key=key, source=RunSource.APP_SCREENSHOT,
+        )
+
+    def test_a_run_far_too_fast_is_flagged(self) -> None:
+        """10 km in 25 minutes — a world record, or a distance read in miles."""
+        runs = FakeRunRepository()
+
+        run = SubmitRun(submission_uow(runs)).execute(
+            self.command(ALICE, key_for(ALICE), "10", 1500)
+        )
+
+        assert run.review_status is ReviewStatus.FLAGGED
+        assert run.pace_min_per_km == Decimal("2.500")
+        # Recorded, not refused: the member is not arguing with a form after a run.
+        assert runs.list_by_member(ALICE) == [run]
+
+    def test_a_run_far_too_slow_is_flagged(self) -> None:
+        """5 km in two hours — a duration entered in minutes instead of seconds."""
+        run = SubmitRun(submission_uow()).execute(
+            self.command(ALICE, key_for(ALICE), "5", 7200)
+        )
+
+        assert run.review_status is ReviewStatus.FLAGGED
+        assert run.pace_min_per_km == Decimal("24.000")
+
+    @pytest.mark.parametrize(
+        ("distance_km", "duration_seconds"),
+        [("10", 3000), ("10", 6600)],  # exactly 5:00/km and exactly 11:00/km
+    )
+    def test_the_boundary_paces_are_not_flagged(
+        self, distance_km: str, duration_seconds: int
+    ) -> None:
+        run = SubmitRun(submission_uow()).execute(
+            self.command(ALICE, key_for(ALICE), distance_km, duration_seconds)
+        )
+
+        assert run.review_status is ReviewStatus.OK
+
+    def test_reused_evidence_and_a_bad_pace_together_still_flag_once(self) -> None:
+        """Either reason is enough; there is one flagged state, not two."""
+        runs = FakeRunRepository([run_for(ALICE, key_for(ALICE))])
+        dao_key = key_for(ALICE).replace(str(ALICE), str(DAO))
+
+        run = SubmitRun(submission_uow(runs)).execute(self.command(DAO, dao_key, "10", 1500))
+
+        assert run.review_status is ReviewStatus.FLAGGED
+
+    def test_an_ordinary_run_on_its_own_evidence_stays_ok(self) -> None:
+        run = SubmitRun(submission_uow()).execute(
+            self.command(ALICE, key_for(ALICE), "5", 1800)
+        )
+
+        assert run.review_status is ReviewStatus.OK
+
+    def test_a_flagged_run_still_earns_its_points(self) -> None:
+        """The flag asks for a review; it does not withhold anything. Taking the points
+        back is the rejection's job, so there is one path for 'these were wrong'."""
+        uow = submission_uow(campaigns=[REWARDS_CAMPAIGN])
+
+        run = SubmitRun(uow).execute(self.command(ALICE, key_for(ALICE), "10", 1500))
+
+        assert run.review_status is ReviewStatus.FLAGGED
+        assert uow.ledger.balance(ALICE, REWARDS_CAMPAIGN.id) == Decimal("20")
+
+
 class TestEvidenceUrls:
     def test_a_member_gets_short_lived_urls_for_their_own_runs(self) -> None:
         key = key_for(ALICE)
