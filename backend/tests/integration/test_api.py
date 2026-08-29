@@ -271,20 +271,14 @@ class TestConsentAndHealth:
 
         assert response.status_code == 422
 
-    def test_withdrawing_stops_the_summary_returning_health(
+    def test_the_owner_still_sees_their_data_after_withdrawing(
         self, client: TestClient, seeded: dict[str, UUID]
     ) -> None:
-        """Consent is the club's basis for processing health data, and handing it back to
-        the member is processing — so withdrawal closes this too.
+        """Withdrawal stops the club processing it; it is not a lockout of the owner.
 
-        This reverses what the endpoint used to do. It previously kept answering with the
-        measurements after a withdrawal, on the reading that withdrawal stops the CLUB
-        processing the data and is not a lockout of the owner. Both readings are
-        defensible; the club chose this one, and the deciding argument was that the gate
-        lived only in the health screen's UI, so the next screen to read /me/summary would
-        have shown the data with nobody noticing the gate had been left behind.
-
-        Nothing is deleted: granting again brings it back, which the test below shows.
+        Consent governs what the CLUB may do with the data, not whether the person it
+        describes may look at it (PDPA มาตรา 30). The gate that makes withdrawal mean
+        something is on the other side — see TestAdminHealthAccess below.
         """
         grant_consent(client, "user_alice")
         client.post(
@@ -296,27 +290,6 @@ class TestConsentAndHealth:
             },
         )
         client.delete("/consent", headers=auth("user_alice"))
-
-        summary = client.get("/me/summary", headers=auth("user_alice")).json()
-
-        assert summary["health"] == []
-
-    def test_granting_again_brings_the_records_back(
-        self, client: TestClient, seeded: dict[str, UUID]
-    ) -> None:
-        """Withdrawal is not erasure. The rows are still there and the member can have
-        them back by agreeing again — which is what makes closing the door acceptable."""
-        grant_consent(client, "user_alice")
-        client.post(
-            "/health",
-            headers=auth("user_alice"),
-            json={
-                "campaign_id": str(CAMPAIGN), "phase": "before",
-                "measured_on": "2026-06-01", "weight_kg": "70.5", "height_cm": "172.5",
-            },
-        )
-        client.delete("/consent", headers=auth("user_alice"))
-        grant_consent(client, "user_alice")
 
         summary = client.get("/me/summary", headers=auth("user_alice")).json()
 

@@ -13,14 +13,12 @@ Health data is included because this is the owner reading their own record — t
 not an admin access, so it is not audited. An admin reading someone else's data is a
 different use case, and that one must write an audit_log row.
 
-It IS consent-gated, though, and that gate lives here rather than in the screen that
-happens to show it. Consent is the club's basis for processing health data at all, and
-handing it back to the member is processing: a member who has withdrawn, or never
-granted, gets an empty list. Until this was added the gate existed only in the frontend
-(`health/consent-gate.tsx`), which meant the API answered with the measurements whatever
-the consent record said, and any new screen that read this endpoint would have shown them
-without anyone noticing the gate had been left behind. The records are not deleted —
-withdrawal stops processing, it does not erase — so granting again brings them back.
+It is deliberately NOT gated on consent either. Consent governs what the CLUB may do
+with the data, not whether the person it describes may look at it — withdrawing stops
+the club processing it and does not make it somebody else's, so the owner keeps seeing
+their own measurements on every screen that shows them (PDPA มาตรา 30). The gate that
+makes withdrawal mean something is on the other side: an admin reading someone else's
+health data requires active consent, and so does the export.
 """
 
 from __future__ import annotations
@@ -31,7 +29,6 @@ from decimal import Decimal
 from uuid import UUID
 
 from app.application.ports.campaign_repository import CampaignRepository
-from app.application.ports.consent_repository import ConsentRepository
 from app.application.ports.health_repository import HealthRepository
 from app.application.ports.member_repository import MemberRepository
 from app.application.ports.points_ledger_repository import PointsLedgerRepository
@@ -40,7 +37,6 @@ from app.application.ports.run_repository import RunRepository
 from app.application.services.points_reconciliation import valid_runs_of
 from app.domain.campaign import Campaign, CampaignProgress
 from app.domain.campaigns import policy_for
-from app.domain.consent import ConsentPurpose
 from app.domain.entities import Member, RunEntry
 from app.domain.errors import MemberNotFound
 from app.domain.health import HealthComparison
@@ -116,8 +112,6 @@ class GetMySummary:
         ledger: PointsLedgerRepository,
         redemptions: RedemptionRepository,
         health: HealthRepository,
-        consents: ConsentRepository,
-        consent_version: str,
     ) -> None:
         self._members = members
         self._runs = runs
@@ -125,8 +119,6 @@ class GetMySummary:
         self._ledger = ledger
         self._redemptions = redemptions
         self._health = health
-        self._consents = consents
-        self._consent_version = consent_version
 
     def execute(self, member_id: UUID) -> MemberSummary:
         member = self._members.get(member_id)
@@ -166,12 +158,6 @@ class GetMySummary:
         )
 
     def _health_for(self, member_id: UUID) -> list[HealthComparison]:
-        consent = self._consents.get_current(member_id, ConsentPurpose.HEALTH_DATA)
-        if consent is None or not consent.is_active(self._consent_version):
-            # Nothing is deleted and nothing is said about why here — the consent screen
-            # is where a member sees the state of their own consent and can grant again.
-            return []
-
         records = self._health.list_by_member(member_id)
         # Includes campaigns that have already ended: the member keeps access to their
         # own history (PDPA right of access), not just to what is running now.

@@ -15,12 +15,10 @@ from app.application.use_cases.get_my_summary import (
     MemberSummary,
 )
 from app.domain.campaign import Campaign, CampaignType
-from app.domain.consent import Consent, ConsentPurpose
 from app.domain.entities import Member, MemberRole, ReviewStatus, RunEntry, RunSource
 from app.domain.errors import MemberNotFound
 from app.domain.health import HealthPhase, HealthRecord
 from app.domain.redemption import PointsEntry, Redemption, RedemptionStatus, Reward
-from tests.fakes.fake_health_uow import FakeConsentRepository
 from tests.fakes.fake_uow import FakePointsLedgerRepository, FakeRedemptionRepository
 from tests.fakes.repositories import (
     FakeCampaignRepository,
@@ -81,25 +79,11 @@ def health(
     )
 
 
-CONSENT_VERSION = "v2"
-
-
-def consent_for(member_id: UUID, withdrawn: bool = False) -> Consent:
-    return Consent(
-        id=uuid4(), member_id=member_id, purpose=ConsentPurpose.HEALTH_DATA,
-        version=CONSENT_VERSION, granted_at=NOW, withdrawn_at=NOW if withdrawn else None,
-    )
-
-
 def build(
     *, members: list[Member] | None = None, runs: list[RunEntry] | None = None,
     campaigns: list[Campaign] | None = None, ledger: list[PointsEntry] | None = None,
     redemptions: list[Redemption] | None = None, records: list[HealthRecord] | None = None,
-    consents: list[Consent] | None = None,
 ) -> GetMySummary:
-    # Consent defaults to granted: most of these tests are about progress and points, and
-    # spelling it out in each would bury what they are actually checking. The consent gate
-    # has its own class below.
     return GetMySummary(
         members=FakeMemberRepository(members or [member()]),
         runs=FakeRunRepository(runs or []),
@@ -107,10 +91,6 @@ def build(
         ledger=FakePointsLedgerRepository(ledger or []),
         redemptions=FakeRedemptionRepository(redemptions or []),
         health=FakeHealthRepository(records or []),
-        consents=FakeConsentRepository(
-            consents if consents is not None else [consent_for(ALICE)]
-        ),
-        consent_version=CONSENT_VERSION,
     )
 
 
@@ -274,57 +254,6 @@ class TestIsolation:
         uc = build(members=[member(ALICE), member(BOB, "Bob")], redemptions=[bobs])
 
         assert uc.execute(ALICE).redemptions == []
-
-
-class TestTheConsentGate:
-    """Consent is the club's basis for processing health data, and handing it back to the
-    member is processing. This gate used to live only in the health screen's UI, which
-    meant the endpoint answered with the measurements whatever the consent record said —
-    and the next screen to read it would have shown them without anyone noticing.
-    """
-
-    RECORD = health(HealthPhase.BEFORE, weight="70.5", height="172.5")
-
-    def test_active_consent_returns_the_records(self) -> None:
-        uc = build(records=[self.RECORD], consents=[consent_for(ALICE)])
-
-        assert uc.execute(ALICE).health != []
-
-    def test_withdrawn_consent_returns_nothing(self) -> None:
-        uc = build(records=[self.RECORD], consents=[consent_for(ALICE, withdrawn=True)])
-
-        assert uc.execute(ALICE).health == []
-
-    def test_no_consent_at_all_returns_nothing(self) -> None:
-        uc = build(records=[self.RECORD], consents=[])
-
-        assert uc.execute(ALICE).health == []
-
-    def test_consent_to_an_older_wording_returns_nothing(self) -> None:
-        """Agreeing to v1 is not agreeing to v2 — that is the whole reason the version
-        exists, and it must gate reads as well as writes."""
-        stale = Consent(
-            id=uuid4(), member_id=ALICE, purpose=ConsentPurpose.HEALTH_DATA,
-            version="v1", granted_at=NOW, withdrawn_at=None,
-        )
-        uc = build(records=[self.RECORD], consents=[stale])
-
-        assert uc.execute(ALICE).health == []
-
-    def test_the_gate_closes_health_only(self) -> None:
-        """Withdrawing consent for health data does not take away the running: distance,
-        campaigns and points have nothing to do with it."""
-        uc = build(
-            runs=[run("10", date(2026, 6, 1))],
-            records=[self.RECORD],
-            consents=[consent_for(ALICE, withdrawn=True)],
-        )
-
-        summary = uc.execute(ALICE)
-
-        assert summary.health == []
-        assert summary.total_distance_km == Decimal("10.000")
-        assert summary.activity.run_count == 1
 
 
 class TestActivityTotals:

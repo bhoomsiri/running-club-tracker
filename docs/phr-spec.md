@@ -2,9 +2,11 @@
 
 เอกสารสำหรับ CC ใช้ implement · เขียนโดย architect · อ้างอิงโครงปัจจุบันบน `main`
 
-> **rev 2 (หลัง CC review):** แก้ §3 (consent — สมมติฐานเดิมกลับด้าน), §6 (scope = run ทั้งหมด
-> + valid_runs_of + avg_pace + partial count), §7 (reuse `lib/bmi.ts`, ไม่ยก advisory มาหน้าแรก),
-> §5 (clamp calories/steps). migration ถัดไป = `0009`
+> **rev 2 (หลัง CC review):** แก้ §3 (consent), §6 (scope=run ทั้งหมด + valid_runs_of + avg_pace
+> + partial count), §7 (reuse `lib/bmi.ts`, ไม่ยก advisory มาหน้าแรก), §5 (clamp). migration = `0009`
+>
+> **rev 3 (เจ้าของเคาะ consent = ตัวเลือก A):** §3 กลับอีกครั้ง — **ไม่ gate** `/me/summary`
+> (เจ้าตัวดูตัวเองเห็นเสมอ ทั้ง dashboard + /health) · consent gate ไปอยู่ฝั่งชมรม (admin ดูคนอื่น) แทน
 
 ---
 
@@ -61,16 +63,21 @@ consent gate ตัวจริงอยู่ที่ **UI `health/consent-gat
 ดังนั้นการย้ายน้ำหนัก/BMI มา dashboard = **พามันออกจากที่เดียวที่มี gate** ไปหน้าที่ไม่มี gate
 ไม่ใช่ "อย่าข้าม gate เดิม" (rev 1 เข้าใจกลับด้าน)
 
-**กติกาที่ถูกต้อง — gate ที่ backend:**
+**กติกาที่ถูกต้อง (rev 3 — เจ้าของเคาะ = A "เจ้าตัวเห็นเสมอ"):**
 
-- ส่วน `health` ที่ dashboard ใช้ ต้องถูก **กรองด้วย consent v2 ที่ยัง active เท่านั้น**
-  สมาชิกที่ **ถอน / ไม่เคยยินยอม** → **ไม่ส่งค่า health ออกจาก server** (หยุดประมวลผลที่ต้นทาง
-  ตาม [[consent-and-audit-policy]] "ถอนแล้วหยุดประมวลผลโดยไม่ลบ") — ดีกว่าซ่อนที่ frontend
-- นี่คือการ **ปิดช่องที่มีอยู่เดิม** (summary คืน health ไม่ดู consent) ให้ถือเป็นส่วนหนึ่งของฟีเจอร์นี้
-  ⚠️ ต้องเช็กว่าหน้า `/health` เดิมอ่าน health จาก path ไหน — ถ้าใช้ `GetMySummary` ร่วมกัน
-  ต้องไม่ทำหน้า `/health` พัง (มันมี consent-gate ของตัวเองอยู่แล้ว) แนะนำแยก field/flag ให้ชัด
-- ไม่มี health_record / ไม่ยินยอม / ถอนแล้ว → การ์ดน้ำหนัก/BMI ขึ้น **empty state** เป็นกลาง
-  ("ยังไม่มีข้อมูลสุขภาพ" / ลิงก์ไปยินยอมที่ `/health`) ห้ามโชว์ค่าว่าง/ศูนย์เป็นตัวเลข
+หลักการ: consent v2 คุม "สิทธิที่**ชมรม**จะเอาข้อมูลไปใช้" ไม่ใช่ "สิทธิที่**เจ้าตัว**จะดูข้อมูลตัวเอง"
+การถอนยินยอมจึงหยุด**การประมวลผลฝั่งชมรม** แต่ไม่ลบสิทธิเข้าถึงข้อมูลตัวเอง (PDPA ม.30)
+
+- **`/me/summary` (เจ้าตัวดูตัวเอง) — ไม่ต้อง gate** เจ้าตัวเห็นน้ำหนัก/BMI ตัวเองเสมอ ทั้ง
+  dashboard และ /health คงพฤติกรรม `GetMySummary` เดิม (docstring "owner reading own record")
+  ⚠️ **revert** consent-gate ที่เผลอ add ใน branch (a) + คืนเทส
+  `test_the_owner_still_sees_their_data_after_withdrawing` ให้ assert เดิม
+- **empty state ขึ้นเฉพาะ "ยังไม่เคยวัด"** (ไม่มี health_record) — **ไม่ใช่** "ถอนแล้ว"
+  ห้ามโชว์ค่าว่าง/ศูนย์เป็นตัวเลข
+- **ที่ต้อง gate จริงคือฝั่งชมรม** (flip side ที่ทำให้ "ถอน" มีความหมาย):
+  - **admin ดูสุขภาพคนอื่น** (`ViewMemberHealth`, `may_view_others_health`) **ต้องเคารพการถอน** —
+    ⚠️ เช็กว่าตอนนี้ gate ด้วย consent รึยัง ถ้าไม่ = ช่องจริงที่ต้องปิด (branch นี้หรือ follow-up)
+  - **export** — เช็ก consent ต่อ member อยู่แล้ว (งานก่อน) ยืนยันว่ายังจริง
 - golden rule #8: endpoint/logger **ห้าม log ค่าน้ำหนัก/BMI** เด็ดขาด
 
 > หมายเหตุ DPO: ฟีเจอร์นี้ **ไม่** ผูกกับ `HEALTH_EXPORT_ENABLED` (นั่นคือการ export ข้อมูล
@@ -206,7 +213,8 @@ latest_run           { date, distance_km, pace, calories_burned?, steps? } | Non
 2. **Gemini optional calories/steps** — ทำ + clamp + รันเทสสกัด distance/duration ซ้ำ (ดู §5)
 3. **window** — activity = run ทั้งหมด (valid_runs_of), benchmark = campaign, ติดป้ายช่วง (ดู §6/§7)
 4. **rejected runs** — aggregate ใช้ `valid_runs_of()` ชุดเดียวกับ summary
-5. **consent เมื่อถอน** — gate ที่ backend, ถอน/ไม่มี = ไม่ส่ง health ออก (ดู §3) ← จุดสำคัญสุด
+5. **consent เมื่อถอน (rev 3 = A)** — `/me/summary` ไม่ gate เจ้าตัวเห็นเสมอ · gate ฝั่งชมรม
+   (admin ดูคนอื่น) แทน · revert gate ที่ add ใน branch (a) (ดู §3) ← จุดสำคัญสุด
 6. **BMI advisory** — reuse `lib/bmi.ts`, ไม่ยก "พบแพทย์" มาหน้าแรก (ดู §7)
 7. **avg_pace** — เวลารวม ÷ ระยะรวม · **partial total** — ส่ง count คู่ ("จาก N ใน M ครั้ง")
 8. **ลำดับงาน** — 2 branch: (a) backend (migration+extraction+API+aggregate+**consent gate**)
@@ -223,9 +231,9 @@ feat: personal health record dashboard
 - submit form + schemas: optional 2 fields
 - /me/summary: activity aggregates over valid_runs_of (all runs) + *_from_runs count
   + latest_run; avg_pace = Σtime ÷ Σdist
-- /me/summary health: consent-gated (withdrawn/none → not emitted)   ← closes existing gap
+- /me/summary health: NOT gated — owner always sees own (rev 3 = decision A);
+  consent gate belongs on club-side admin view instead (verify ViewMemberHealth respects withdrawal)
 - dashboard redesign: real-data cards + empty states, period labels, benchmark retained
 - weight/BMI reuse existing consent-v2 health_record; band via lib/bmi.ts,
   no "see a doctor" advisory on home (stays on /health)
 ```
-
