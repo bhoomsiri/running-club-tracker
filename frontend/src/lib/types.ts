@@ -193,6 +193,10 @@ export type RunDraft = {
   distance_km: string | null;
   duration_seconds: number | null;
   run_date: string | null;
+  /** Shown by some running apps and not others. null is the ordinary case and carries no
+   * warning — "this screenshot has no calorie figure" is not something to tell anyone. */
+  calories_burned: number | null;
+  steps: number | null;
 };
 
 export type ExtractResult = {
@@ -207,6 +211,10 @@ export type SubmitRunRequest = {
   run_date: string;
   image_key: string;
   source: RunSource;
+  /** Both optional. null means the member left the box empty, which the backend stores
+   * as "not recorded" — never as zero. */
+  calories_burned?: number | null;
+  steps?: number | null;
   /** Absent on purpose: member_id. The backend takes it from the verified token. */
 };
 

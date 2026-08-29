@@ -33,6 +33,34 @@ export function fromDurationSeconds(total: number): { minutes: string; seconds: 
   };
 }
 
+/**
+ * The bounds the backend enforces, mirrored so a member is told what is wrong before the
+ * request is made rather than by a 422 afterwards. They are exclusive on both sides, the
+ * same as the Pydantic fields and the CHECK constraints behind them: `gt=0, lt=10000`.
+ */
+export const MAX_CALORIES_BURNED = 10_000;
+export const MAX_STEPS = 200_000;
+
+/**
+ * An optional whole count, from a box a member may leave empty.
+ *
+ * Three outcomes, and they are all different: a number, `null` for "left blank", and
+ * `"invalid"` for something that cannot be sent. Blank must not collapse into 0 — the
+ * column means "not recorded", and a zero there would be a claim that they burned none.
+ */
+export function parseOptionalCount(
+  value: string,
+  max: number,
+): number | null | "invalid" {
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  // Digits only: "1,200" and "1 200" and "12.5" all mean the member typed something this
+  // field cannot carry, and silently repairing any of them guesses at what they meant.
+  if (!/^\d{1,7}$/.test(trimmed)) return "invalid";
+  const parsed = Number(trimmed);
+  return parsed > 0 && parsed < max ? parsed : "invalid";
+}
+
 /** Today in the member's own timezone. `toISOString()` would use UTC and hand someone
  * running late at night in Bangkok yesterday's date. */
 export function todayLocal(): string {

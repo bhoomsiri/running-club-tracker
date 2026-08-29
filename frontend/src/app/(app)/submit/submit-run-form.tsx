@@ -9,6 +9,9 @@ import { useApi } from "@/lib/api-client";
 import {
   fromDurationSeconds,
   isValidDistance,
+  MAX_CALORIES_BURNED,
+  MAX_STEPS,
+  parseOptionalCount,
   todayLocal,
   toDurationSeconds,
 } from "@/lib/run-form";
@@ -51,6 +54,10 @@ export function SubmitRunForm() {
   const [seconds, setSeconds] = useState("");
   const [runDate, setRunDate] = useState(todayLocal);
   const [source, setSource] = useState<RunSource>("app_screenshot");
+  // Optional, and kept as strings like every other field here: "" is the member leaving
+  // the box alone, which is a different thing from a zero.
+  const [calories, setCalories] = useState("");
+  const [steps, setSteps] = useState("");
 
   // Object URLs are held by the browser until they are revoked; without this every
   // retry leaks the previous image.
@@ -108,6 +115,12 @@ export function SubmitRunForm() {
       setSeconds(s);
     }
     if (result.draft.run_date !== null) setRunDate(result.draft.run_date);
+    // Most screenshots carry neither, so a null here is the ordinary case rather than a
+    // failure — the box simply stays empty for the member to fill in or ignore.
+    if (result.draft.calories_burned !== null) {
+      setCalories(String(result.draft.calories_burned));
+    }
+    if (result.draft.steps !== null) setSteps(String(result.draft.steps));
 
     const unsure =
       Number(result.confidence) < LOW_CONFIDENCE || result.warnings.length > 0;
@@ -121,14 +134,23 @@ export function SubmitRunForm() {
   }
 
   const durationSeconds = toDurationSeconds(minutes, seconds);
+  const caloriesValue = parseOptionalCount(calories, MAX_CALORIES_BURNED);
+  const stepsValue = parseOptionalCount(steps, MAX_STEPS);
   const canSubmit =
     imageKey !== null &&
     isValidDistance(distance) &&
     durationSeconds !== null &&
     runDate !== "" &&
+    // Empty is fine; wrong is not. Letting a bad value through would trade a message
+    // beside the field for a 422 after the button.
+    caloriesValue !== "invalid" &&
+    stepsValue !== "invalid" &&
     stage === "form";
 
   async function onConfirm() {
+    // Guarding on canSubmit is also what narrows caloriesValue and stepsValue to
+    // `number | null` below — TypeScript follows the aliased condition, so neither needs
+    // re-checking here and neither is cast.
     if (!canSubmit || imageKey === null || durationSeconds === null) return;
     setError(null);
     setStage("saving");
@@ -143,6 +165,10 @@ export function SubmitRunForm() {
           run_date: runDate,
           image_key: imageKey,
           source,
+          // null, not omitted: the member left it blank and the backend stores that as
+          // "not recorded". Both are already validated to be a number or null here.
+          calories_burned: caloriesValue,
+          steps: stepsValue,
         }),
       });
       // refresh() so the dashboard re-renders on the server with the new totals rather
@@ -289,6 +315,52 @@ export function SubmitRunForm() {
                 กิจกรรมวันละ 10 กม. นับเฉพาะที่ส่งภายในวันถัดไป
               </p>
             </Field>
+
+            <fieldset className="border-t border-border pt-5">
+              <legend className="text-base font-semibold">
+                แคลอรี่และจำนวนก้าว{" "}
+                <span className="font-medium text-muted">(ไม่บังคับ)</span>
+              </legend>
+              <p className="mt-1 mb-3 text-sm text-muted">
+                ถ้าแอปวิ่งของคุณแสดงไว้ ระบบจะกรอกให้เอง — ไม่มีก็ข้ามได้ ไม่มีผลกับระยะสะสมหรือแต้ม
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="แคลอรี่ (kcal)" htmlFor="calories">
+                  <input
+                    id="calories"
+                    type="text"
+                    inputMode="numeric"
+                    value={calories}
+                    onChange={(event) => setCalories(event.target.value)}
+                    placeholder="ไม่ระบุ"
+                    className={inputClass}
+                  />
+                  {caloriesValue === "invalid" ? (
+                    <FieldError>
+                      ใส่จำนวนเต็มระหว่าง 1 ถึง {(MAX_CALORIES_BURNED - 1).toLocaleString()}{" "}
+                      หรือเว้นว่างไว้
+                    </FieldError>
+                  ) : null}
+                </Field>
+
+                <Field label="จำนวนก้าว" htmlFor="steps">
+                  <input
+                    id="steps"
+                    type="text"
+                    inputMode="numeric"
+                    value={steps}
+                    onChange={(event) => setSteps(event.target.value)}
+                    placeholder="ไม่ระบุ"
+                    className={inputClass}
+                  />
+                  {stepsValue === "invalid" ? (
+                    <FieldError>
+                      ใส่จำนวนเต็มระหว่าง 1 ถึง {(MAX_STEPS - 1).toLocaleString()} หรือเว้นว่างไว้
+                    </FieldError>
+                  ) : null}
+                </Field>
+              </div>
+            </fieldset>
 
             <fieldset>
               <legend className="mb-2 text-base font-semibold">ที่มาของรูป</legend>
