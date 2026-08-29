@@ -7,6 +7,13 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # A push that changes nothing but prose does not need a new image, a new revision and
+    # a migration run against production. GitHub skips the workflow only when EVERY file
+    # in the push matches, so a commit touching both code and docs still deploys — the
+    # filter can drop a deploy that was not needed, never one that was.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
 
 # One deploy at a time. Two overlapping runs could push images in one order and reach
