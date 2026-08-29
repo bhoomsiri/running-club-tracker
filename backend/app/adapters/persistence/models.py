@@ -67,6 +67,14 @@ class Member(Base):
     id: Mapped[uuid.UUID] = _pk()
     clerk_user_id: Mapped[str] = mapped_column(sa.String(64), nullable=False, unique=True)
     display_name: Mapped[str] = mapped_column(sa.String(120), nullable=False)
+    # The picture Clerk holds for this account, synced by the verified webhook like the
+    # name is — the club has no upload of its own. `has_image` is Clerk's flag for
+    # whether the member actually set one; false means image_url points at a generated
+    # default, which the app replaces with its own initials avatar.
+    image_url: Mapped[str | None] = mapped_column(sa.String(512))
+    has_image: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, server_default=sa.false()
+    )
     # Synced from Clerk publicMetadata via the verified webhook — never from the client.
     role: Mapped[str] = mapped_column(sa.String(16), nullable=False, server_default="member")
     # Profile, filled in during onboarding. Nullable because a member row exists from

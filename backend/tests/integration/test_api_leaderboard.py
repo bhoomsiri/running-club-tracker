@@ -31,7 +31,12 @@ pytestmark = pytest.mark.integration
 DISTANCE_CAMPAIGN = UUID("11111111-1111-1111-1111-111111111111")
 POINTS_CAMPAIGN = UUID("22222222-2222-2222-2222-222222222222")
 
-ROW_FIELDS = {"rank", "member_id", "name", "total_distance_km", "points", "run_count"}
+# The complete row, asserted as a closed set: this response has the widest audience
+# in the API, so a field arriving here arrives for the whole club. `image_url` was
+# added on purpose — see the unit test of the same shape for the reasoning.
+ROW_FIELDS = {
+    "rank", "member_id", "name", "image_url", "total_distance_km", "points", "run_count"
+}
 
 
 def photo(colour: tuple[int, int, int]) -> bytes:

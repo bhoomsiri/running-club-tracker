@@ -199,3 +199,86 @@ def test_roles_can_only_be_set_through_the_repository_not_a_command() -> None:
     assert not hasattr(ClerkUserEvent(clerk_user_id="u", display_name="n"), "role")
     with pytest.raises(TypeError):
         ClerkUserEvent(clerk_user_id="u", display_name="n", role="superuser")  # type: ignore[call-arg]
+
+
+class TestAvatarSync:
+    """The picture is treated differently from the name, on purpose.
+
+    A member owns their display name — the club may know them by a running nickname, so
+    a later Clerk event must not rename them. Nobody owns their picture here, because the
+    club offers no way to set one: Clerk is the only source, so a member who changes their
+    Google photo expects the club to follow. Keeping the first one forever would leave an
+    avatar nobody could update.
+    """
+
+    def event(self, **fields: object) -> ClerkUserEvent:
+        base: dict[str, object] = {"clerk_user_id": "user_1", "display_name": "Somchai"}
+        base.update(fields)
+        return ClerkUserEvent(**base)  # type: ignore[arg-type]
+
+    def test_a_picture_arrives_with_the_member(self) -> None:
+        members = FakeMemberRepository()
+
+        member = SyncMemberFromClerk(members, FixedClock(NOW)).execute(
+            self.event(image_url="https://img.clerk.com/a", has_image=True)
+        )
+
+        assert member.image_url == "https://img.clerk.com/a"
+        assert member.has_image is True
+
+    def test_a_later_event_does_update_the_picture(self) -> None:
+        """The opposite of the display-name rule, and the reason both are written down."""
+        members = FakeMemberRepository()
+        sync = SyncMemberFromClerk(members, FixedClock(NOW))
+        sync.execute(self.event(image_url="https://img.clerk.com/old", has_image=True))
+
+        member = sync.execute(self.event(image_url="https://img.clerk.com/new", has_image=True))
+
+        assert member.image_url == "https://img.clerk.com/new"
+
+    def test_a_later_event_still_does_not_rename_anybody(self) -> None:
+        """Both rules at once, so neither can be broken while satisfying the other."""
+        members = FakeMemberRepository()
+        sync = SyncMemberFromClerk(members, FixedClock(NOW))
+        sync.execute(self.event(display_name="Somchai", image_url="a", has_image=True))
+
+        member = sync.execute(
+            self.event(display_name="Somebody Else", image_url="b", has_image=True)
+        )
+
+        assert member.display_name == "Somchai"
+        assert member.image_url == "b"
+
+    def test_removing_the_photo_at_clerk_removes_it_here(self) -> None:
+        """Otherwise a member who deletes their picture keeps showing it to the club."""
+        members = FakeMemberRepository()
+        sync = SyncMemberFromClerk(members, FixedClock(NOW))
+        sync.execute(self.event(image_url="https://img.clerk.com/a", has_image=True))
+
+        member = sync.execute(self.event(image_url=None, has_image=False))
+
+        assert member.image_url is None
+        assert member.has_image is False
+
+    def test_a_generated_default_is_recorded_as_not_theirs(self) -> None:
+        """Clerk sends an image_url for every account, including ones that never set a
+        picture. The URL is kept; has_image is what stops it being shown as a choice."""
+        members = FakeMemberRepository()
+
+        member = SyncMemberFromClerk(members, FixedClock(NOW)).execute(
+            self.event(image_url="https://img.clerk.com/generated", has_image=False)
+        )
+
+        assert member.has_image is False
+
+    def test_the_promoted_superuser_keeps_their_picture(self) -> None:
+        """The bootstrap rebuilds the member to change the role; it must not drop the
+        fields it was not asked about."""
+        members = FakeMemberRepository()
+
+        member = SyncMemberFromClerk(members, FixedClock(NOW), "user_1").execute(
+            self.event(image_url="https://img.clerk.com/a", has_image=True)
+        )
+
+        assert member.role is MemberRole.SUPERUSER
+        assert member.image_url == "https://img.clerk.com/a"

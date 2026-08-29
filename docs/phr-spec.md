@@ -7,6 +7,10 @@
 >
 > **rev 3 (เจ้าของเคาะ consent = ตัวเลือก A):** §3 กลับอีกครั้ง — **ไม่ gate** `/me/summary`
 > (เจ้าตัวดูตัวเองเห็นเสมอ ทั้ง dashboard + /health) · consent gate ไปอยู่ฝั่งชมรม (admin ดูคนอื่น) แทน
+>
+> **rev 4:** เพิ่ม §11 — รูปโปรไฟล์จาก Clerk (`image_url`) สำหรับ dashboard/leaderboard
+>
+> **rev 5:** เพิ่ม §12 — ขอบเขต UI redesign (dashboard เท่านั้น) + reference mockup
 
 ---
 
@@ -237,3 +241,39 @@ feat: personal health record dashboard
 - weight/BMI reuse existing consent-v2 health_record; band via lib/bmi.ts,
   no "see a doctor" advisory on home (stays on /health)
 ```
+
+---
+
+## 11. รูปโปรไฟล์จาก Clerk (avatar) — rev 4
+
+ใช้รูปที่มากับบัญชี Clerk ตอนสมัคร ไม่ต้องสร้างฟีเจอร์อัปโหลดรูปใหม่
+
+- Clerk ให้ `image_url` (+ `has_image`) กับทุก user — สมัคร **Google/LINE** มักได้รูปจริงจาก
+  provider ติดมา, สมัครอีเมลล้วนอาจเป็นรูป default (`has_image=false`)
+- **แหล่ง = Clerk webhook** (`user.created` / `user.updated`) → sync `image_url` + `has_image`
+  ลง member record · เข้ากฎ "identity มาจาก webhook ที่ verify แล้ว" · migration เพิ่ม
+  `image_url text NULL` (+ `has_image bool` ถ้าต้องแยกรูปจริง/default) · sync `user.updated`
+  เมื่อสมาชิกเปลี่ยนรูป
+- **avatar ตัวเอง** (topbar/โปรไฟล์): ใช้ Clerk client SDK ตรงๆ ได้ หรือใช้ field ที่ sync — เลือก source เดียว
+- **leaderboard/คนอื่น:** ต้องใช้ `member.image_url` ที่ sync ไว้ (client ดึงรูปคนอื่นจาก Clerk ไม่ได้)
+  → เพิ่ม `image_url` (+ ชื่อ) ใน leaderboard entry — **ขยาย payload ที่เดิมตั้งใจ minimal**
+- **frontend:** `<img>` จาก `img.clerk.com` → เพิ่ม host ใน `next.config` images / CSP ·
+  **fallback = avatar อักษรย่อ** เมื่อ `has_image=false` หรือ url ว่าง
+- **PDPA:** leaderboard เดิมเปิดแค่ ชื่อ+ระยะ (ตั้งใจ) — ใส่รูป = โชว์หน้าสมาชิกทุกคนทั้งชมรม
+  ชื่อก็ระบุตัวตนอยู่แล้ว + ชมรมวิ่งใส่รูปเป็นปกติ แต่เป็น exposure ที่เพิ่มขึ้น →
+  แนะนำ **opt-out ซ่อนรูปตัวเองในโปรไฟล์** เป็น fast-follow (ไม่บล็อกรอบแรก)
+- **ขอบเขต:** ต้องมี backend เล็กน้อย (webhook sync + migration + leaderboard schema) — ทำใน branch (b)
+  หรือแตก branch ย่อยก็ได้
+
+---
+
+## 12. ขอบเขต UI redesign (rev 5)
+
+- **redesign สไตล์ Seehats + teal = หน้า `dashboard` เท่านั้น** — cards/charts (bar 7 วัน + sparkline เพซ)/
+  อันดับสะสมระยะ + avatar/สุขภาพ + banner ข่าว (มีรูป/ไม่มีรูป) + ปุ่ม CTA ส่งผลวิ่ง
+- **shell ที่ใช้ร่วมทั้งแอป** ((app)/layout): sidebar **พับ/ขยายได้** (เดสก์ท็อป←→ไอคอน, มือถือ drawer),
+  ปุ่ม **ส่งผลวิ่ง = primary**, **แยกลิงก์แอดมิน** ไป `/admin` (มี layout เมนูของตัวเอง) — โผล่ทุกหน้า
+- **หน้าอื่นคงเดิม:** ส่งผลวิ่ง / ผลวิ่ง / ข่าวประชาสัมพันธ์ / รางวัล / โปรไฟล์ / แอดมิน — เนื้อหา+หน้าตาเดิม
+  ไม่ redesign รอบนี้ (ค่อยทยอยปรับตามสไตล์ทีหลังถ้าต้องการ)
+- **reference:** `phr-dashboard-mockup.html` (visual target ของ branch b) — ข้อมูลใน mockup เป็น mock
+  แต่ทุก field ผูกกับ `/me/summary` / leaderboard จริง

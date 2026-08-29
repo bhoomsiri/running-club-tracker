@@ -27,6 +27,11 @@ class MemberRepository(Protocol):
 
     def set_display_name(self, member_id: UUID, display_name: str) -> None: ...
 
+    def set_avatar(self, member_id: UUID, image_url: str | None, has_image: bool) -> None:
+        """The picture Clerk holds. Written only from the verified webhook, like the
+        role and the name — never from anything a client sends."""
+        ...
+
     def set_profile(self, member_id: UUID, profile: MemberProfile) -> None:
         """The member's own details. Never touches `role`."""
         ...

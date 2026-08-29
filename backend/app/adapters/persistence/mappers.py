@@ -44,6 +44,8 @@ def member_to_domain(row: models.Member) -> Member:
         id=row.id,
         clerk_user_id=row.clerk_user_id,
         display_name=row.display_name,
+        image_url=row.image_url,
+        has_image=row.has_image,
         role=MemberRole(row.role),
         created_at=row.created_at,
         profile=MemberProfile(
@@ -66,6 +68,8 @@ def member_to_orm(member: Member) -> models.Member:
         id=member.id,
         clerk_user_id=member.clerk_user_id,
         display_name=member.display_name,
+        image_url=member.image_url,
+        has_image=member.has_image,
         role=member.role.value,
         created_at=member.created_at,
         deleted_at=member.deleted_at,

@@ -6,6 +6,10 @@ Two rules this must not break:
     never overwritten afterwards, so a `user.updated` event from Clerk cannot rename
     someone the club knows by their running nickname. The single exception is replacing
     the JIT placeholder, which is not a name anybody chose.
+  - **The picture is not theirs to own, and is refreshed every time.** Unlike the name,
+    the club offers no way to set one — the only place it can come from is Clerk, so a
+    member who changes their Google photo expects the club to follow. Keeping the first
+    one forever would mean an avatar nobody can update.
   - **Roles come from here, not from a request.** The superuser is bootstrapped by
     matching the configured clerk_user_id, and only while the club has no superuser yet
     (the database allows exactly one).
@@ -13,7 +17,7 @@ Two rules this must not break:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from app.application.ports.clock import Clock
 from app.application.ports.member_repository import MemberRepository
@@ -28,6 +32,10 @@ class ClerkUserEvent:
     display_name: str | None
     # Used only to derive a readable name when Clerk has none; never stored, never logged.
     email: str | None = None
+    image_url: str | None = None
+    # Clerk's flag for whether the member actually set a picture. False means image_url
+    # is a generated default and the app should draw its own initials avatar instead.
+    has_image: bool = False
     created: bool = True
 
 
@@ -63,6 +71,13 @@ class SyncMemberFromClerk:
             if member.display_name == PLACEHOLDER_DISPLAY_NAME and name != PLACEHOLDER_DISPLAY_NAME:
                 self._members.set_display_name(member.id, name)
 
+        # Always, on create and on update: see the note at the top about why the picture
+        # is treated differently from the name. Written even when it is None, because
+        # removing a photo at Clerk should remove it here too.
+        if (member.image_url, member.has_image) != (event.image_url, event.has_image):
+            self._members.set_avatar(member.id, event.image_url, event.has_image)
+            member = replace(member, image_url=event.image_url, has_image=event.has_image)
+
         return self._bootstrap_superuser(member)
 
     def _bootstrap_superuser(self, member: Member) -> Member:
@@ -81,14 +96,7 @@ class SyncMemberFromClerk:
             return member
 
         self._members.set_role(member.id, MemberRole.SUPERUSER)
-        return Member(
-            id=member.id,
-            clerk_user_id=member.clerk_user_id,
-            display_name=member.display_name,
-            role=MemberRole.SUPERUSER,
-            created_at=member.created_at,
-            deleted_at=member.deleted_at,
-        )
+        return replace(member, role=MemberRole.SUPERUSER)
 
 
 def _readable_name(event: ClerkUserEvent) -> str:

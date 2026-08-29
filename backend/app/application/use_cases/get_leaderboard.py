@@ -20,7 +20,7 @@ policy, so the leaderboard and the dashboard cannot disagree about anyone's dist
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from uuid import UUID
 
@@ -41,6 +41,10 @@ class LeaderboardEntry:
     rank: int
     member_id: UUID
     name: str
+    # None when the member never set a picture at Clerk — the screen draws its own
+    # initials avatar rather than Clerk's generated default, which is somebody else's
+    # styling on a member who chose nothing.
+    image_url: str | None
     total_distance_km: Decimal
     points: Decimal | None
     run_count: int
@@ -103,6 +107,7 @@ class GetLeaderboard:
                 rank=len(ranked) + 1,
                 member_id=caller.id,
                 name=caller.preferred_name,
+                image_url=_avatar(caller),
                 total_distance_km=Decimal("0").quantize(KM),
                 points=None if points_campaign is None else Decimal("0"),
                 run_count=0,
@@ -116,6 +121,13 @@ class GetLeaderboard:
         )
 
 
+def _avatar(member: Member) -> str | None:
+    """Only a picture the member actually set. `has_image` false means Clerk's URL points
+    at a generated default, and passing that on would show a stranger's styling as though
+    it were their choice."""
+    return member.image_url if member.has_image else None
+
+
 def _row_for(
     member: Member, all_runs: list[RunEntry], balances: dict[UUID, Decimal]
 ) -> LeaderboardEntry:
@@ -127,6 +139,7 @@ def _row_for(
         member_id=member.id,
         # The Thai full name once given, else what Clerk supplied.
         name=member.preferred_name,
+        image_url=_avatar(member),
         total_distance_km=sum(
             (run.distance_km for run in counted), start=Decimal("0")
         ).quantize(KM),
@@ -152,16 +165,9 @@ def _rank(rows: list[LeaderboardEntry]) -> list[LeaderboardEntry]:
             if previous is not None and previous.total_distance_km == row.total_distance_km
             else index + 1
         )
-        ranked.append(
-            LeaderboardEntry(
-                rank=rank,
-                member_id=row.member_id,
-                name=row.name,
-                total_distance_km=row.total_distance_km,
-                points=row.points,
-                run_count=row.run_count,
-            )
-        )
+        # Only the rank is decided here; everything else is carried over as it was, so a
+        # field added to the entry does not have to be remembered in this loop too.
+        ranked.append(replace(row, rank=rank))
     return ranked
 
 

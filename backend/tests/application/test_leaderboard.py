@@ -7,6 +7,7 @@ quietly grown a field.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -228,17 +229,40 @@ class TestPoints:
 
 
 class TestWhatItCarries:
-    def test_a_row_holds_a_name_a_distance_and_two_counts_and_nothing_else(self) -> None:
+    def test_a_row_holds_a_name_a_picture_a_distance_and_two_counts_and_nothing_else(
+        self,
+    ) -> None:
         """Every member sees every row, so this list has the widest audience of anything
-        the API returns. If a field is added here, it is added for the whole club."""
+        the API returns. If a field is added here, it is added for the whole club.
+
+        `image_url` was added deliberately, and this assertion is what made that a
+        decision rather than a diff: the name already identifies somebody and a running
+        club with faces on its board is ordinary, but it is still more of a member on
+        display than the list carried before.
+        """
         assert set(LeaderboardEntry.__dataclass_fields__) == {
             "rank",
             "member_id",
             "name",
+            "image_url",
             "total_distance_km",
             "points",
             "run_count",
         }
+
+    def test_a_member_who_set_no_picture_shows_none(self) -> None:
+        """Clerk hands out a generated default to accounts with no photo. Passing that on
+        would put a stranger's styling on somebody who chose nothing, so the screen draws
+        its own initials avatar instead."""
+        alice = a_member("alice")
+        with_default = replace(alice, image_url="https://img.clerk.com/default", has_image=False)
+        chosen = replace(alice, image_url="https://img.clerk.com/real", has_image=True)
+
+        assert build([with_default]).execute(with_default.id).entries[0].image_url is None
+        assert (
+            build([chosen]).execute(chosen.id).entries[0].image_url
+            == "https://img.clerk.com/real"
+        )
 
     def test_the_name_is_the_one_the_club_uses(self) -> None:
         alice = a_member("alice")

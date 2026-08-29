@@ -47,6 +47,11 @@ class FakeMemberRepository:
     def set_display_name(self, member_id: UUID, display_name: str) -> None:
         self._items[member_id] = replace(self._items[member_id], display_name=display_name)
 
+    def set_avatar(self, member_id: UUID, image_url: str | None, has_image: bool) -> None:
+        self._items[member_id] = replace(
+            self._items[member_id], image_url=image_url, has_image=has_image
+        )
+
     def set_profile(self, member_id: UUID, profile: MemberProfile) -> None:
         self._items[member_id] = replace(self._items[member_id], profile=profile)
 

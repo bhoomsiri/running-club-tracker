@@ -155,6 +155,14 @@ class Member:
     created_at: datetime
     profile: MemberProfile = field(default_factory=MemberProfile)
     deleted_at: datetime | None = None
+    # Beside display_name rather than inside MemberProfile, because both are identity as
+    # Clerk knows it: written only by the verified webhook, never by the member through
+    # the profile form. `has_image` is Clerk's own word for "the member actually set
+    # one" — an account with no picture still gets an image_url, pointing at a generated
+    # default, and showing that instead of the club's own initials avatar would put a
+    # stranger's styling on a member who never chose it.
+    image_url: str | None = None
+    has_image: bool = False
 
     @property
     def preferred_name(self) -> str:

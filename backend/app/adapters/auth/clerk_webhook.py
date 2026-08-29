@@ -47,6 +47,10 @@ def to_user_event(payload: dict[str, Any]) -> ClerkUserEvent | None:
         clerk_user_id=str(clerk_user_id),
         display_name=_full_name(data),
         email=_primary_email(data),
+        image_url=_image_url(data),
+        # Clerk's own flag. Absent is read as False: an unknown answer must not become
+        # "yes, that is their photo".
+        has_image=data.get("has_image") is True,
         created=event_type == "user.created",
     )
 
@@ -58,6 +62,13 @@ def _full_name(data: dict[str, Any]) -> str | None:
         return joined
     username = data.get("username")
     return username.strip() if isinstance(username, str) and username.strip() else None
+
+
+def _image_url(data: dict[str, Any]) -> str | None:
+    """Clerk sends this for every account, including ones that never set a picture — see
+    `has_image` for how the two are told apart."""
+    url = data.get("image_url")
+    return url.strip() if isinstance(url, str) and url.strip() else None
 
 
 def _primary_email(data: dict[str, Any]) -> str | None:

@@ -68,6 +68,8 @@ class MemberResponse(BaseModel):
     # Kept as well, because it is what Clerk holds and the two can differ.
     display_name: str
     role: str
+    # The member's own picture from Clerk, or null when they never set one.
+    image_url: str | None
     # Ordinary personal data, unlike everything else on the profile: which unit someone
     # works in is how the club recognises them, and it needs no audit row to show.
     position: str | None
@@ -82,6 +84,7 @@ class MemberResponse(BaseModel):
             name=member.preferred_name,
             display_name=member.display_name,
             role=member.role.value,
+            image_url=member.image_url if member.has_image else None,
             position=member.profile.position,
             department=member.profile.department,
         )
@@ -551,11 +554,18 @@ class RewardImageResponse(BaseModel):
 
 class LeaderboardEntryResponse(BaseModel):
     """One line of the club standing. Every member sees every one of these, so it holds
-    a name, a distance and a count — and nothing else about anybody."""
+    a name, a picture, a distance and a count — and nothing else about anybody.
+
+    The picture widens what this shows on purpose: the name already identifies somebody,
+    and a running club with faces on its board is ordinary. It is still an increase in
+    exposure, which is why `image_url` is null unless the member set a picture at Clerk —
+    nobody appears here because a default was generated for them.
+    """
 
     rank: int
     member_id: UUID
     name: str
+    image_url: str | None
     total_distance_km: Decimal
     points: Decimal | None
     run_count: int
@@ -566,6 +576,7 @@ class LeaderboardEntryResponse(BaseModel):
             rank=entry.rank,
             member_id=entry.member_id,
             name=entry.name,
+            image_url=entry.image_url,
             total_distance_km=entry.total_distance_km,
             points=entry.points,
             run_count=entry.run_count,

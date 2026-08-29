@@ -59,6 +59,14 @@ class SqlAlchemyMemberRepository:
         )
         self._session.flush()
 
+    def set_avatar(self, member_id: UUID, image_url: str | None, has_image: bool) -> None:
+        self._session.execute(
+            sa.update(models.Member)
+            .where(models.Member.id == member_id)
+            .values(image_url=image_url, has_image=has_image)
+        )
+        self._session.flush()
+
     def set_profile(self, member_id: UUID, profile: MemberProfile) -> None:
         """Profile only. `role` is not reachable from here on purpose — it is written by
         the verified webhook or the bootstrap setting, never by anything a member sends.

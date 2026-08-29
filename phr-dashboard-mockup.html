@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PTRH Health Record</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap">
+<style>
+:root{
+  --bg:#eef0f3; --card:#ffffff; --fg:#171717; --muted:#6b7280; --faint:#9aa1ac;
+  --border:#e7e9ee; --surface:#f4f5f7;
+  --brand:#115e59; --brand-2:#2dd4bf; --brand-tint:#e6f0ef; --on-brand:#ffffff;
+  --good:#15803d; --good-tint:#dcfce7;
+  --a-blue:#2563eb; --a-blue-t:#dbeafe;
+  --a-violet:#7c3aed; --a-violet-t:#ede9fe;
+  --a-amber:#d97706; --a-amber-t:#fef3c7;
+  --a-rose:#e11d48;  --a-rose-t:#ffe4e6;
+  --gold:#d4a017; --grid:#eceef2;
+  --shadow:0 1px 2px rgba(16,24,40,.04), 0 8px 24px -12px rgba(16,24,40,.12);
+  --radius:22px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b0b0c; --card:#161719; --fg:#ededed; --muted:#9ca3af; --faint:#6b7280;
+    --border:#26272b; --surface:#1c1d20;
+    --brand:#2dd4bf; --brand-2:#5eead4; --brand-tint:#123330; --on-brand:#05201d;
+    --good:#4ade80; --good-tint:#15321f;
+    --a-blue:#60a5fa; --a-blue-t:#132139; --a-violet:#a78bfa; --a-violet-t:#221a3a;
+    --a-amber:#fbbf24; --a-amber-t:#332506; --a-rose:#fb7185; --a-rose-t:#3d1622;
+    --gold:#fbbf24; --grid:#232427;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 28px -14px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b0b0c; --card:#161719; --fg:#ededed; --muted:#9ca3af; --faint:#6b7280;
+  --border:#26272b; --surface:#1c1d20;
+  --brand:#2dd4bf; --brand-2:#5eead4; --brand-tint:#123330; --on-brand:#05201d;
+  --good:#4ade80; --good-tint:#15321f;
+  --a-blue:#60a5fa; --a-blue-t:#132139; --a-violet:#a78bfa; --a-violet-t:#221a3a;
+  --a-amber:#fbbf24; --a-amber-t:#332506; --a-rose:#fb7185; --a-rose-t:#3d1622;
+  --gold:#fbbf24; --grid:#232427;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 28px -14px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font-family:"Noto Sans Thai",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+.tnum{font-variant-numeric:tabular-nums}
+.shell{display:flex;min-height:100vh}
+
+/* ===== sidebar: full text by default, collapsible ===== */
+.rail{width:236px;flex:0 0 236px;background:var(--card);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;gap:3px;padding:16px 12px;position:sticky;top:0;height:100vh;
+  transition:width .2s ease, flex-basis .2s ease, transform .22s ease}
+.railtop{display:flex;align-items:center;gap:10px;margin-bottom:12px;min-height:38px;padding:0 4px}
+.logo{width:36px;height:36px;border-radius:11px;background:var(--brand);color:var(--on-brand);
+  display:grid;place-items:center;flex:0 0 auto}
+.logo svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.railtitle{font-weight:800;font-size:15px;white-space:nowrap;flex:1;overflow:hidden}
+.railtitle small{display:block;font-weight:600;font-size:11px;color:var(--muted)}
+.railtoggle{border:0;background:transparent;color:var(--muted);cursor:pointer;width:38px;height:38px;
+  border-radius:11px;display:grid;place-items:center;flex:0 0 auto}
+.railtoggle:hover{background:var(--surface);color:var(--fg)}
+.railtoggle svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.rail a{display:flex;align-items:center;gap:12px;height:44px;border-radius:13px;color:var(--muted);
+  text-decoration:none;padding:0 12px;transition:.15s;white-space:nowrap;overflow:hidden}
+.rail a:hover{background:var(--surface);color:var(--fg)}
+.rail a.active{background:var(--brand-tint);color:var(--brand)}
+.rail a.primary{background:var(--brand);color:var(--on-brand);margin:4px 0 2px}
+.rail a.primary:hover{background:var(--brand);color:var(--on-brand);filter:brightness(1.07)}
+.rail a.primary .rlabel{font-weight:700}
+.rail a svg{width:21px;height:21px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rlabel{font-weight:600;font-size:14px}
+.rail .sp{flex:1}
+.raildiv{height:1px;background:var(--border);margin:8px 8px}
+.railcap{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);
+  padding:2px 14px 4px;white-space:nowrap}
+
+/* collapsed (desktop icon rail) */
+body.railmin .rail{width:70px;flex-basis:70px}
+body.railmin .rail .rlabel,body.railmin .railtitle,body.railmin .railcap{display:none}
+body.railmin .rail a{justify-content:center;padding:0}
+body.railmin .railtop{justify-content:center}
+body.railmin .railtop .railtoggle{margin:0}
+
+.backdrop{display:none}
+.hamburger{display:none}
+.botnav{display:none}
+
+/* app */
+.app{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:14px;padding:16px 28px;position:sticky;top:0;z-index:5;
+  background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(8px)}
+.hamburger{width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--border);
+  place-items:center;color:var(--muted);cursor:pointer;flex:0 0 auto}
+.hamburger svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;white-space:nowrap}
+.brand small{font-weight:600;color:var(--muted);font-size:12px;letter-spacing:.03em}
+.search{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;background:var(--card);
+  border:1px solid var(--border);border-radius:999px;padding:9px 15px;color:var(--muted)}
+.search input{border:0;background:transparent;outline:0;color:var(--fg);font:inherit;width:100%}
+.search svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2}
+.tb-icon{width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--border);
+  display:grid;place-items:center;color:var(--muted);cursor:pointer;flex:0 0 auto}
+.tb-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.avatar{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--brand),var(--brand-2));
+  color:#fff;display:grid;place-items:center;font-weight:700;flex:0 0 auto}
+.spacer{flex:1}
+.mockbar{margin:0 28px 4px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);
+  background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:9px 14px;line-height:1.5}
+.mockbar b{color:var(--brand)}
+
+main{padding:14px 28px 34px;display:grid;grid-template-columns:minmax(340px,2fr) 3fr;gap:22px;align-items:start}
+@media (max-width:1080px){main{grid-template-columns:1fr}}
+.col{min-width:0;display:flex;flex-direction:column;gap:16px}
+.h{display:flex;align-items:baseline;gap:10px;margin:2px}
+.h h2{font-size:20px;font-weight:800;margin:0}
+.h span{color:var(--muted);font-size:13px}
+.cta{margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:var(--brand);color:var(--on-brand);
+  font-weight:700;font-size:14px;border-radius:12px;padding:9px 16px;text-decoration:none;box-shadow:var(--shadow)}
+.cta:hover{filter:brightness(1.07)}
+.cta svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+
+/* ===== announcement banners (bottom) ===== */
+.pr-lab{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);margin:2px 2px -4px}
+.pr-banner{display:flex;border-radius:20px;overflow:hidden;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow)}
+.pr-banner .img{flex:0 0 34%;max-width:300px;min-height:158px;position:relative;
+  background:linear-gradient(135deg,var(--brand),var(--brand-2));display:grid;place-items:center}
+.pr-banner .img .ph{color:rgba(255,255,255,.85);font-size:12px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.pr-banner .img .ph svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.6}
+.pr-banner .txt{flex:1;min-width:0;padding:20px 22px;display:flex;flex-direction:column;justify-content:center;gap:7px}
+.pr-banner.noimg{border-left:5px solid var(--brand)}
+.pr-banner .meta{display:flex;align-items:center;gap:9px}
+.pr-banner .dt{font-size:11px;font-weight:700;color:var(--brand);background:var(--brand-tint);border-radius:8px;padding:4px 9px}
+.pr-banner .tag{font-size:11px;font-weight:600;color:var(--muted)}
+.pr-banner h3{margin:0;font-size:18px;font-weight:800}
+.pr-banner p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.55}
+.pr-banner .more{align-self:flex-start;margin-top:2px;color:var(--brand);font-weight:700;font-size:13px;text-decoration:none}
+@media (max-width:640px){.pr-banner{flex-direction:column}.pr-banner .img{flex-basis:150px;max-width:none;width:100%}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.03em;
+  text-transform:uppercase;color:var(--muted);background:var(--surface);border:1px solid var(--border);
+  border-radius:999px;padding:4px 10px;white-space:nowrap}
+.ic{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;flex:0 0 auto}
+.ic svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.cardhead{display:flex;justify-content:space-between;align-items:center}
+
+.profile .top{display:flex;gap:16px;align-items:center}
+.pfp{width:72px;height:72px;border-radius:20px;flex:0 0 auto;
+  background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;display:grid;place-items:center;font-size:25px;font-weight:800}
+.profile .name{font-size:21px;font-weight:800;line-height:1.15;display:flex;align-items:center;gap:8px}
+.profile .since{color:var(--muted);font-size:13px;margin-top:3px}
+.verified{width:20px;height:20px;border-radius:50%;background:var(--good);display:inline-grid;place-items:center;flex:0 0 auto}
+.verified svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3}
+.pstats{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-top:18px;border-top:1px solid var(--border);padding-top:16px}
+.pstat{padding:0 10px;border-right:1px solid var(--border)}
+.pstat:nth-child(4n){border-right:0}
+.pstat .k{font-size:12px;color:var(--muted)}
+.pstat .v{font-size:19px;font-weight:800;margin-top:3px}
+.pstat .v small{font-size:12px;font-weight:600;color:var(--muted)}
+.band{display:inline-block;font-size:11px;font-weight:700;color:var(--good);background:var(--good-tint);border-radius:999px;padding:2px 9px}
+.pstat .band{margin-top:5px}
+.mini{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.news .item{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--border)}
+.news .item:first-of-type{border-top:0;padding-top:14px}
+.news .dt{font-size:11px;font-weight:700;color:var(--brand);background:var(--brand-tint);border-radius:8px;padding:5px 8px;height:fit-content;white-space:nowrap}
+.news .body b{display:block;font-size:14px;font-weight:700;margin-bottom:2px}
+.news .body span{font-size:12.5px;color:var(--muted);line-height:1.5}
+.stat .lab{font-size:14px;font-weight:600;margin-top:14px}
+.stat .big{font-size:25px;font-weight:800;margin-top:2px;letter-spacing:-.01em}
+.stat .big small{font-size:13px;font-weight:600;color:var(--muted)}
+.stat .sub{font-size:12px;color:var(--muted);margin-top:5px}
+
+.bench{display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.ring{position:relative;width:150px;height:150px;flex:0 0 auto}
+.ring svg{transform:rotate(-90deg)}
+.ring .pv{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.ring .pv b{font-size:30px;font-weight:800;line-height:1}
+.ring .pv span{font-size:12px;color:var(--muted)}
+.bench .info{flex:1;min-width:190px}
+.bench h3{margin:0 0 2px;font-size:15px;font-weight:700}
+.bench .goal{font-size:34px;font-weight:800;letter-spacing:-.02em}
+.bench .goal small{font-size:15px;color:var(--muted);font-weight:600}
+.bench .pts{display:inline-flex;align-items:center;gap:8px;margin-top:14px;background:var(--brand-tint);color:var(--brand);border-radius:14px;padding:9px 14px;font-weight:700}
+.bench .pts b{font-size:20px}
+
+.chart{margin-top:0}
+.chart .plot{display:flex;align-items:flex-end;gap:10px;height:150px;position:relative;border-bottom:1px solid var(--border)}
+.chart .gl{position:absolute;left:0;right:0;border-top:1px dashed var(--grid);z-index:0}
+.chart .colw{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative;z-index:1}
+.chart .bar{width:70%;max-width:34px;background:var(--brand);border-radius:6px 6px 0 0;transition:.15s;position:relative;cursor:default}
+.chart .colw:hover .bar{background:var(--brand-2)}
+.chart .bar.zero{background:repeating-linear-gradient(45deg,var(--grid),var(--grid) 3px,transparent 3px,transparent 6px);height:4px!important;border-radius:3px}
+.chart .val{position:absolute;top:-19px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800;color:var(--fg);white-space:nowrap}
+.chart .days{display:flex;gap:10px;margin-top:8px}
+.chart .day{flex:1;text-align:center;font-size:12px;color:var(--muted)}
+.chart .day.hot{color:var(--brand);font-weight:700}
+.chart .cap{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--muted);margin-top:12px}
+
+.myrank{display:flex;align-items:center;justify-content:space-between;background:var(--brand-tint);border-radius:16px;padding:14px 16px;margin-top:14px}
+.myrank .lab{font-size:13px;color:var(--brand);font-weight:600}
+.myrank .r{font-size:30px;font-weight:800;color:var(--brand);line-height:1}
+.myrank .r small{font-size:15px;font-weight:600}
+.myrank .kmr{text-align:right;font-size:13px;color:var(--brand)}
+.myrank .kmr b{font-size:20px;display:block}
+.board{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.board li{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface)}
+.board li.me{border-color:var(--brand);background:var(--brand-tint)}
+.board .pos{width:22px;text-align:center;font-weight:800;font-size:15px;flex:0 0 auto}
+.av{width:38px;height:38px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;overflow:hidden}
+.board .who{flex:1;min-width:0}
+.board .who b{font-weight:700;font-size:15px}
+.board .who span{display:block;font-size:12px;color:var(--muted)}
+.board .km{font-weight:800;font-size:16px;white-space:nowrap}
+.board .km small{font-size:12px;color:var(--muted);font-weight:600}
+.grid3{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.spark{margin-top:10px}
+.lr{display:grid;grid-template-columns:1fr 1fr;gap:12px 8px;margin-top:14px}
+.lr div{display:flex;flex-direction:column}
+.lr .k{font-size:12px;color:var(--muted)}
+.lr .v{font-size:18px;font-weight:800}
+.wt .cur{display:flex;align-items:flex-end;gap:10px;margin-top:12px}
+.wt .cur b{font-size:30px;font-weight:800;line-height:1}
+.wt .cur i{font-style:normal;color:var(--muted);font-size:14px;font-weight:600;margin-bottom:3px}
+.wt .delta{font-size:13px;color:var(--muted);margin-top:8px}
+.wt .delta b{color:var(--good)}
+.wt .link{display:inline-flex;align-items:center;gap:5px;margin-top:14px;color:var(--brand);font-weight:700;font-size:13px;text-decoration:none}
+.wt .link svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.wt .split{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px}
+.wt .r2{display:flex;flex-direction:column;justify-content:center;border-left:1px solid var(--border);padding-left:16px}
+.notes{margin:6px 28px 30px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 20px}
+.notes h4{margin:0 0 10px;font-size:13px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--brand)}
+.notes ul{margin:0;padding-left:18px;color:var(--muted);font-size:13px;line-height:1.85}
+.notes b{color:var(--fg)}
+
+/* ===== mobile: sidebar becomes a drawer ===== */
+@media (max-width:720px){
+  .rail{position:fixed;left:0;top:0;z-index:40;height:100vh;transform:translateX(-108%);
+    box-shadow:0 0 50px rgba(0,0,0,.35);width:236px;flex-basis:236px}
+  body.draweropen .rail{transform:translateX(0)}
+  /* on mobile the drawer always shows full text, ignore railmin */
+  body.railmin .rail{width:236px;flex-basis:236px}
+  body.railmin .rail .rlabel,body.railmin .railtitle,body.railmin .railcap{display:block}
+  body.railmin .rail a{justify-content:flex-start;padding:0 12px}
+  .backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:35;opacity:0;
+    pointer-events:none;transition:opacity .22s}
+  body.draweropen .backdrop{opacity:1;pointer-events:auto}
+  .hamburger{display:grid}
+  main{padding:10px 14px 34px;gap:18px}
+  .topbar{padding:14px 16px;gap:10px}
+  .search{display:none}
+  .mockbar{margin:0 16px 2px}
+  .notes{margin:6px 16px 30px}
+  .pstats{grid-template-columns:1fr 1fr;gap:14px 2px}
+  .pstat:nth-child(4n){border-right:1px solid var(--border)}
+  .pstat:nth-child(2n){border-right:0}
+  .grid3,.mini{grid-template-columns:1fr}
+  .wt .split{grid-template-columns:1fr}
+  .wt .r2{border-left:0;border-top:1px solid var(--border);padding-left:0;padding-top:14px}
+}
+</style>
+</head>
+<body>
+<div class="backdrop" id="backdrop"></div>
+<div class="shell">
+  <aside class="rail" id="rail">
+    <div class="railtop">
+      <div class="logo" title="PTRH RunClub"><svg viewBox="0 0 24 24"><path d="M13 4l-2 5h4l-2 5"/><circle cx="12" cy="12" r="9"/></svg></div>
+      <div class="railtitle">ชมรมวิ่ง<small>PTRH RunClub</small></div>
+      <button class="railtoggle" id="railtoggle" title="ย่อ/ขยายเมนู" aria-label="ย่อ/ขยายเมนู"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    </div>
+
+    <a class="active" href="#"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg><span class="rlabel">แดชบอร์ด</span></a>
+    <a class="primary" href="#"><svg viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span class="rlabel">ส่งผลวิ่ง</span></a>
+    <a href="#"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg><span class="rlabel">ผลวิ่ง</span></a>
+    <a href="#"><svg viewBox="0 0 24 24"><path d="M4 10v4a1 1 0 0 0 1 1h3l5 4V5L8 9H5a1 1 0 0 0-1 1z"/><path d="M18 9a4 4 0 0 1 0 6"/></svg><span class="rlabel">ข่าวประชาสัมพันธ์</span></a>
+    <a href="#"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M3 12h18M12 8v13"/><path d="M12 8S9.5 3.5 7 5s1 3 5 3 7.5-1.5 5-3-5 3-5 3z"/></svg><span class="rlabel">รางวัล</span></a>
+    <a href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span class="rlabel">โปรไฟล์</span></a>
+
+    <div class="raildiv"></div>
+    <div class="railcap">เฉพาะแอดมิน</div>
+    <a href="#" title="ไปหน้าแอดมิน (แยกต่างหาก)"><svg viewBox="0 0 24 24"><path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg><span class="rlabel">แอดมิน ›</span></a>
+
+    <div class="sp"></div>
+    <a href="#" id="theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg><span class="rlabel">สลับโหมด</span></a>
+  </aside>
+
+  <div class="app">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger" title="เมนู" aria-label="เปิดเมนู"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <div class="brand">ชมรมวิ่ง <small>PTRH RunClub</small></div>
+      <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input placeholder="ค้นหา…" aria-label="ค้นหา"></label>
+      <span class="spacer"></span>
+      <button class="tb-icon" id="theme-m" title="สลับโหมด"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v1M12 20v1M3 12h1M20 12h1M5.5 5.5l.7.7M17.8 17.8l.7.7M18.5 5.5l-.7.7M6.2 17.8l-.7.7"/></svg></button>
+      <button class="tb-icon" title="แจ้งเตือน"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
+      <div class="avatar">ธก</div>
+    </header>
+
+    <div class="mockbar">🎨 <b>MOCKUP</b> · ข้อมูลตัวอย่าง · สไตล์ Seehats + teal PTRH · ทุกตัวเลขผูกกับ field จริงของ /me/summary</div>
+
+    <main>
+      <section class="col">
+        <div class="h" style="align-items:center"><h2>ภาพรวม</h2>
+          <a class="cta" href="#"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>ส่งผลวิ่ง</a>
+        </div>
+        <div class="card profile">
+          <div class="top">
+            <div class="pfp">ธก</div>
+            <div>
+              <div class="name">ธนกร ใจดี <span class="verified" title="ยืนยันตัวตนแล้ว"><svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></span></div>
+              <div class="since">สมาชิกตั้งแต่ ส.ค. 2569 · โรงพยาบาลโพธาราม</div>
+            </div>
+          </div>
+          <div class="pstats">
+            <div class="pstat"><div class="k">น้ำหนัก</div><div class="v tnum">68.5<small> กก.</small></div></div>
+            <div class="pstat"><div class="k">เป้าหมาย</div><div class="v tnum">100<small> กม.</small></div></div>
+            <div class="pstat"><div class="k">BMI</div><div class="v tnum">22.4</div><span class="band">ปกติ</span></div>
+            <div class="pstat"><div class="k">วิ่งแล้ว</div><div class="v tnum">24<small> ครั้ง</small></div></div>
+          </div>
+        </div>
+
+        <div class="mini">
+          <div class="card stat">
+            <div class="cardhead"><span class="chip">ทั้งหมด</span><span class="ic" style="background:var(--a-rose-t);color:var(--a-rose)"><svg viewBox="0 0 24 24"><path d="M12 3s5 4 5 9a5 5 0 0 1-10 0c0-2 1-3 1-3s0 2 2 2 1-4 1-4 0 1 0-1z"/></svg></span></div>
+            <div class="lab">แคลอรี่ที่เผา</div><div class="big tnum">4,820<small> kcal</small></div>
+            <div class="sub">รวมจาก <b>18 ใน 24</b> ครั้งที่บันทึก</div>
+          </div>
+          <div class="card stat">
+            <div class="cardhead"><span class="chip">ทั้งหมด</span><span class="ic" style="background:var(--a-blue-t);color:var(--a-blue)"><svg viewBox="0 0 24 24"><path d="M8 4c1 0 2 1 2 3s-1 6-1 8 1 3 2 3M16 4c-1 0-2 1-2 3"/><circle cx="8" cy="20" r="1.4"/><circle cx="16" cy="20" r="1.4"/></svg></span></div>
+            <div class="lab">จำนวนก้าว</div><div class="big tnum">84,300</div>
+            <div class="sub">รวมจาก <b>15 ใน 24</b> ครั้งที่บันทึก</div>
+          </div>
+          <div class="card stat">
+            <div class="cardhead"><span class="chip">ทั้งหมด</span><span class="ic" style="background:var(--a-violet-t);color:var(--a-violet)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span></div>
+            <div class="lab">เวลาวิ่งรวม</div><div class="big tnum">6<small> ชม.</small> 12<small> น.</small></div>
+            <div class="sub">จาก 24 ครั้ง</div>
+          </div>
+          <div class="card stat">
+            <div class="cardhead"><span class="chip">ทั้งหมด</span><span class="ic" style="background:var(--a-amber-t);color:var(--a-amber)"><svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4"/><path d="M21 7H7a4 4 0 0 0-4 4"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h14a4 4 0 0 0 4-4"/></svg></span></div>
+            <div class="lab">จำนวนครั้งที่วิ่ง</div><div class="big tnum">24<small> ครั้ง</small></div>
+            <div class="sub">เฉลี่ย 2.6 กม./ครั้ง</div>
+          </div>
+        </div>
+
+        <div class="card chart">
+          <div class="cardhead">
+            <div style="display:flex;align-items:center;gap:11px">
+              <span class="ic" style="background:var(--brand-tint);color:var(--brand)"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>
+              <b style="font-size:16px">ระยะวิ่ง 7 วันล่าสุด</b>
+            </div>
+            <span class="chip">รวม 37.2 กม.</span>
+          </div>
+          <div class="plot" style="margin-top:20px">
+            <div class="gl" style="bottom:66%"></div><div class="gl" style="bottom:33%"></div>
+            <div class="colw" title="จันทร์ · 3.2 กม."><div class="bar" style="height:31%"></div></div>
+            <div class="colw" title="อังคาร · พัก"><div class="bar zero"></div></div>
+            <div class="colw" title="พุธ · 5.1 กม."><div class="bar" style="height:50%"></div></div>
+            <div class="colw" title="พฤหัส · 8.2 กม."><div class="bar" style="height:80%"></div></div>
+            <div class="colw" title="ศุกร์ · 4.0 กม."><div class="bar" style="height:39%"></div></div>
+            <div class="colw" title="เสาร์ · 6.5 กม."><div class="bar" style="height:64%"></div></div>
+            <div class="colw" title="อาทิตย์ · 10.2 กม."><div class="bar" style="height:100%"><span class="val">10.2</span></div></div>
+          </div>
+          <div class="days"><div class="day">จ</div><div class="day">อ</div><div class="day">พ</div><div class="day">พฤ</div><div class="day">ศ</div><div class="day">ส</div><div class="day hot">อา</div></div>
+          <div class="cap"><span>ระยะต่อวัน (กม.)</span><span>สูงสุด <b style="color:var(--fg)">10.2 กม.</b> · อาทิตย์</span></div>
+        </div>
+      </section>
+
+      <section class="col">
+        <div class="h"><h2>สถิติ</h2><span>แคมเปญ · อันดับ · การวิ่ง</span></div>
+
+        <div class="card">
+          <div class="cardhead">
+            <div style="display:flex;align-items:center;gap:11px"><span class="ic" style="background:var(--brand-tint);color:var(--brand)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg></span><b style="font-size:16px">เป้าหมายสะสมระยะ</b></div>
+            <span class="chip">แคมเปญ 15 ส.ค.–30 ก.ย. 69</span>
+          </div>
+          <div class="bench">
+            <div class="ring">
+              <svg width="150" height="150" viewBox="0 0 150 150">
+                <circle cx="75" cy="75" r="64" fill="none" stroke="var(--surface)" stroke-width="16"/>
+                <circle cx="75" cy="75" r="64" fill="none" stroke="var(--brand)" stroke-width="16" stroke-linecap="round" stroke-dasharray="402" stroke-dashoffset="151"/>
+              </svg>
+              <div class="pv"><b class="tnum">62%</b><span>ของ 100 กม.</span></div>
+            </div>
+            <div class="info">
+              <h3>ระยะสะสมตลอดแคมเปญ</h3>
+              <div class="goal tnum">62.5<small> / 100 กม.</small></div>
+              <div class="pts"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 17l-4.9 2.6.9-5.5-4-3.9 5.5-.8z"/></svg> แต้มสะสม <b class="tnum">8</b> แต้ม</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="cardhead">
+            <div style="display:flex;align-items:center;gap:11px"><span class="ic" style="background:var(--a-amber-t);color:var(--gold)"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M17 5h3a3 3 0 0 1-3 3M7 5H4a3 3 0 0 0 3 3"/></svg></span><b style="font-size:16px">อันดับสะสมระยะ</b></div>
+            <a href="#" style="color:var(--brand);font-weight:700;font-size:13px;text-decoration:none">ดูทั้งหมด ›</a>
+          </div>
+          <div class="myrank">
+            <div><div class="lab">อันดับของคุณ</div><div class="r tnum">#4 <small>จาก 18 คน</small></div></div>
+            <div class="kmr">สะสม<b class="tnum">62.5 กม.</b></div>
+          </div>
+          <ol class="board">
+            <li><span class="pos">🥇</span><span class="av" style="background:var(--a-blue)">สพ</span><div class="who"><b>สมชาย พูนผล</b><span>38 ครั้ง</span></div><div class="km tnum">121.0<small> กม.</small></div></li>
+            <li><span class="pos">🥈</span><span class="av" style="background:var(--a-violet)">กท</span><div class="who"><b>กัลยา ทองดี</b><span>35 ครั้ง</span></div><div class="km tnum">110.5<small> กม.</small></div></li>
+            <li><span class="pos">🥉</span><span class="av" style="background:var(--gold)">วส</span><div class="who"><b>วิไล แสงเดือน</b><span>30 ครั้ง</span></div><div class="km tnum">98.2<small> กม.</small></div></li>
+            <li class="me"><span class="pos">4</span><span class="av" style="background:var(--brand)">ธก</span><div class="who"><b>ธนกร ใจดี · คุณ</b><span>24 ครั้ง</span></div><div class="km tnum">62.5<small> กม.</small></div></li>
+            <li><span class="pos">5</span><span class="av" style="background:var(--a-rose)">ปม</span><div class="who"><b>ประสิทธิ์ มั่นคง</b><span>22 ครั้ง</span></div><div class="km tnum">60.1<small> กม.</small></div></li>
+          </ol>
+        </div>
+
+        <div class="grid3">
+          <div class="card stat">
+            <div class="cardhead"><span class="chip">ทั้งหมด</span><span class="ic" style="background:var(--a-blue-t);color:var(--a-blue)"><svg viewBox="0 0 24 24"><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M12 12l4-4"/><path d="M4 18a9 9 0 1 1 16 0"/></svg></span></div>
+            <div class="lab">Pace เฉลี่ย</div><div class="big tnum">5:48<small> /กม.</small></div>
+            <svg class="spark" viewBox="0 0 220 44" width="100%" height="44" preserveAspectRatio="none" aria-hidden="true">
+              <polyline fill="none" stroke="var(--brand)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="4,10 34,16 64,14 94,22 124,20 154,30 184,28 216,38"/>
+              <circle cx="216" cy="38" r="3.5" fill="var(--brand)"/>
+            </svg>
+            <div class="sub">แนวโน้ม 8 ครั้งล่าสุด · ต่ำ = เร็วขึ้น</div>
+          </div>
+
+          <div class="card">
+            <div class="cardhead"><span class="chip">ล่าสุด · 27 ส.ค.</span><span class="ic" style="background:var(--brand-tint);color:var(--brand)"><svg viewBox="0 0 24 24"><circle cx="13" cy="4.5" r="1.6"/><path d="M5 20l3-5 3 1 1-4-3-2 4-2 2 3 3 1"/></svg></span></div>
+            <div class="lab" style="font-size:14px;font-weight:600;margin-top:12px">การวิ่งครั้งล่าสุด</div>
+            <div class="lr">
+              <div><span class="k">ระยะ</span><span class="v tnum">8.2 กม.</span></div>
+              <div><span class="k">Pace</span><span class="v tnum">5:35</span></div>
+              <div><span class="k">แคลอรี่</span><span class="v tnum">520</span></div>
+              <div><span class="k">ก้าว</span><span class="v tnum">9,100</span></div>
+            </div>
+          </div>
+
+          <div class="card wt" style="grid-column:1/-1">
+            <div class="cardhead">
+              <div style="display:flex;align-items:center;gap:11px"><span class="ic" style="background:var(--good-tint);color:var(--good)"><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3H9a3 3 0 0 1 3-3z"/><path d="M6 6h12l2 14H4z"/><path d="M8 12h8"/></svg></span><div><b style="font-size:15px">น้ำหนัก และ BMI</b><div style="font-size:12px;color:var(--muted)">จากการวัดในโปรแกรมคัดกรอง</div></div></div>
+              <span class="band">BMI 22.4 · ปกติ</span>
+            </div>
+            <div class="split">
+              <div><div class="cur"><b class="tnum">68.5</b><i>กก. ปัจจุบัน</i></div><div class="delta">เริ่มต้น 71.0 กก. → ตอนนี้ 68.5 กก. · <b>ลด 2.5 กก.</b></div></div>
+              <div class="r2"><div style="font-size:12px;color:var(--muted)">ค่าดัชนีมวลกาย (BMI)</div><div class="tnum" style="font-size:26px;font-weight:800">22.4</div><span class="band" style="align-self:flex-start;margin-top:6px">อยู่ในเกณฑ์ปกติ</span></div>
+            </div>
+            <a class="link" href="#">ดูรายละเอียดสุขภาพ <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ประชาสัมพันธ์ banner (full width, ล่างสุด) — 2 แบบ: มีรูป / ไม่มีรูป -->
+      <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:14px">
+        <div class="pr-lab">ประชาสัมพันธ์ — แบบมีรูป</div>
+        <div class="pr-banner">
+          <div class="img"><div class="ph"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M3 17l5-4 4 3 3-2 6 5"/></svg>ตัวอย่างรูปข่าว<br>(announcement image)</div></div>
+          <div class="txt">
+            <div class="meta"><span class="dt">26 ส.ค. 69</span><span class="tag">📌 ปักหมุด</span></div>
+            <h3>จุดรับเสื้อ Finisher เปิดแล้ว</h3>
+            <p>รับเสื้อ Finisher ชมรมวิ่ง รพ.โพธาราม 2025 ได้ที่ห้องกิจกรรม ชั้น 2 จันทร์–ศุกร์ 8:00–16:00 น. นำบัตรพนักงานมาแสดง</p>
+            <a class="more" href="#">อ่านต่อ ›</a>
+          </div>
+        </div>
+
+        <div class="pr-lab">ประชาสัมพันธ์ — แบบไม่มีรูป</div>
+        <div class="pr-banner noimg">
+          <div class="txt">
+            <div class="meta"><span class="dt">20 ส.ค. 69</span><span class="tag">กิจกรรม</span></div>
+            <h3>ขยายเวลาแคมเปญถึง 30 ก.ย. 69</h3>
+            <p>สะสมระยะวิ่งรวมให้ถึง 100 กม. ตลอดแคมเปญ เพื่อลุ้นรับของรางวัลพิเศษเพิ่มเติม — ส่งผลวิ่งภายในวันเดียวกันเพื่อรับแต้ม</p>
+            <a class="more" href="#">อ่านต่อ ›</a>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div class="notes">
+      <h4>บันทึกสำหรับ CC — คำตัดสินที่ฝังในหน้านี้ (อ้าง phr-spec rev 4)</h4>
+      <ul>
+        <li><b>Sidebar:</b> โชว์ข้อความเต็มเป็นค่าเริ่มต้น · ย่อ/ขยายได้ทั้ง <b>เดสก์ท็อป</b> (☰ พับเป็นไอคอน) และ <b>มือถือ</b> (☰ บน topbar เปิด drawer + backdrop)</li>
+        <li><b>ส่งผลวิ่ง = ปุ่ม primary</b> ทั้งในเมนู และ <b>ปุ่ม CTA บนหน้า dashboard</b> (มุมขวาหัวข้อ "ภาพรวม")</li>
+        <li><b>ข่าวประชาสัมพันธ์:</b> เป็น tab ในเมนู + <b>banner ล่างสุดของ dashboard</b> — ออกแบบ <b>2 แบบ: มีรูป / ไม่มีรูป</b> (รองรับฟีเจอร์ "ข่าวใส่ภาพ" ที่ยัง deferred — ถ้ายังไม่มีรูปใช้ layout แบบไม่มีรูปอัตโนมัติ)</li>
+        <li><b>เมนูแอดมินแยกหน้า:</b> sidebar สมาชิกมี 6 อัน + ลิงก์ "แอดมิน ›" (เฉพาะแอดมิน) ไป <code>/admin</code> ที่มี layout/เมนูของตัวเอง — ไม่ปนเมนูแอดมินในหน้าสมาชิก</li>
+        <li><b>รูปโปรไฟล์:</b> mockup ใช้อักษรย่อ — production ดึง <code>image_url</code> จาก Clerk (sync ผ่าน webhook) fallback อักษรย่อ (§11)</li>
+        <li><b>กราฟ</b> ผูกข้อมูล run ต่อวันจริง (วันพัก = แถบประ ไม่ใช่ 0) · <b>ป้ายช่วง</b> activity="ทั้งหมด" benchmark=แคมเปญ · แคลอรี่/ก้าว "N ใน M"</li>
+        <li><b>น้ำหนัก/BMI:</b> band กลางๆ ไม่มี "พบแพทย์" · reuse <code>lib/bmi.ts</code> · เจ้าตัวเห็นเสมอ (consent A)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    var mq=window.matchMedia('(max-width:720px)');
+    function toggleTheme(e){ if(e) e.preventDefault();
+      var r=document.documentElement;
+      var dark=r.getAttribute('data-theme')==='dark' || (!r.getAttribute('data-theme') && matchMedia('(prefers-color-scheme:dark)').matches);
+      r.setAttribute('data-theme', dark?'light':'dark');
+    }
+    document.getElementById('theme').addEventListener('click',toggleTheme);
+    document.getElementById('theme-m').addEventListener('click',toggleTheme);
+
+    var body=document.body;
+    function closeDrawer(){ body.classList.remove('draweropen'); }
+    document.getElementById('railtoggle').addEventListener('click',function(){
+      if(mq.matches){ closeDrawer(); } else { body.classList.toggle('railmin'); }
+    });
+    document.getElementById('hamburger').addEventListener('click',function(){ body.classList.toggle('draweropen'); });
+    document.getElementById('backdrop').addEventListener('click',closeDrawer);
+    // tapping a drawer link closes it on mobile
+    document.querySelectorAll('#rail a').forEach(function(a){
+      a.addEventListener('click',function(){ if(mq.matches) closeDrawer(); });
+    });
+  })();
+</script>
+</body>
+</html>
