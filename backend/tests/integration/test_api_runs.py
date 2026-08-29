@@ -220,6 +220,63 @@ class TestSubmit:
         assert body["review_status"] == "ok"
         assert "evidence_key" not in body  # images are reached only via presigned URLs
 
+    def test_the_optional_counts_survive_the_round_trip(
+        self,
+        runs_client: TestClient,
+        people: dict[str, UUID],
+        session_factory: sessionmaker[Session],
+    ) -> None:
+        """The router builds its command with `**body.model_dump()`, so these two reach
+        the use case only by being on the request model. Nothing else asserts that, and
+        the submit form has no way of telling whether they arrived."""
+        key = upload(runs_client, "user_alice")["image_key"]
+
+        response = self.submit(runs_client, "user_alice", key, calories_burned=420, steps=7200)
+
+        assert response.status_code == 201  # type: ignore[attr-defined]
+        with session_factory() as session:
+            run = session.query(models.RunEntry).one()
+            assert run.calories_burned == 420
+            assert run.steps == 7200
+
+    def test_leaving_the_counts_out_stores_nothing_rather_than_zero(
+        self,
+        runs_client: TestClient,
+        people: dict[str, UUID],
+        session_factory: sessionmaker[Session],
+    ) -> None:
+        """A member who skips the boxes has not burned no calories — they have not said.
+        A 0 here would be a number on their dashboard they never gave (golden rule #4)."""
+        key = upload(runs_client, "user_alice")["image_key"]
+
+        self.submit(runs_client, "user_alice", key)
+
+        with session_factory() as session:
+            run = session.query(models.RunEntry).one()
+            assert run.calories_burned is None
+            assert run.steps is None
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("calories_burned", 0),
+            ("calories_burned", 10_000),
+            ("steps", 0),
+            ("steps", 200_000),
+            ("steps", -1),
+        ],
+    )
+    def test_a_count_outside_the_bounds_is_refused(
+        self, runs_client: TestClient, people: dict[str, UUID], field: str, value: int
+    ) -> None:
+        """The same exclusive bounds the CHECK constraints hold, rejected at the edge so
+        the form's own message and the API's answer cannot disagree about what is valid."""
+        key = upload(runs_client, "user_alice")["image_key"]
+
+        response = self.submit(runs_client, "user_alice", key, **{field: value})
+
+        assert response.status_code == 422  # type: ignore[attr-defined]
+
     def test_submitting_the_same_image_twice_is_409(
         self, runs_client: TestClient, people: dict[str, UUID]
     ) -> None:
