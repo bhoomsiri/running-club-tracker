@@ -167,10 +167,29 @@ project `running-club-505603` (number `473776200408`) · billing `013659-38A823-
 `APP_ENV=production` (ต้องตั้ง! ไม่งั้น startup validation ไม่ทำงาน) · `DATABASE_URL` · `CLERK_ISSUER` · `CLERK_JWKS_URL` · `CLERK_WEBHOOK_SECRET` · `SUPERUSER_CLERK_USER_ID` ·
 `FRONTEND_URL` · `S3_BUCKET` · `S3_ENDPOINT_URL` · `S3_ACCESS_KEY` · `S3_SECRET_KEY` · `S3_REGION` ·
 `GEMINI_API_KEY` · `CF_ORIGIN_SECRET` · `TRUST_PROXY=true` · (`CONSENT_VERSION`, `HEALTH_RETENTION_DAYS`,
-`AUDIT_RETENTION_DAYS`, `RATE_LIMIT`, `EXTRACT_RATE_LIMIT` — มี default อยู่แล้ว)
+`AUDIT_RETENTION_DAYS`, `RATE_LIMIT`, `EXTRACT_RATE_LIMIT`, `HEALTH_EXPORT_ENABLED` — มี default อยู่แล้ว)
 
-> `PORT` ไม่ต้องตั้ง — Cloud Run ใส่ให้เอง. ตั้ง env พวกนี้ที่ service โดยตรง (หรือ Secret Manager)
+> `PORT` ไม่ต้องตั้ง — Cloud Run ใส่ให้เอง. ตั้ง env พวกนี้ที่ service โดยตรง
 > เพราะ `deploy.yml` ตั้งใจไม่ส่ง `--set-env-vars` — secret จะได้ไม่โผล่ใน workflow log.
+
+### 🔐 6 ตัวนี้ไม่ได้อยู่บน service แล้ว — อยู่ใน Secret Manager
+
+`DATABASE_URL` · `CF_ORIGIN_SECRET` · `CLERK_WEBHOOK_SECRET` · `S3_ACCESS_KEY` · `S3_SECRET_KEY` ·
+`GEMINI_API_KEY` — `deploy.yml` ส่งเป็น **ชื่ออ้างอิง** (`--set-secrets DATABASE_URL=database-url:latest`)
+ที่เหลือยังเป็น env ธรรมดาบน service เพราะไม่ใช่ความลับ
+
+- [x] ✅ **หมุนครบทั้ง 6 ตัวแล้ว — 29 ส.ค. 2026 · ค่าเก่า revoke ที่ต้นทางหมดแล้ว**
+      `database-url` (Neon reset password) · `clerk-webhook-secret` (svix roll) ·
+      `s3-access-key` + `s3-secret-key` (R2 token ใหม่ + ลบ token เก่า) ·
+      `gemini-api-key` (key ใหม่ + ลบ key เก่า) ·
+      `cf-origin-secret` (zero-downtime ผ่าน comma list ใน `CloudflareOriginGuard`)
+
+> ⚠️ **`DATABASE_URL` มี 2 ที่เก็บ โดยตั้งใจ** — Secret Manager (Cloud Run) และ GitHub Secrets
+> (job `migrate`: alembic รันบน runner ไม่มี runtime SA ไว้อ่าน Secret Manager)
+> **เปลี่ยนรหัส Neon เมื่อไหร่ ต้องอัปเดตทั้งสองที่** ลืมอันหลัง = deploy รอบถัดไปพังที่ job
+> `migrate` ทั้งที่แอปยังทำงานปกติ · รอบ 29 ส.ค. ทำครบทั้งคู่แล้ว
+
+> **ขั้นตอนหมุน + งานเก็บกวาดที่เหลือ** อยู่ใน [docs/secret-manager-migration.md](docs/secret-manager-migration.md)
 
 **Frontend (Vercel):**
 `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` · `CLERK_SECRET_KEY` · `NEXT_PUBLIC_API_URL`

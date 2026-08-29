@@ -1,6 +1,9 @@
 # ย้าย 6 runtime secrets → Secret Manager
 
-ตอนนี้ค่าความลับ 6 ตัวเก็บเป็น **plaintext env var บน Cloud Run service** ใครก็ตามที่มีสิทธิ์
+> **สถานะ: Phase A/B เสร็จแล้ว · หมุนค่าครบ 6/6 แล้ว (29 ส.ค. 2026) · เหลือแค่งานเก็บกวาดใน
+> Phase C** — เอกสารนี้เก็บไว้เป็นบันทึกว่าย้ายยังไงและทำไม ส่วนที่ยังทำไม่เสร็จมี `- [ ]` กำกับ
+
+เอกสารนี้เขียนตอนที่ค่าความลับ 6 ตัวยังเก็บเป็น **plaintext env var บน Cloud Run service** ใครก็ตามที่มีสิทธิ์
 `run.viewer` ขึ้นไปอ่านได้หมดด้วย `gcloud run services describe` คำสั่งเดียว และมันติดอยู่ใน
 revision เก่าทุกอันย้อนหลัง
 
@@ -17,10 +20,11 @@ Manager ที่มี IAM แยก มี audit log ของตัวเอ�
 | service | `running-club-api` |
 | **runtime service account** | `473776200408-compute@developer.gserviceaccount.com` |
 | deploy service account (GitHub) | `gh-deployer@running-club-505603.iam.gserviceaccount.com` |
-| Secret Manager API | ❌ **ยังไม่เปิด** — Phase A ต้องเปิดก่อน |
-| secret ที่มีอยู่ | ยังไม่มีเลย |
+| Secret Manager API | ตอน discover ยังไม่เปิด → ✅ เปิดแล้วใน Phase A |
+| secret ที่มีอยู่ | ตอน discover ไม่มีเลย → ✅ ครบ 6 ตัว หมุนแล้วทุกตัว |
 
-ทั้ง 6 ตัวอยู่บน service เป็น plaintext จริงทุกตัว — ไม่มีตัวไหนหายไปแล้ว
+ตอน discover ทั้ง 6 ตัวอยู่บน service เป็น plaintext จริงทุกตัว — ไม่มีตัวไหนย้ายไปแล้ว
+ปัจจุบันเป็น secret reference ทั้งหมด (`cf-origin-secret:latest` ฯลฯ) ไม่มี plaintext เหลือ
 
 ## Phase A — สร้าง secret + ให้สิทธิ์ (คุณรันเอง)
 
@@ -102,10 +106,29 @@ gcloud run services describe running-club-api --region asia-southeast1 \
 
 ## Phase C — เก็บกวาดหลังนิ่งแล้ว (อย่ารีบ)
 
-- ลบ revision เก่าที่ยังฝัง plaintext ไว้ — ตราบใดที่ยังอยู่ ค่าความลับก็ยังอ่านได้จาก revision นั้น
-  แต่ **อย่าลบจนกว่าจะมั่นใจว่าไม่ต้อง rollback แล้ว**
-- **หมุนค่าทั้ง 6 ตัว** — ค่าเดิมเคยอยู่ในรูปแบบที่อ่านง่ายมานาน ย้ายที่เก็บไม่ได้ทำให้ค่าเก่า
-  ปลอดภัยขึ้น หมุนแล้วค่อยเรียกว่าจบ
+- [ ] ลบ revision เก่าที่ยังฝัง plaintext ไว้ — ตราบใดที่ยังอยู่ ค่าเก่าก็ยังอ่านได้จาก revision นั้น
+  แต่ **อย่าลบจนกว่าจะมั่นใจว่าไม่ต้อง rollback แล้ว** · ความเร่งด่วนลดลงมากแล้วเพราะค่าเก่า
+  ทุกตัวถูก revoke ที่ต้นทางไปแล้ว (ดูข้อถัดไป) — อ่านได้ก็ใช้เข้าอะไรไม่ได้
+- [x] ✅ **หมุนค่าครบทั้ง 6 ตัว — 29 ส.ค. 2026** ค่าเดิมเคยเป็น plaintext บน Cloud Run
+  อยู่หลายวัน ย้ายที่เก็บไม่ได้ทำให้ค่าเก่าปลอดภัยขึ้น **ต้องหมุนถึงจะเรียกว่าจบ** และตอนนี้จบแล้ว
+
+  | secret | หมุนยังไง | ค่าเก่า |
+  |---|---|---|
+  | `database-url` | reset password ที่ Neon | revoked ที่ต้นทาง |
+  | `clerk-webhook-secret` | roll signing secret ที่ svix/Clerk | revoked ที่ต้นทาง |
+  | `s3-access-key` | ออก R2 API token ใหม่ | ลบ token เก่าแล้ว |
+  | `s3-secret-key` | (คู่กับ token เดียวกัน) | ลบ token เก่าแล้ว |
+  | `gemini-api-key` | ออก key ใหม่ | ลบ key เก่าแล้ว |
+  | `cf-origin-secret` | zero-downtime ผ่าน comma list | ปลดออกจาก list แล้ว |
+
+  **ค่าเก่าถูก revoke ที่ต้นทางทุกตัว** ไม่ใช่แค่เลิกใช้ — แปลว่า plaintext ที่ยังฝังอยู่ใน
+  Cloud Run revision เก่า ๆ ใช้เข้าอะไรไม่ได้แล้ว ซึ่งเป็นสิ่งที่ทำให้ข้อบนสุด (ลบ revision เก่า)
+  กลายเป็นงานเก็บกวาดธรรมดา ไม่ใช่งานเร่งด่วน
+
+  > ⚠️ **`DATABASE_URL` เก็บอยู่ 2 ที่ ต้องอัปเดตทั้งคู่** — Secret Manager (Cloud Run ใช้)
+  > และ GitHub Secrets (job `migrate` ใช้ เพราะ alembic รันบน runner ไม่มี runtime SA)
+  > รอบนี้ทำครบทั้งสองแล้ว: GitHub อัปเดต `05:24:45Z` · Secret Manager v4 `05:25:26Z`
+  > ถ้าลืมอันหลัง **deploy รอบถัดไปจะพังที่ job `migrate`** โดยที่แอปยังทำงานปกติ — หาสาเหตุยาก
 
   > **`CF_ORIGIN_SECRET` หมุนได้แบบไม่มีดาวน์ไทม์** — `CloudflareOriginGuard` รับหลายค่า
   > คั่นด้วย comma เพราะ Cloudflare กับ Cloud Run เปลี่ยนพร้อมกันไม่ได้ ถ้ารับค่าเดียวจะมี
@@ -125,8 +148,21 @@ gcloud run services describe running-club-api --region asia-southeast1 \
   > ```
   >
   > ⚠️ ค่า secret **ห้ามมี comma** เพราะ comma คือตัวคั่น (`token_urlsafe` ไม่มีอยู่แล้ว)
-  > · secret อีก 5 ตัวยังหมุนแบบเดิม (แก้ค่า → deploy ใหม่) เพราะไม่ได้มีตัวกลางคั่นอยู่
-- ลด `roles/editor` ของ runtime SA (ดูหัวข้อถัดไป)
+  > · secret อีก 5 ตัวหมุนแบบเดิม (แก้ค่าที่ต้นทาง → เพิ่ม version → deploy) เพราะไม่มีตัวคั่น
+  > แบบนี้ — มีช่วงสั้น ๆ ที่ค่าไม่ตรงกัน จึงควรทำทีละตัวตอนคนไม่ใช้งาน
+
+- [ ] **disable secret version เก่าที่ยังถือค่าที่ revoke ไปแล้ว** — ใครมี `secretAccessor`
+  ยังดึงมาอ่านได้ ถึงจะใช้เข้าอะไรไม่ได้แล้วก็ตาม `disable` ย้อนได้ด้วย `enable`
+  ส่วน `destroy` ลบถาวร — ทิ้งไว้ disable สักสัปดาห์ก่อนค่อย destroy
+
+  ```bash
+  # ตัวอย่าง cf-origin-secret: v4 คือค่าปัจจุบัน v1-v3 คือของเก่า
+  for V in 1 2 3; do
+    gcloud secrets versions disable $V --secret=cf-origin-secret --project "$PROJECT"
+  done
+  ```
+
+- [ ] ลด `roles/editor` ของ runtime SA (ดูหัวข้อถัดไป)
 
 ## เรื่องที่เจอระหว่าง discover — ควรรู้ แต่ไม่ได้อยู่ในงานนี้
 
