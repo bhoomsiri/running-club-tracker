@@ -1,8 +1,7 @@
 import { UserButton } from "@clerk/nextjs";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { BottomNav } from "@/components/bottom-nav";
+import { AppShell } from "@/components/app-shell";
 import { apiServer } from "@/lib/api-server";
 import { getMySummary } from "@/lib/me";
 import { isStaff } from "@/lib/roles";
@@ -23,10 +22,16 @@ import type { OnboardingStatus } from "@/lib/types";
  * somebody has to reach the admin screens on a fresh deployment, and that person cannot
  * be locked out by a gate they are there to configure.
  *
- * The admin link lives up here beside the avatar, not at the bottom of the dashboard
- * where it started: staff reach for it from wherever they happen to be, and a link you
- * have to scroll past your own redemptions to find is one you navigate by URL instead.
- * It is navigation — /admin checks the role again and the backend refuses regardless.
+ * The chrome itself is `AppShell`, which is a client component because a collapsing rail
+ * and a drawer are state. Everything that needs the session stays here on the server —
+ * the onboarding gate, the role, and Clerk's own `UserButton` — and is passed down, so
+ * the client half never learns anything the markup would not already have shown.
+ *
+ * The admin link lives in the rail under its own divider, not at the bottom of the
+ * dashboard where it started: staff reach for it from wherever they happen to be, and a
+ * link you have to scroll past your own redemptions to find is one you navigate by URL
+ * instead. It is navigation — /admin checks the role again and the backend refuses
+ * regardless.
  */
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const status = await apiServer<OnboardingStatus>("/me/onboarding");
@@ -39,30 +44,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const summary = await getMySummary();
 
   return (
-    <>
-      <header className="border-b border-border">
-        <div className="mx-auto flex min-h-14 max-w-3xl items-center justify-between gap-3 px-4 py-2">
-          <span className="text-lg font-bold">ชมรมวิ่ง</span>
-          <div className="flex items-center gap-2">
-            {isStaff(summary.member.role) ? (
-              <Link
-                href="/admin"
-                className="tap shrink-0 rounded-control border border-border px-3 text-base font-medium"
-              >
-                แผงผู้ดูแล
-              </Link>
-            ) : null}
-            <UserButton />
-          </div>
-        </div>
-      </header>
-
-      <BottomNav />
-
-      {/* Bottom padding clears the fixed nav on phones; it is static from `sm` up. */}
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-28 sm:pb-8">
-        {children}
-      </main>
-    </>
+    <AppShell isStaff={isStaff(summary.member.role)} account={<UserButton />}>
+      {children}
+    </AppShell>
   );
 }

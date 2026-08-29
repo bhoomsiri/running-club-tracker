@@ -1,3 +1,4 @@
+import { Avatar } from "@/components/avatar";
 import { formatDecimal } from "@/lib/format";
 import type { LeaderboardEntry } from "@/lib/types";
 
@@ -7,6 +8,11 @@ import type { LeaderboardEntry } from "@/lib/types";
  *
  * The rank comes from the backend, ties and all — two members on 40 km are both 2nd and
  * the next is 4th, and this component never has to work that out for itself.
+ *
+ * The picture is whatever Clerk holds for that member, or initials when they never set
+ * one (spec §11). It is the reason the leaderboard payload — deliberately minimal
+ * otherwise — carries a URL at all: a client cannot fetch another member's picture from
+ * Clerk itself, so it has to travel with the row.
  */
 
 const MEDALS: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
@@ -37,6 +43,8 @@ export function LeaderboardRow({
       <span className="w-10 shrink-0 text-center text-2xl tabular-nums">
         {medal ?? <span className="text-lg font-semibold text-muted">{entry.rank}</span>}
       </span>
+
+      <Avatar name={entry.name} imageUrl={entry.image_url} seed={entry.member_id} />
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-base font-semibold">

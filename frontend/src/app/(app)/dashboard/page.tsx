@@ -1,195 +1,256 @@
 import Link from "next/link";
 
-import { AnnouncementBody } from "@/components/announcement-body";
 import { CampaignCard } from "@/components/campaign-card";
-import { LeaderboardRow } from "@/components/leaderboard-row";
-import { Badge, ButtonLink, Card, EmptyState, SectionHeading } from "@/components/ui";
+import { BenchmarkCard } from "@/components/dashboard/benchmark-card";
+import { LatestRunCard } from "@/components/dashboard/latest-run-card";
+import {
+  MetricCard,
+  MetricEmpty,
+  MetricValue,
+} from "@/components/dashboard/metric-card";
+import { NewsBanner } from "@/components/dashboard/news-banner";
+import { PaceCard } from "@/components/dashboard/pace-card";
+import { ProfileCard } from "@/components/dashboard/profile-card";
+import { StandingCard } from "@/components/dashboard/standing-card";
+import { WeekChart } from "@/components/dashboard/week-chart";
+import { WeightCard } from "@/components/dashboard/weight-card";
+import { ButtonLink, EmptyState } from "@/components/ui";
 import { apiPublic } from "@/lib/api";
 import { apiServer } from "@/lib/api-server";
-import { formatDate, formatDecimal } from "@/lib/format";
+import { formatCount, splitDuration } from "@/lib/format";
 import { getMySummary } from "@/lib/me";
-import { ROLE_LABELS } from "@/lib/roles";
-import type {
-  Announcement,
-  CampaignProgress,
-  Leaderboard,
-  Redemption,
-} from "@/lib/types";
+import type { Announcement, Leaderboard, MemberSummary } from "@/lib/types";
 
 /**
- * Rendered on the server so the member's numbers arrive with the HTML rather than after
- * a second round trip on a phone connection. Nothing here is cached — the summary is
- * per-member and changes the moment a run is submitted.
+ * The member's own record, rendered on the server so their numbers arrive with the HTML
+ * rather than after a second round trip on a phone connection. Nothing is cached — the
+ * summary is per-member and changes the moment a run is submitted.
  *
- * The screen answers two questions in order, because that is the order they are asked:
- * "how am I doing?" (the total, then each activity) and then "what do I do now?" — which
- * is always the same answer, so บันทึกผลวิ่ง is the single primary action and sits
- * directly under the number it moves. Everything below that is context: where the club
- * stands, what the club has announced, what has been redeemed.
+ * Two periods share this screen and every card says which one it is on. The activity
+ * cards are lifetime, over every run of theirs that still counts; the benchmark card is
+ * a campaign window. They are different questions and they give different answers, so
+ * the labels are load-bearing rather than decoration.
+ *
+ * No card invents a number. A count nobody recorded reads "ไม่ได้บันทึก", a partial total
+ * carries how many runs it is made of, and an average over no runs is absent rather than
+ * zero — a member who has not started has not run at 0 min/km.
  */
-
-const REDEMPTION_LABELS: Record<Redemption["status"], string> = {
-  pending: "รอรับของ",
-  fulfilled: "รับของแล้ว",
-  cancelled: "ยกเลิก",
-};
-
-const REDEMPTION_TONES: Record<Redemption["status"], "success" | "warning" | "neutral"> = {
-  pending: "warning",
-  fulfilled: "success",
-  cancelled: "neutral",
-};
-
 export default async function DashboardPage() {
-  // The news is public and the summary is not, so they are fetched by different
-  // clients — but they are fetched together, because two round trips in sequence is a
-  // second of blank screen on a phone.
+  // The news is public and the summary is not, so they go through different clients —
+  // but they are fetched together, because two sequential round trips is a second of
+  // blank screen on a phone.
   const [summary, news, board] = await Promise.all([
     getMySummary(),
     latestNews(),
     standing(),
   ]);
 
+  const { activity, member } = summary;
+  // The ring needs something to be a ring of, so the campaign with a target leads and
+  // the rest keep their ordinary cards below it. Picking `campaigns[0]` would have put
+  // whichever came back first in the ring and dropped the other one off the screen
+  // entirely — including the points balance, which only the reward campaign carries.
+  const [benchmark, ...otherCampaigns] = [...summary.campaigns].sort(
+    (a, b) => Number(b.target !== null) - Number(a.target !== null),
+  );
+  // The first comparison is the current one: the backend lists them in the order the
+  // records were made, and a member has at most one screening per campaign.
+  const health = summary.health[0] ?? null;
+  const hasRuns = activity.run_count > 0;
+
   return (
     <>
-      <header className="mb-5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h1 className="text-2xl font-bold tracking-tight">
-            สวัสดี {summary.member.name}
-          </h1>
-          {summary.member.role !== "member" ? (
-            <Badge tone="brand">{ROLE_LABELS[summary.member.role]}</Badge>
-          ) : null}
-        </div>
-      </header>
-
-      {/* The headline number and the one button that changes it, together. */}
-      <Card className="text-center">
-        <p className="text-base text-muted">ระยะสะสมรวมของคุณ</p>
-        <p className="stat mt-2">
-          {formatDecimal(summary.total_distance_km)}
-          <span className="ml-2 text-xl font-semibold text-muted">กม.</span>
-        </p>
-        <ButtonLink href="/submit" className="mt-5">
-          🏃 บันทึกผลวิ่ง
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">ภาพรวม</h1>
+        {/* The one action this screen leads to, beside the numbers it moves. */}
+        <ButtonLink href="/submit" fullWidth={false}>
+          🏃 ส่งผลวิ่ง
         </ButtonLink>
-        <p className="mt-3 text-sm text-muted">ส่งรูปหลักฐาน ระบบนับให้ทันที</p>
-      </Card>
+      </div>
 
-      {news ? (
-        <Link href="/announcements" className="mt-4 block">
-          <Card className="hover:border-brand">
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-sm font-semibold text-brand">📢 ข่าวจากชมรม</p>
-              <span aria-hidden className="shrink-0 text-lg text-muted">
-                ›
-              </span>
-            </div>
-            <p className="mt-1 text-lg font-semibold">{news.title}</p>
-            <AnnouncementBody body={news.body} className="mt-1 line-clamp-2 text-base" />
-          </Card>
-        </Link>
-      ) : null}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(340px,2fr)_3fr]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <ProfileCard
+            member={member}
+            runCount={activity.run_count}
+            goal={benchmark}
+            health={health}
+          />
 
-      <SectionHeading
-        action={
-          <Link href="/activities" className="text-base font-medium text-brand">
-            ดูทั้งหมด ›
-          </Link>
-        }
-      >
-        กิจกรรมปีนี้
-      </SectionHeading>
-      {summary.campaigns.length === 0 ? (
-        <EmptyState>ยังไม่มีกิจกรรมที่เปิดอยู่</EmptyState>
-      ) : (
-        <Campaigns campaigns={summary.campaigns} />
-      )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <MetricCard
+              label="แคลอรี่ที่เผา"
+              period="ทั้งหมด"
+              accent="rose"
+              icon="🔥"
+              note={<PartialNote counted={activity.calories_from_runs} of={activity.run_count} />}
+            >
+              {activity.calories_from_runs === 0 ? (
+                <MetricEmpty>ยังไม่ได้บันทึก</MetricEmpty>
+              ) : (
+                <MetricValue value={formatCount(activity.total_calories)} unit="kcal" />
+              )}
+            </MetricCard>
 
-      {/* Below the member's own progress, not above it: this screen is about their
-          numbers first, and where they sit among everyone else second. */}
-      {board ? <Standing board={board} /> : null}
+            <MetricCard
+              label="จำนวนก้าว"
+              period="ทั้งหมด"
+              accent="blue"
+              icon="👟"
+              note={<PartialNote counted={activity.steps_from_runs} of={activity.run_count} />}
+            >
+              {activity.steps_from_runs === 0 ? (
+                <MetricEmpty>ยังไม่ได้บันทึก</MetricEmpty>
+              ) : (
+                <MetricValue value={formatCount(activity.total_steps)} />
+              )}
+            </MetricCard>
 
-      <SectionHeading>ของรางวัลที่แลกแล้ว</SectionHeading>
-      {summary.redemptions.length === 0 ? (
-        <EmptyState
-          action={
-            <ButtonLink href="/rewards" tone="secondary" fullWidth={false}>
-              ดูของรางวัล
-            </ButtonLink>
-          }
-        >
-          ยังไม่ได้แลกของรางวัล — สะสมแต้มจากกิจกรรมวันละ 10 กม. ได้เลย
-        </EmptyState>
-      ) : (
-        <ul className="grid gap-3">
-          {summary.redemptions.map((redemption) => (
-            <li key={redemption.id}>
-              <Card className="flex items-center justify-between gap-3 py-4">
-                <div>
-                  <p className="text-lg font-semibold tabular-nums">
-                    {formatDecimal(redemption.points_spent)} แต้ม
-                  </p>
-                  <p className="text-sm text-muted">
-                    {formatDate(redemption.created_at)}
-                  </p>
-                </div>
-                <Badge tone={REDEMPTION_TONES[redemption.status]}>
-                  {REDEMPTION_LABELS[redemption.status]}
-                </Badge>
-              </Card>
-            </li>
+            <MetricCard
+              label="เวลาวิ่งรวม"
+              period="ทั้งหมด"
+              accent="violet"
+              icon="⏱"
+              note={hasRuns ? `จาก ${formatCount(activity.run_count)} ครั้ง` : undefined}
+            >
+              {hasRuns ? <Duration seconds={activity.active_seconds} /> : (
+                <MetricEmpty>ยังไม่มีผลวิ่ง</MetricEmpty>
+              )}
+            </MetricCard>
+
+            <MetricCard label="จำนวนครั้งที่วิ่ง" period="ทั้งหมด" accent="amber" icon="🔁">
+              {hasRuns ? (
+                <MetricValue value={formatCount(activity.run_count)} unit="ครั้ง" />
+              ) : (
+                <MetricEmpty>ยังไม่เคยส่งผลวิ่ง</MetricEmpty>
+              )}
+            </MetricCard>
+          </div>
+
+          {hasRuns ? (
+            <WeekChart days={activity.last_seven_days} />
+          ) : (
+            <EmptyState
+              action={
+                <ButtonLink href="/submit" tone="secondary" fullWidth={false}>
+                  ส่งผลวิ่งครั้งแรก
+                </ButtonLink>
+              }
+            >
+              ยังไม่มีผลวิ่ง — ส่งรูปหลักฐานครั้งแรกแล้วกราฟจะขึ้นที่นี่
+            </EmptyState>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          {benchmark ? (
+            <BenchmarkCard campaign={benchmark} />
+          ) : (
+            <EmptyState>ยังไม่มีกิจกรรมที่เปิดอยู่</EmptyState>
+          )}
+
+          {/* Any other activity keeps the card it has on /activities, so the two screens
+              cannot drift into disagreeing about somebody's progress. */}
+          {otherCampaigns.map((campaign) => (
+            <CampaignCard key={campaign.campaign_id} campaign={campaign} />
           ))}
-        </ul>
-      )}
 
-      {/* The admin link used to sit here, at the bottom of a member's own screen. It is
-          in the header now, beside the avatar: staff reach for it from every page, not
-          only after scrolling past their redemptions. */}
+          {board ? <StandingCard board={board} /> : null}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <PaceCard
+              averagePace={activity.avg_pace_min_per_km}
+              recentPaces={activity.recent_paces}
+            />
+            {activity.latest_run ? (
+              <LatestRunCard run={activity.latest_run} />
+            ) : (
+              <MetricCard label="การวิ่งครั้งล่าสุด" period="ล่าสุด" icon="🏃">
+                <MetricEmpty>ยังไม่มีผลวิ่ง</MetricEmpty>
+              </MetricCard>
+            )}
+          </div>
+
+          {health ? (
+            <WeightCard comparison={health} />
+          ) : (
+            <EmptyState
+              action={
+                <ButtonLink href="/health" tone="secondary" fullWidth={false}>
+                  ไปหน้าสุขภาพ
+                </ButtonLink>
+              }
+            >
+              ยังไม่มีข้อมูลสุขภาพ — บันทึกน้ำหนักและส่วนสูงเพื่อดู BMI ของคุณ
+            </EmptyState>
+          )}
+        </div>
+
+        {/* Full width, at the foot: the club's news is context, not the member's own
+            record, so it sits below everything that is. */}
+        {news ? (
+          <section className="lg:col-span-2">
+            <h2 className="mb-2 text-xs font-bold tracking-wide text-muted uppercase">
+              ประชาสัมพันธ์
+            </h2>
+            <NewsBanner announcement={news} />
+          </section>
+        ) : null}
+      </div>
+
+      <RedemptionsLink summary={summary} />
     </>
   );
 }
 
-/**
- * Two activities fit side by side; more than two do not.
- *
- * Past that the cards go into a horizontal snap scroller rather than a taller and taller
- * column — the dashboard's job is to show the member their standing at a glance, and an
- * activity list that pushes everything else off the screen defeats it. `ดูทั้งหมด` above
- * is the way to see them all.
- */
-function Campaigns({ campaigns }: { campaigns: CampaignProgress[] }) {
-  if (campaigns.length <= 2) {
-    return (
-      <ul className="grid gap-4 sm:grid-cols-2">
-        {campaigns.map((campaign) => (
-          <li key={campaign.campaign_id}>
-            <CampaignCard campaign={campaign} />
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
+/** "รวมจาก 18 ใน 24 ครั้งที่บันทึก", or nothing when there is nothing partial to say. */
+function PartialNote({ counted, of }: { counted: number; of: number }) {
+  if (counted === 0 || of === 0) return null;
+  if (counted === of) return <>จากทั้ง {formatCount(of)} ครั้ง</>;
   return (
-    // Negative margins let the row bleed to the screen edge, so a half-visible next card
-    // says "there is more this way" without a scrollbar to explain it.
-    <ul className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2">
-      {campaigns.map((campaign) => (
-        <li
-          key={campaign.campaign_id}
-          className="w-[82%] shrink-0 snap-start sm:w-[calc(50%-0.5rem)]"
-        >
-          <CampaignCard campaign={campaign} />
-        </li>
-      ))}
-    </ul>
+    <>
+      รวมจาก{" "}
+      <b className="text-foreground">
+        {formatCount(counted)} ใน {formatCount(of)}
+      </b>{" "}
+      ครั้งที่บันทึก
+    </>
   );
 }
 
-/** The top of the club plus the member's own place in it. Best-effort like the news:
- * the dashboard's own numbers are what this page is for, and neither of the extras is
- * worth failing it. */
+function Duration({ seconds }: { seconds: number }) {
+  const { hours, minutes } = splitDuration(seconds);
+  return (
+    <p className="text-3xl font-bold tabular-nums">
+      {hours > 0 ? (
+        <>
+          {formatCount(hours)}
+          <span className="mx-1 text-base font-semibold text-muted">ชม.</span>
+        </>
+      ) : null}
+      {minutes}
+      <span className="ml-1 text-base font-semibold text-muted">น.</span>
+    </p>
+  );
+}
+
+/** Redemptions moved off the dashboard's grid and into a line: they belong to the member
+ * but they are not a measurement, and /rewards is the screen that is about them. */
+function RedemptionsLink({ summary }: { summary: MemberSummary }) {
+  if (summary.redemptions.length === 0) return null;
+  return (
+    <p className="mt-5 text-sm text-muted">
+      แลกของรางวัลแล้ว {formatCount(summary.redemptions.length)} รายการ ·{" "}
+      <Link href="/rewards" className="font-semibold text-brand">
+        ดูของรางวัล ›
+      </Link>
+    </p>
+  );
+}
+
+/** The top of the club plus the member's own place in it. Best-effort like the news: the
+ * dashboard's own numbers are what this page is for, and neither extra is worth failing
+ * the whole screen over. */
 async function standing(): Promise<Leaderboard | null> {
   try {
     return await apiServer<Leaderboard>("/leaderboard");
@@ -198,60 +259,6 @@ async function standing(): Promise<Leaderboard | null> {
   }
 }
 
-function Standing({ board }: { board: Leaderboard }) {
-  const top = board.entries.slice(0, 5);
-  const meIsInTop = top.some((entry) => entry.member_id === board.me.member_id);
-
-  return (
-    <>
-      <SectionHeading
-        action={
-          <Link href="/leaderboard" className="text-base font-medium text-brand">
-            ดูทั้งหมด ›
-          </Link>
-        }
-      >
-        อันดับสะสมระยะ
-      </SectionHeading>
-
-      <Link href="/leaderboard" className="block">
-        <Card className="text-center hover:border-brand">
-          <p className="text-base text-muted">อันดับของคุณ</p>
-          <p className="stat mt-1">
-            #{board.me.rank}
-            <span className="ml-2 text-xl font-semibold text-muted">
-              จาก {board.total_members} คน
-            </span>
-          </p>
-        </Card>
-      </Link>
-
-      {top.length === 0 ? null : (
-        <ol className="mt-3 space-y-2">
-          {top.map((entry) => (
-            <li key={entry.member_id}>
-              <LeaderboardRow
-                entry={entry}
-                isMe={entry.member_id === board.me.member_id}
-                showPoints={false}
-              />
-            </li>
-          ))}
-          {/* Pinned below the top five when the member is not in them, so their own line
-              is on this screen either way. */}
-          {meIsInTop ? null : (
-            <li>
-              <LeaderboardRow entry={board.me} isMe showPoints={false} />
-            </li>
-          )}
-        </ol>
-      )}
-    </>
-  );
-}
-
-/** The latest notice, or nothing at all. A dashboard that fails to load because the
- * notice board is down would be a bad trade for a headline. */
 async function latestNews(): Promise<Announcement | null> {
   try {
     const [newest] = await apiPublic<Announcement[]>("/announcements?limit=1");

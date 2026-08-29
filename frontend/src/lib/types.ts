@@ -17,6 +17,9 @@ export type Member = {
   /** What Clerk holds. Kept because the two can differ; rarely the one to display. */
   display_name: string;
   role: Role;
+  /** The member's own picture from Clerk, or null when they never set one. Already null
+   * for a generated default, so a URL here is always a picture somebody chose. */
+  image_url: string | null;
   /** Job and unit at the hospital. Ordinary personal data, unlike the rest of the
    * profile — which is why these two travel without an audit row. */
   position: string | null;
@@ -67,12 +70,57 @@ export type HealthComparison = {
   bmi_delta: string | null;
 };
 
+/** One day of the seven-day window. `distance_km` of "0" is a real rest day, not a
+ * missing value — every day in the window is present whether or not it was run. */
+export type DayDistance = {
+  day: string;
+  distance_km: string;
+};
+
+export type RunPace = {
+  run_date: string;
+  pace_min_per_km: string;
+};
+
+export type LatestRun = {
+  run_date: string;
+  distance_km: string;
+  pace_min_per_km: string;
+  calories_burned: number | null;
+  steps: number | null;
+};
+
+/**
+ * Lifetime totals over every run that still counts — NOT the current campaign's window.
+ * A screen showing these beside `campaigns` has to label which is which.
+ *
+ * `*_from_runs` is what makes the totals honest: most screenshots carry no calorie
+ * figure, so "4,820 kcal" alone reads as the total for every run. Always render the
+ * count with the total.
+ */
+export type ActivityTotals = {
+  run_count: number;
+  active_seconds: number;
+  /** null when there are no runs — there is no average of nothing. */
+  avg_pace_min_per_km: string | null;
+  total_calories: number;
+  calories_from_runs: number;
+  total_steps: number;
+  steps_from_runs: number;
+  latest_run: LatestRun | null;
+  /** Always seven entries, oldest first, ending on today in the club's timezone. */
+  last_seven_days: DayDistance[];
+  /** Up to eight, oldest first. Empty when the member has never run. */
+  recent_paces: RunPace[];
+};
+
 export type MemberSummary = {
   member: Member;
   total_distance_km: string;
   campaigns: CampaignProgress[];
   redemptions: Redemption[];
   health: HealthComparison[];
+  activity: ActivityTotals;
 };
 
 export type Consent = {
@@ -177,6 +225,9 @@ export type LeaderboardEntry = {
   rank: number;
   member_id: string;
   name: string;
+  /** null when the member never set a picture — draw initials rather than Clerk's
+   * generated default, which is somebody else's styling on a member who chose nothing. */
+  image_url: string | null;
   total_distance_km: string;
   /** Balance in the campaign that awards points, or null when none does. */
   points: string | null;

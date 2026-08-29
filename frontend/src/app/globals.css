@@ -35,6 +35,23 @@
   /* What goes ON a brand-coloured surface. Never plain white: in dark mode the brand is
      a light teal, and white on it is 1.9:1 — illegible. */
   --on-brand: #ffffff;
+
+  /* Accents for the dashboard's metric cards, and nothing else. Each is a 4.5:1 text
+     colour with a tint to sit on, so an icon chip is legible rather than decorative.
+     They carry no meaning — calories are not "more rose" than steps are "blue"; they
+     exist so a wall of eight cards can be scanned. Anything that does carry meaning
+     (a band, a status) uses Badge's tones, which are chosen for what they say. */
+  --accent-blue: #2563eb;
+  --accent-blue-tint: #dbeafe;
+  --accent-violet: #7c3aed;
+  --accent-violet-tint: #ede9fe;
+  --accent-amber: #b45309;
+  --accent-amber-tint: #fef3c7;
+  --accent-rose: #be123c;
+  --accent-rose-tint: #ffe4e6;
+  /* The dashed baseline a bar chart is read against. Decorative, so it is the only
+     colour here that does not need contrast. */
+  --grid: #eceef2;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,6 +64,16 @@
     --brand: #2dd4bf;
     --brand-tint: #14312e;
     --on-brand: #05201d;
+
+    --accent-blue: #60a5fa;
+    --accent-blue-tint: #132139;
+    --accent-violet: #a78bfa;
+    --accent-violet-tint: #221a3a;
+    --accent-amber: #fbbf24;
+    --accent-amber-tint: #332506;
+    --accent-rose: #fb7185;
+    --accent-rose-tint: #3d1622;
+    --grid: #232427;
   }
 }
 
@@ -59,6 +86,15 @@
   --color-brand: var(--brand);
   --color-brand-tint: var(--brand-tint);
   --color-on-brand: var(--on-brand);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-tint: var(--accent-blue-tint);
+  --color-accent-violet: var(--accent-violet);
+  --color-accent-violet-tint: var(--accent-violet-tint);
+  --color-accent-amber: var(--accent-amber);
+  --color-accent-amber-tint: var(--accent-amber-tint);
+  --color-accent-rose: var(--accent-rose);
+  --color-accent-rose-tint: var(--accent-rose-tint);
+  --color-grid: var(--grid);
   --font-sans: var(--font-sans-thai);
 }
 
