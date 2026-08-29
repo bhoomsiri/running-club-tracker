@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 
 import { apiServer } from "@/lib/api-server";
 import { getMySummary } from "@/lib/me";
-import { isStaff } from "@/lib/roles";
+import { isStaff, isSuperuser } from "@/lib/roles";
 import type { ClubOverview } from "@/lib/types";
 
+import { ExportButton } from "./export-button";
 import { OverviewTable } from "./overview-table";
 
 /**
@@ -41,6 +42,15 @@ export default async function AdminPage() {
         หน้านี้ไม่แสดงข้อมูลสุขภาพ แบบคัดกรอง หรือข้อมูลติดต่อ —
         ข้อมูลเหล่านั้นเปิดดูได้ทีละคนผ่านหน้าที่บันทึกการเข้าถึงไว้
       </p>
+
+      {/* Superuser only, and only as a courtesy: the backend refuses /admin/export to
+          an admin whatever this page renders. */}
+      {isSuperuser(summary.member.role) ? (
+        <section className="mt-8 border-t border-border pt-6">
+          <h2 className="mb-3 text-lg font-semibold">ส่งออกข้อมูล</h2>
+          <ExportButton />
+        </section>
+      ) : null}
     </>
   );
 }

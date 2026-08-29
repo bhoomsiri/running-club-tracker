@@ -8,7 +8,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.adapters.persistence import models
-from app.adapters.persistence.mappers import points_entry_to_orm
+from app.adapters.persistence.mappers import points_entry_to_domain, points_entry_to_orm
 from app.domain.redemption import PointsEntry
 
 
@@ -80,6 +80,12 @@ class SqlAlchemyPointsLedgerRepository:
             ).scalar_one_or_none()
             is not None
         )
+
+    def list_all(self) -> list[PointsEntry]:
+        rows = self._session.execute(
+            sa.select(models.PointsLedger).order_by(models.PointsLedger.created_at)
+        ).scalars()
+        return [points_entry_to_domain(r) for r in rows]
 
     def add(self, entry: PointsEntry) -> None:
         self._session.add(points_entry_to_orm(entry))

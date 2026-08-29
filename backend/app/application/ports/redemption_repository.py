@@ -13,6 +13,11 @@ class RedemptionRepository(Protocol):
 
     def list_pending(self) -> list[Redemption]: ...
 
+    def list_all(self) -> list[Redemption]:
+        """Every redemption whatever its status, oldest first — for the export, where
+        the cancelled ones matter as much as the pending."""
+        ...
+
     def set_status(self, redemption_id: UUID, status: RedemptionStatus) -> None: ...
 
     def exists_for_reward(self, reward_id: UUID) -> bool:

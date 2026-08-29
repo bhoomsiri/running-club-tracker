@@ -34,6 +34,10 @@ ALICE, ADMIN, BOSS = "user_alice", "user_admin", "user_boss"
 # Everything an admin must still be refused. Each one either changes what the club offers
 # or changes who may look at the club — neither is a helper's to decide.
 SUPERUSER_ONLY = [
+    # The workbook is the third kind: not what the club offers or who may look, but
+    # everyone's records at once. An admin is accountable for reading one named member's
+    # data; taking all of it is a different act.
+    ("GET", "/admin/export", None),
     ("GET", "/admin/campaigns", None),
     ("GET", "/admin/announcements", None),
     ("GET", "/admin/redemptions", None),

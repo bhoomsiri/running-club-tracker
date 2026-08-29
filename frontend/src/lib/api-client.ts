@@ -3,7 +3,7 @@
 import { useAuth } from "@clerk/nextjs";
 import { useCallback } from "react";
 
-import { apiFetch } from "@/lib/api";
+import { apiDownload, apiFetch } from "@/lib/api";
 
 /**
  * The API client for client components.
@@ -18,6 +18,18 @@ export function useApi() {
   return useCallback(
     async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       return apiFetch<T>(path, await getToken(), init);
+    },
+    [getToken],
+  );
+}
+
+/** The same, for an endpoint that answers with a file instead of JSON. */
+export function useApiDownload() {
+  const { getToken } = useAuth();
+
+  return useCallback(
+    async function download(path: string) {
+      return apiDownload(path, await getToken());
     },
     [getToken],
   );

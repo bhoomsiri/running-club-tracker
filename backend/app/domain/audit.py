@@ -52,6 +52,10 @@ class AuditAction(StrEnum):
     UPDATE_ANNOUNCEMENT = "update_announcement"
     FULFILL_REDEMPTION = "fulfill_redemption"
     CANCEL_REDEMPTION = "cancel_redemption"
+    # The whole club's records leaving the app as one file. Recorded on its own as well
+    # as through the per-member rows the sensitive sheets write, because "everything was
+    # taken at once, by this person, at this time" is a different fact from any of them.
+    EXPORT_WORKBOOK = "export_workbook"
 
 
 @dataclass(frozen=True)

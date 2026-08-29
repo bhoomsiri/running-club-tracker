@@ -87,6 +87,20 @@ class Settings(BaseSettings):
     # PLACEHOLDER: 2 years. Confirm against the club's actual PDPA retention policy.
     health_retention_days: int = 730
 
+    # Whether the superuser's workbook export carries the sensitive sheets — screening,
+    # health records, consent, and the มาตรา 26 half of the profile.
+    #
+    # Off by default, and deliberately a switch rather than a branch someone has to
+    # remember to keep unmerged: the export is useful for shirts, points and attendance
+    # today, and the sensitive half is a bulk disclosure whose lawfulness the DPO has not
+    # been asked about. Shipping it dark means the code is reviewed, tested and deployed
+    # long before anyone flips it, instead of being written in a hurry on the day
+    # permission arrives. Turning it on is one env var and no deploy.
+    #
+    # It gates the DATA, not the accounting: with it on, every member whose sensitive
+    # data is read still gets their own audit row, and consent is still required.
+    health_export_enabled: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

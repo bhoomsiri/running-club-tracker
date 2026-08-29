@@ -137,6 +137,9 @@ class FakePointsLedgerRepository:
     def has_entries_for_campaign(self, campaign_id: UUID) -> bool:
         return any(e.campaign_id == campaign_id for e in self._items)
 
+    def list_all(self) -> list[PointsEntry]:
+        return list(self._items)
+
     def add(self, entry: PointsEntry) -> None:
         self._staged.append(entry)
 
@@ -165,6 +168,9 @@ class FakeRedemptionRepository:
 
     def list_pending(self) -> list[Redemption]:
         return [r for r in self._items if r.status is RedemptionStatus.PENDING]
+
+    def list_all(self) -> list[Redemption]:
+        return list(self._items)
 
     def set_status(self, redemption_id: UUID, status: RedemptionStatus) -> None:
         self._staged_status[redemption_id] = status

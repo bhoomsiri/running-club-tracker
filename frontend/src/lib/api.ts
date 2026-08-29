@@ -71,6 +71,49 @@ export async function apiFetch<T>(
   return send<T>(path, headers, init);
 }
 
+/**
+ * A file rather than JSON — currently the superuser's Excel export.
+ *
+ * Its own function rather than a flag on `apiFetch`, because the two differ in what they
+ * do with a successful response and agree on everything else: same token rule, same
+ * error handling. The filename comes from Content-Disposition so the backend names the
+ * file once and the browser does not invent one from the URL.
+ */
+export async function apiDownload(
+  path: string,
+  token: string | null,
+): Promise<{ blob: Blob; filename: string }> {
+  if (!token) throw new ApiError(401, "ไม่พบเซสชัน");
+
+  const response = await fetch(`${baseUrl()}${path}`, {
+    headers: new Headers({ Authorization: `Bearer ${token}` }),
+  });
+  if (!response.ok) throw await errorFrom(response);
+
+  return { blob: await response.blob(), filename: filenameFrom(response) };
+}
+
+function filenameFrom(response: Response): string {
+  const match = /filename="([^"]+)"/.exec(
+    response.headers.get("Content-Disposition") ?? "",
+  );
+  return match?.[1] ?? "export.xlsx";
+}
+
+async function errorFrom(response: Response): Promise<ApiError> {
+  // The backend answers every error as {"detail": "..."}; anything else means the
+  // request never reached it (a proxy, a gateway) and the body is not ours to show.
+  const detail = await response
+    .json()
+    .then((body: unknown) =>
+      typeof body === "object" && body !== null && "detail" in body
+        ? String((body as { detail: unknown }).detail)
+        : response.statusText,
+    )
+    .catch(() => response.statusText);
+  return new ApiError(response.status, detail);
+}
+
 async function send<T>(
   path: string,
   headers: Headers,
@@ -83,19 +126,7 @@ async function send<T>(
 
   const response = await fetch(`${baseUrl()}${path}`, { ...init, headers });
 
-  if (!response.ok) {
-    // The backend answers every error as {"detail": "..."}; anything else means the
-    // request never reached it (a proxy, a gateway) and the body is not ours to show.
-    const detail = await response
-      .json()
-      .then((body: unknown) =>
-        typeof body === "object" && body !== null && "detail" in body
-          ? String((body as { detail: unknown }).detail)
-          : response.statusText,
-      )
-      .catch(() => response.statusText);
-    throw new ApiError(response.status, detail);
-  }
+  if (!response.ok) throw await errorFrom(response);
 
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;

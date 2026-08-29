@@ -19,8 +19,10 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.adapters.auth.clerk_authenticator import ClerkAuthenticator
 from app.adapters.auth.clerk_webhook import ClerkWebhookVerifier
+from app.adapters.export.xlsx_workbook import XlsxWorkbookRenderer
 from app.adapters.extraction.gemini_extractor import GeminiExtractor
 from app.adapters.persistence.admin_unit_of_work import SqlAlchemyAdminUnitOfWork
+from app.adapters.persistence.export_unit_of_work import SqlAlchemyExportUnitOfWork
 from app.adapters.persistence.health_unit_of_work import SqlAlchemyHealthUnitOfWork
 from app.adapters.persistence.run_review_unit_of_work import SqlAlchemyRunReviewUnitOfWork
 from app.adapters.persistence.run_submission_unit_of_work import (
@@ -56,6 +58,7 @@ from app.application.ports.image_storage import ImageStorage
 from app.application.ports.run_extractor import RunExtractor
 from app.application.ports.token_verifier import TokenVerifier
 from app.application.use_cases.ensure_member import EnsureMember
+from app.application.use_cases.export_workbook import ExportWorkbook
 from app.application.use_cases.extract_run_draft import ExtractRunDraft
 from app.application.use_cases.get_club_overview import GetClubOverview
 from app.application.use_cases.get_leaderboard import GetLeaderboard
@@ -409,6 +412,23 @@ def get_view_member_health_uc(
     # commit together, before the data is returned.
     return ViewMemberHealth(
         SqlAlchemyHealthUnitOfWork(factory, clock), settings.consent_version
+    )
+
+
+def get_export_workbook_uc(
+    factory: Annotated[sessionmaker[Session], Depends(get_session_factory_dep)],
+    clock: Annotated[SystemClock, Depends(get_clock)],
+    settings: Annotated[Settings, Depends(get_settings_dep)],
+) -> ExportWorkbook:
+    # Its own UnitOfWork for the usual reason, one size up: the file and every audit row
+    # it produces commit together, so an export that cannot be accounted for does not
+    # happen. The renderer is the only openpyxl in the app and it is injected here, which
+    # is what keeps the use case free of it.
+    return ExportWorkbook(
+        uow=SqlAlchemyExportUnitOfWork(factory, clock),
+        renderer=XlsxWorkbookRenderer(),
+        consent_version=settings.consent_version,
+        health_export_enabled=settings.health_export_enabled,
     )
 
 

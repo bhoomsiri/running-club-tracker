@@ -55,4 +55,10 @@ class PointsLedgerRepository(Protocol):
         campaign type would silently reinterpret."""
         ...
 
+    def list_all(self) -> list[PointsEntry]:
+        """Every entry, oldest first. For the export, which hands someone the ledger
+        itself rather than a balance — the balance is a SUM over these, and a reader who
+        disagrees with it needs the rows to see why."""
+        ...
+
     def add(self, entry: PointsEntry) -> None: ...

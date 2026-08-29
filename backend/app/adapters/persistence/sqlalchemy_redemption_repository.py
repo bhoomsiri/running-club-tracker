@@ -34,6 +34,12 @@ class SqlAlchemyRedemptionRepository:
         ).scalars()
         return [redemption_to_domain(r) for r in rows]
 
+    def list_all(self) -> list[Redemption]:
+        rows = self._session.execute(
+            sa.select(models.Redemption).order_by(models.Redemption.created_at)
+        ).scalars()
+        return [redemption_to_domain(r) for r in rows]
+
     def set_status(self, redemption_id: UUID, status: RedemptionStatus) -> None:
         self._session.execute(
             sa.update(models.Redemption)

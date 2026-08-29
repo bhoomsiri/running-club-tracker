@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from io import BytesIO
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app.api.deps import (
     get_cancel_redemption_uc,
@@ -15,6 +17,7 @@ from app.api.deps import (
     get_create_reward_uc,
     get_current_admin,
     get_current_superuser,
+    get_export_workbook_uc,
     get_fulfill_redemption_uc,
     get_list_admin_campaigns_uc,
     get_list_admin_rewards_uc,
@@ -55,6 +58,7 @@ from app.api.schemas import (
     UpdateMemberRoleRequest,
     UpdateRewardRequest,
 )
+from app.application.use_cases.export_workbook import ExportWorkbook
 from app.application.use_cases.get_club_overview import GetClubOverview
 from app.application.use_cases.list_admin_catalogue import (
     ListAdminCampaigns,
@@ -133,6 +137,33 @@ def list_members(
 ) -> list[MemberResponse]:
     # Names and roles only — no health data, so no audit rows.
     return [MemberResponse.from_entity(m) for m in use_case.execute(admin.id)]
+
+
+@router.get("/export", response_class=StreamingResponse)
+def export_workbook(
+    superuser: Annotated[Member, Depends(get_current_superuser)],
+    use_case: Annotated[ExportWorkbook, Depends(get_export_workbook_uc)],
+) -> StreamingResponse:
+    """The club's records as one spreadsheet.
+
+    Superuser only, not admin: an admin is accountable for reading one named member's
+    data, and taking everything at once is a different act. The use case checks the role
+    again for itself — this gate is the convenience, that one is the control.
+
+    Every export writes an audit row, and with the sensitive sheets switched on each
+    member whose data they carry gets their own row too. Both commit with the file.
+
+    Streamed from a buffer rather than generated lazily: openpyxl builds the whole
+    workbook in memory before it can be written at all, so this saves a copy on the way
+    out and nothing more. At a hundred members that is the right trade; if the club ever
+    outgrows it, the fix is a writer that streams, not a change here.
+    """
+    workbook = use_case.execute(superuser.id)
+    return StreamingResponse(
+        BytesIO(workbook.content),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{workbook.filename}"'},
+    )
 
 
 @router.get("/members/{member_id}/summary", response_model=MemberProgressResponse)

@@ -22,6 +22,10 @@ dependencies = [
     "boto3>=1.34",
     "pillow>=10.3",
     "google-genai>=1.0",
+    # The one xlsx writer that takes a Decimal and writes it as a number, without a
+    # float in between (openpyxl.cell.cell.NUMERIC_TYPES includes Decimal). Golden rule
+    # #6 is the reason this is the library and not one of the faster ones.
+    "openpyxl>=3.1",
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "psycopg[binary]>=3.1",
@@ -56,7 +60,7 @@ exclude = "app/alembic/"
 # These ship no type information. Their call sites are wrapped by our own typed
 # adapters, so the untyped surface stays behind a port.
 [[tool.mypy.overrides]]
-module = ["boto3.*", "botocore.*", "piexif.*", "slowapi.*"]
+module = ["boto3.*", "botocore.*", "piexif.*", "slowapi.*", "openpyxl.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
