@@ -28,8 +28,10 @@ from app.application.use_cases.get_leaderboard import Leaderboard, LeaderboardEn
 from app.application.use_cases.get_my_summary import (
     ActivityTotals,
     CampaignSummary,
+    DayDistance,
     LatestRun,
     MemberSummary,
+    RunPace,
 )
 from app.application.use_cases.get_onboarding_status import OnboardingStatus
 from app.application.use_cases.list_pending_redemptions import PendingRedemption
@@ -202,6 +204,24 @@ class LatestRunResponse(BaseModel):
         )
 
 
+class DayDistanceResponse(BaseModel):
+    day: date
+    distance_km: Decimal
+
+    @classmethod
+    def from_day(cls, day: DayDistance) -> DayDistanceResponse:
+        return cls(day=day.day, distance_km=day.distance_km)
+
+
+class RunPaceResponse(BaseModel):
+    run_date: date
+    pace_min_per_km: Decimal
+
+    @classmethod
+    def from_pace(cls, pace: RunPace) -> RunPaceResponse:
+        return cls(run_date=pace.run_date, pace_min_per_km=pace.pace_min_per_km)
+
+
 class ActivityTotalsResponse(BaseModel):
     """Lifetime, over every run that still counts — not the current campaign's window.
     The campaign numbers live in `campaigns`, and a screen showing both should say which
@@ -217,6 +237,9 @@ class ActivityTotalsResponse(BaseModel):
     total_steps: int
     steps_from_runs: int
     latest_run: LatestRunResponse | None
+    # The two series the dashboard charts. Seven days always; up to eight paces.
+    last_seven_days: list[DayDistanceResponse]
+    recent_paces: list[RunPaceResponse]
 
     @classmethod
     def from_totals(cls, totals: ActivityTotals) -> ActivityTotalsResponse:
@@ -231,6 +254,10 @@ class ActivityTotalsResponse(BaseModel):
             latest_run=(
                 LatestRunResponse.from_latest(totals.latest_run) if totals.latest_run else None
             ),
+            last_seven_days=[
+                DayDistanceResponse.from_day(day) for day in totals.last_seven_days
+            ],
+            recent_paces=[RunPaceResponse.from_pace(pace) for pace in totals.recent_paces],
         )
 
 

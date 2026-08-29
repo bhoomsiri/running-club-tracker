@@ -234,6 +234,7 @@ def require_member(session: Session, member_id: UUID) -> Member:
 
 def get_my_summary_uc(
     session: Annotated[Session, Depends(get_session)],
+    clock: Annotated[SystemClock, Depends(get_clock)],
 ) -> GetMySummary:
     return GetMySummary(
         members=SqlAlchemyMemberRepository(session),
@@ -242,6 +243,7 @@ def get_my_summary_uc(
         ledger=SqlAlchemyPointsLedgerRepository(session),
         redemptions=SqlAlchemyRedemptionRepository(session),
         health=SqlAlchemyHealthRepository(session),
+        clock=clock,
     )
 
 

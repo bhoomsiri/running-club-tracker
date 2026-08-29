@@ -19,7 +19,11 @@ from app.domain.entities import Member, MemberRole, ReviewStatus, RunEntry, RunS
 from app.domain.errors import MemberNotFound
 from app.domain.health import HealthPhase, HealthRecord
 from app.domain.redemption import PointsEntry, Redemption, RedemptionStatus, Reward
-from tests.fakes.fake_uow import FakePointsLedgerRepository, FakeRedemptionRepository
+from tests.fakes.fake_uow import (
+    FakePointsLedgerRepository,
+    FakeRedemptionRepository,
+    FixedClock,
+)
 from tests.fakes.repositories import (
     FakeCampaignRepository,
     FakeHealthRepository,
@@ -83,6 +87,7 @@ def build(
     *, members: list[Member] | None = None, runs: list[RunEntry] | None = None,
     campaigns: list[Campaign] | None = None, ledger: list[PointsEntry] | None = None,
     redemptions: list[Redemption] | None = None, records: list[HealthRecord] | None = None,
+    now: datetime = NOW,
 ) -> GetMySummary:
     return GetMySummary(
         members=FakeMemberRepository(members or [member()]),
@@ -91,6 +96,7 @@ def build(
         ledger=FakePointsLedgerRepository(ledger or []),
         redemptions=FakeRedemptionRepository(redemptions or []),
         health=FakeHealthRepository(records or []),
+        clock=FixedClock(now),
     )
 
 
@@ -356,3 +362,93 @@ class TestActivityTotals:
         assert latest.distance_km == Decimal("8.000")
         assert latest.steps == 9000
         assert latest.calories_burned is None
+
+
+class TestChartSeries:
+    """The two series the dashboard draws. Both describe a window rather than a total, so
+    the thing to get right is which days are in it and which runs are on them."""
+
+    def on(self, day: date, km: str = "5", seconds: int = 1800) -> RunEntry:
+        return RunEntry.create(
+            member_id=ALICE, distance_km=Decimal(km), duration_seconds=seconds,
+            run_date=day, evidence_key="k", evidence_sha256="a" * 64,
+            source=RunSource.APP_SCREENSHOT, now=NOW,
+        )
+
+    def test_the_window_is_seven_days_ending_today_even_with_no_runs(self) -> None:
+        """A member who has never run still has a last seven days. The screen decides
+        whether to draw them from `run_count`; the window itself is the calendar's."""
+        week = build().execute(ALICE).activity.last_seven_days
+
+        assert [day.day for day in week] == [
+            date(2026, 6, 9), date(2026, 6, 10), date(2026, 6, 11), date(2026, 6, 12),
+            date(2026, 6, 13), date(2026, 6, 14), date(2026, 6, 15),
+        ]
+        assert {day.distance_km for day in week} == {Decimal("0.000")}
+
+    def test_a_day_without_a_run_is_zero_and_stays_in_the_window(self) -> None:
+        """Unlike an unrecorded calorie count, a day with no run really is zero km —
+        leaving it out would draw a week with a Thursday missing."""
+        week = build(runs=[self.on(date(2026, 6, 12), "8")]).execute(ALICE).activity
+
+        by_day = {day.day: day.distance_km for day in week.last_seven_days}
+        assert by_day[date(2026, 6, 12)] == Decimal("8.000")
+        assert by_day[date(2026, 6, 11)] == Decimal("0.000")
+        assert len(week.last_seven_days) == 7
+
+    def test_two_runs_on_one_day_make_one_bar(self) -> None:
+        uc = build(runs=[self.on(date(2026, 6, 13), "3.2"), self.on(date(2026, 6, 13), "4.8")])
+
+        week = uc.execute(ALICE).activity.last_seven_days
+
+        assert {day.day: day.distance_km for day in week}[date(2026, 6, 13)] == Decimal("8.000")
+
+    def test_a_run_older_than_the_window_is_out_of_the_chart_but_still_counted(self) -> None:
+        """The chart is seven days; the totals beside it are lifetime. They are allowed
+        to disagree, and the labels on the screen are what say so."""
+        totals = build(runs=[self.on(date(2026, 5, 20), "12")]).execute(ALICE).activity
+
+        assert {day.distance_km for day in totals.last_seven_days} == {Decimal("0.000")}
+        assert totals.run_count == 1
+        assert totals.latest_run is not None
+
+    def test_the_window_ends_on_the_club_day_not_the_utc_one(self) -> None:
+        """01:30 in Bangkok on the 16th is still 18:30 UTC on the 15th. A member opening
+        the app after midnight must see today's date at the right-hand end, or the run
+        they logged an hour ago falls off a chart that has not caught up."""
+        after_midnight = datetime(2026, 6, 15, 18, 30, tzinfo=UTC)
+
+        week = build(now=after_midnight).execute(ALICE).activity.last_seven_days
+
+        assert week[-1].day == date(2026, 6, 16)
+        assert week[0].day == date(2026, 6, 10)
+
+    def test_recent_paces_run_oldest_first_and_stop_at_eight(self) -> None:
+        """Oldest first because a trend line is read left to right."""
+        runs = [self.on(date(2026, 6, day)) for day in range(1, 12)]
+
+        paces = build(runs=runs).execute(ALICE).activity.recent_paces
+
+        assert len(paces) == 8
+        assert [pace.run_date for pace in paces] == [date(2026, 6, d) for d in range(4, 12)]
+
+    def test_the_last_pace_is_the_run_the_latest_card_shows(self) -> None:
+        """Both pick the most recent run; if they picked differently the trend line would
+        end somewhere the card beside it does not."""
+        totals = build(
+            runs=[self.on(date(2026, 6, 10), "8", 2400), self.on(date(2026, 6, 2), "5")]
+        ).execute(ALICE).activity
+
+        assert totals.latest_run is not None
+        assert totals.recent_paces[-1].run_date == totals.latest_run.run_date
+        assert totals.recent_paces[-1].pace_min_per_km == totals.latest_run.pace_min_per_km
+
+    def test_a_rejected_run_is_absent_from_both_series(self) -> None:
+        counted = self.on(date(2026, 6, 12), "5")
+        rejected = replace(self.on(date(2026, 6, 13), "9"), review_status=ReviewStatus.REJECTED)
+
+        totals = build(runs=[counted, rejected]).execute(ALICE).activity
+
+        by_day = {day.day: day.distance_km for day in totals.last_seven_days}
+        assert by_day[date(2026, 6, 13)] == Decimal("0.000")
+        assert [pace.run_date for pace in totals.recent_paces] == [date(2026, 6, 12)]

@@ -24,17 +24,19 @@ health data requires active consent, and so does the export.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
 from app.application.ports.campaign_repository import CampaignRepository
+from app.application.ports.clock import Clock
 from app.application.ports.health_repository import HealthRepository
 from app.application.ports.member_repository import MemberRepository
 from app.application.ports.points_ledger_repository import PointsLedgerRepository
 from app.application.ports.redemption_repository import RedemptionRepository
 from app.application.ports.run_repository import RunRepository
 from app.application.services.points_reconciliation import valid_runs_of
+from app.domain.calendar import club_today
 from app.domain.campaign import Campaign, CampaignProgress
 from app.domain.campaigns import policy_for
 from app.domain.entities import Member, RunEntry
@@ -44,6 +46,11 @@ from app.domain.pace import pace_min_per_km
 from app.domain.redemption import Redemption
 
 KM = Decimal("0.001")
+
+# A week of bars, and eight points of trend. Both are what the dashboard draws; neither
+# is a rule about anything, so they live here rather than in the domain.
+RECENT_DAYS = 7
+RECENT_PACE_RUNS = 8
 
 
 @dataclass(frozen=True)
@@ -63,6 +70,26 @@ class LatestRun:
     pace_min_per_km: Decimal
     calories_burned: int | None
     steps: int | None
+
+
+@dataclass(frozen=True)
+class DayDistance:
+    """How far the member ran on one calendar day, in the club's timezone.
+
+    Zero here is a fact, not a missing value: the day is in the window whether or not
+    anything was run on it, and "you ran nothing on Tuesday" is exactly what the chart is
+    for. That is the opposite of `total_calories`, where zero would mean "no screenshot
+    said" — which is why that one travels with a count and this one does not.
+    """
+
+    day: date
+    distance_km: Decimal
+
+
+@dataclass(frozen=True)
+class RunPace:
+    run_date: date
+    pace_min_per_km: Decimal
 
 
 @dataclass(frozen=True)
@@ -91,6 +118,14 @@ class ActivityTotals:
     total_steps: int
     steps_from_runs: int
     latest_run: LatestRun | None
+    # Always exactly RECENT_DAYS entries, oldest first, ending on the club's today. The
+    # window is a property of the calendar rather than of the member, so it is the same
+    # seven days for someone who has never run — a screen with no runs to draw shows an
+    # empty state off `run_count`, not off a short list.
+    last_seven_days: list[DayDistance]
+    # Up to RECENT_PACE_RUNS of the member's most recent runs, oldest first, so a chart
+    # reads left to right. Fewer when they have run fewer times; empty when never.
+    recent_paces: list[RunPace]
 
 
 @dataclass(frozen=True)
@@ -112,6 +147,7 @@ class GetMySummary:
         ledger: PointsLedgerRepository,
         redemptions: RedemptionRepository,
         health: HealthRepository,
+        clock: Clock,
     ) -> None:
         self._members = members
         self._runs = runs
@@ -119,6 +155,7 @@ class GetMySummary:
         self._ledger = ledger
         self._redemptions = redemptions
         self._health = health
+        self._clock = clock
 
     def execute(self, member_id: UUID) -> MemberSummary:
         member = self._members.get(member_id)
@@ -154,7 +191,10 @@ class GetMySummary:
             campaigns=campaigns,
             redemptions=self._redemptions.list_by_member(member_id),
             health=self._health_for(member_id),
-            activity=_activity_totals(runs, total_distance),
+            # The window ends on the club's today, not on the member's last run: a chart
+            # that slid back to whenever they last went out would show a full week to
+            # someone who has not run in a month.
+            activity=_activity_totals(runs, total_distance, club_today(self._clock.now())),
         )
 
     def _health_for(self, member_id: UUID) -> list[HealthComparison]:
@@ -167,7 +207,9 @@ class GetMySummary:
         ]
 
 
-def _activity_totals(runs: list[RunEntry], total_distance: Decimal) -> ActivityTotals:
+def _activity_totals(
+    runs: list[RunEntry], total_distance: Decimal, today: date
+) -> ActivityTotals:
     if not runs:
         return ActivityTotals(
             run_count=0,
@@ -178,6 +220,8 @@ def _activity_totals(runs: list[RunEntry], total_distance: Decimal) -> ActivityT
             total_steps=0,
             steps_from_runs=0,
             latest_run=None,
+            last_seven_days=_last_seven_days([], today),
+            recent_paces=[],
         )
 
     active_seconds = sum(run.duration_seconds for run in runs)
@@ -205,4 +249,30 @@ def _activity_totals(runs: list[RunEntry], total_distance: Decimal) -> ActivityT
             calories_burned=latest.calories_burned,
             steps=latest.steps,
         ),
+        last_seven_days=_last_seven_days(runs, today),
+        recent_paces=_recent_paces(runs),
     )
+
+
+def _last_seven_days(runs: list[RunEntry], today: date) -> list[DayDistance]:
+    """The window ending today, every day present, two runs on one day added together."""
+    window = [today - timedelta(days=offset) for offset in reversed(range(RECENT_DAYS))]
+    ran: dict[date, Decimal] = {}
+    for run in runs:
+        if run.run_date in window:
+            ran[run.run_date] = ran.get(run.run_date, Decimal("0")) + run.distance_km
+    return [DayDistance(day, ran.get(day, Decimal("0")).quantize(KM)) for day in window]
+
+
+def _recent_paces(runs: list[RunEntry]) -> list[RunPace]:
+    """The last few runs in the order they happened, so a trend line reads left to right.
+
+    Sorted the same way `latest_run` picks its winner — by the day run, with the
+    submission breaking a tie — so the rightmost point and the "latest run" card can
+    never disagree about which run came last.
+    """
+    ordered = sorted(runs, key=lambda run: (run.run_date, run.created_at))
+    return [
+        RunPace(run_date=run.run_date, pace_min_per_km=run.pace_min_per_km)
+        for run in ordered[-RECENT_PACE_RUNS:]
+    ]
