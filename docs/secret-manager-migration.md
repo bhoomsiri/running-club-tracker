@@ -106,6 +106,26 @@ gcloud run services describe running-club-api --region asia-southeast1 \
   แต่ **อย่าลบจนกว่าจะมั่นใจว่าไม่ต้อง rollback แล้ว**
 - **หมุนค่าทั้ง 6 ตัว** — ค่าเดิมเคยอยู่ในรูปแบบที่อ่านง่ายมานาน ย้ายที่เก็บไม่ได้ทำให้ค่าเก่า
   ปลอดภัยขึ้น หมุนแล้วค่อยเรียกว่าจบ
+
+  > **`CF_ORIGIN_SECRET` หมุนได้แบบไม่มีดาวน์ไทม์** — `CloudflareOriginGuard` รับหลายค่า
+  > คั่นด้วย comma เพราะ Cloudflare กับ Cloud Run เปลี่ยนพร้อมกันไม่ได้ ถ้ารับค่าเดียวจะมี
+  > ช่วงที่ทุก request โดน 403 ไม่ทางใดก็ทางหนึ่ง ขั้นตอน:
+  >
+  > ```bash
+  > # 1) รับทั้งสองค่า
+  > printf '%s' "$OLD,$NEW" | gcloud secrets versions add cf-origin-secret \
+  >   --project "$PROJECT" --data-file=-
+  > gcloud run services update running-club-api --region asia-southeast1 --no-traffic \
+  >   --update-secrets CF_ORIGIN_SECRET=cf-origin-secret:latest   # แล้วค่อย route traffic
+  >
+  > # 2) แก้ Cloudflare Transform Rule ให้ส่ง $NEW
+  > # 3) เหลือค่าใหม่ค่าเดียว แล้ว deploy อีกรอบ
+  > printf '%s' "$NEW" | gcloud secrets versions add cf-origin-secret \
+  >   --project "$PROJECT" --data-file=-
+  > ```
+  >
+  > ⚠️ ค่า secret **ห้ามมี comma** เพราะ comma คือตัวคั่น (`token_urlsafe` ไม่มีอยู่แล้ว)
+  > · secret อีก 5 ตัวยังหมุนแบบเดิม (แก้ค่า → deploy ใหม่) เพราะไม่ได้มีตัวกลางคั่นอยู่
 - ลด `roles/editor` ของ runtime SA (ดูหัวข้อถัดไป)
 
 ## เรื่องที่เจอระหว่าง discover — ควรรู้ แต่ไม่ได้อยู่ในงานนี้
