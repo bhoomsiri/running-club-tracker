@@ -170,10 +170,25 @@ class RunEntry(Base):
     review_status: Mapped[str] = mapped_column(
         sa.String(16), nullable=False, server_default="ok"
     )
+    # Whatever the running app showed beside the distance. NULL is the normal case and
+    # means "not recorded" — most screenshots do not carry them and nobody is made to
+    # type them. Counts, so plain integers: nothing is owed on the strength of them, and
+    # the numeric-not-float rule is about money-like values (distance, points).
+    calories_burned: Mapped[int | None] = mapped_column(sa.Integer)
+    steps: Mapped[int | None] = mapped_column(sa.Integer)
     created_at: Mapped[datetime] = _created_at()
 
     __table_args__ = (
         sa.CheckConstraint("distance_km > 0 AND distance_km <= 200", name="distance_sane"),
+        # Wide enough that no real run touches them: they catch a misread digit or a
+        # units mix-up, not anyone's training. Same numbers as the domain's bounds.
+        sa.CheckConstraint(
+            "calories_burned IS NULL OR (calories_burned > 0 AND calories_burned < 10000)",
+            name="calories_sane",
+        ),
+        sa.CheckConstraint(
+            "steps IS NULL OR (steps > 0 AND steps < 200000)", name="steps_sane"
+        ),
         sa.CheckConstraint(
             "duration_seconds > 0 AND duration_seconds <= 86400", name="duration_sane"
         ),

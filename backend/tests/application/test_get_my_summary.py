@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -14,10 +15,12 @@ from app.application.use_cases.get_my_summary import (
     MemberSummary,
 )
 from app.domain.campaign import Campaign, CampaignType
-from app.domain.entities import Member, MemberRole, RunEntry, RunSource
+from app.domain.consent import Consent, ConsentPurpose
+from app.domain.entities import Member, MemberRole, ReviewStatus, RunEntry, RunSource
 from app.domain.errors import MemberNotFound
 from app.domain.health import HealthPhase, HealthRecord
 from app.domain.redemption import PointsEntry, Redemption, RedemptionStatus, Reward
+from tests.fakes.fake_health_uow import FakeConsentRepository
 from tests.fakes.fake_uow import FakePointsLedgerRepository, FakeRedemptionRepository
 from tests.fakes.repositories import (
     FakeCampaignRepository,
@@ -78,11 +81,25 @@ def health(
     )
 
 
+CONSENT_VERSION = "v2"
+
+
+def consent_for(member_id: UUID, withdrawn: bool = False) -> Consent:
+    return Consent(
+        id=uuid4(), member_id=member_id, purpose=ConsentPurpose.HEALTH_DATA,
+        version=CONSENT_VERSION, granted_at=NOW, withdrawn_at=NOW if withdrawn else None,
+    )
+
+
 def build(
     *, members: list[Member] | None = None, runs: list[RunEntry] | None = None,
     campaigns: list[Campaign] | None = None, ledger: list[PointsEntry] | None = None,
     redemptions: list[Redemption] | None = None, records: list[HealthRecord] | None = None,
+    consents: list[Consent] | None = None,
 ) -> GetMySummary:
+    # Consent defaults to granted: most of these tests are about progress and points, and
+    # spelling it out in each would bury what they are actually checking. The consent gate
+    # has its own class below.
     return GetMySummary(
         members=FakeMemberRepository(members or [member()]),
         runs=FakeRunRepository(runs or []),
@@ -90,6 +107,10 @@ def build(
         ledger=FakePointsLedgerRepository(ledger or []),
         redemptions=FakeRedemptionRepository(redemptions or []),
         health=FakeHealthRepository(records or []),
+        consents=FakeConsentRepository(
+            consents if consents is not None else [consent_for(ALICE)]
+        ),
+        consent_version=CONSENT_VERSION,
     )
 
 
@@ -253,3 +274,156 @@ class TestIsolation:
         uc = build(members=[member(ALICE), member(BOB, "Bob")], redemptions=[bobs])
 
         assert uc.execute(ALICE).redemptions == []
+
+
+class TestTheConsentGate:
+    """Consent is the club's basis for processing health data, and handing it back to the
+    member is processing. This gate used to live only in the health screen's UI, which
+    meant the endpoint answered with the measurements whatever the consent record said —
+    and the next screen to read it would have shown them without anyone noticing.
+    """
+
+    RECORD = health(HealthPhase.BEFORE, weight="70.5", height="172.5")
+
+    def test_active_consent_returns_the_records(self) -> None:
+        uc = build(records=[self.RECORD], consents=[consent_for(ALICE)])
+
+        assert uc.execute(ALICE).health != []
+
+    def test_withdrawn_consent_returns_nothing(self) -> None:
+        uc = build(records=[self.RECORD], consents=[consent_for(ALICE, withdrawn=True)])
+
+        assert uc.execute(ALICE).health == []
+
+    def test_no_consent_at_all_returns_nothing(self) -> None:
+        uc = build(records=[self.RECORD], consents=[])
+
+        assert uc.execute(ALICE).health == []
+
+    def test_consent_to_an_older_wording_returns_nothing(self) -> None:
+        """Agreeing to v1 is not agreeing to v2 — that is the whole reason the version
+        exists, and it must gate reads as well as writes."""
+        stale = Consent(
+            id=uuid4(), member_id=ALICE, purpose=ConsentPurpose.HEALTH_DATA,
+            version="v1", granted_at=NOW, withdrawn_at=None,
+        )
+        uc = build(records=[self.RECORD], consents=[stale])
+
+        assert uc.execute(ALICE).health == []
+
+    def test_the_gate_closes_health_only(self) -> None:
+        """Withdrawing consent for health data does not take away the running: distance,
+        campaigns and points have nothing to do with it."""
+        uc = build(
+            runs=[run("10", date(2026, 6, 1))],
+            records=[self.RECORD],
+            consents=[consent_for(ALICE, withdrawn=True)],
+        )
+
+        summary = uc.execute(ALICE)
+
+        assert summary.health == []
+        assert summary.total_distance_km == Decimal("10.000")
+        assert summary.activity.run_count == 1
+
+
+class TestActivityTotals:
+    """Lifetime, over runs that still count. Every number here has to be one the member
+    could arrive at themselves from their own runs — a total that quietly means something
+    else is worse than no total."""
+
+    def counted(
+        self,
+        km: str,
+        seconds: int,
+        calories_burned: int | None = None,
+        steps: int | None = None,
+    ) -> RunEntry:
+        return RunEntry.create(
+            member_id=ALICE, distance_km=Decimal(km), duration_seconds=seconds,
+            run_date=date(2026, 6, 1), evidence_key="k", evidence_sha256="a" * 64,
+            source=RunSource.APP_SCREENSHOT, now=NOW,
+            calories_burned=calories_burned, steps=steps,
+        )
+
+    def test_no_runs_means_no_averages_rather_than_zeros(self) -> None:
+        """0 min/km would be a claim about somebody who has simply not started."""
+        totals = build().execute(ALICE).activity
+
+        assert totals.run_count == 0
+        assert totals.active_seconds == 0
+        assert totals.avg_pace_min_per_km is None
+        # 0 rather than None: `calories_from_runs` beside it already says the total is
+        # made of nothing, so a second way of spelling absence would only invite a
+        # frontend to handle one and forget the other.
+        assert totals.total_calories == 0
+        assert totals.calories_from_runs == 0
+        assert totals.latest_run is None
+
+    def test_average_pace_is_total_time_over_total_distance(self) -> None:
+        """Not the mean of each run's pace. 1 km at 10:00 and 9 km at 5:00 average 5:30
+        overall, where a mean of the two paces would say 7:30 — and the member's watch
+        agrees with 5:30.
+        """
+        uc = build(runs=[self.counted("1", 600), self.counted("9", 2700)])
+
+        totals = uc.execute(ALICE).activity
+
+        assert totals.avg_pace_min_per_km == Decimal("5.500")
+        assert totals.active_seconds == 3300
+
+    def test_rejected_runs_are_left_out_of_every_total(self) -> None:
+        """They count for nothing elsewhere; a calorie total that included them would
+        contradict the distance sitting beside it."""
+        rejected = replace(
+            self.counted("5", 1800, calories_burned=300),
+            review_status=ReviewStatus.REJECTED,
+        )
+        uc = build(runs=[self.counted("5", 1800, calories_burned=250), rejected])
+
+        totals = uc.execute(ALICE).activity
+
+        assert totals.run_count == 1
+        assert totals.total_calories == 250
+
+    def test_a_total_carries_how_many_runs_it_is_made_of(self) -> None:
+        """Three of twelve runs having a calorie figure is the normal case, and a bare
+        total would read as the total for all twelve (golden rule #4)."""
+        uc = build(
+            runs=[
+                self.counted("5", 1800, calories_burned=250),
+                self.counted("5", 1800),
+                self.counted("5", 1800, calories_burned=300, steps=6000),
+            ]
+        )
+
+        totals = uc.execute(ALICE).activity
+
+        assert totals.run_count == 3
+        assert totals.total_calories == 550
+        assert totals.calories_from_runs == 2
+        assert totals.total_steps == 6000
+        assert totals.steps_from_runs == 1
+
+    def test_a_count_nobody_recorded_is_absent_not_zero(self) -> None:
+        uc = build(runs=[self.counted("5", 1800), self.counted("5", 1800)])
+
+        totals = uc.execute(ALICE).activity
+
+        assert totals.total_calories == 0
+        assert totals.calories_from_runs == 0
+
+    def test_the_latest_run_is_the_one_most_recently_run(self) -> None:
+        """By the day it was run, not the day it was submitted — a member catching up on
+        last week's runs should not see the oldest of them as their latest."""
+        older = self.counted("5", 1800)
+        newer = replace(self.counted("8", 2700, steps=9000), run_date=date(2026, 6, 10))
+        uc = build(runs=[newer, older])
+
+        latest = uc.execute(ALICE).activity.latest_run
+
+        assert latest is not None
+        assert latest.run_date == date(2026, 6, 10)
+        assert latest.distance_km == Decimal("8.000")
+        assert latest.steps == 9000
+        assert latest.calories_burned is None

@@ -50,6 +50,9 @@ class SubmitRunCommand:
     run_date: date
     image_key: str
     source: RunSource
+    # Optional extras off the same screenshot. Absent means not recorded, never zero.
+    calories_burned: int | None = None
+    steps: int | None = None
 
 
 class SubmitRun:
@@ -98,6 +101,8 @@ class SubmitRun:
                 review_status=(
                     ReviewStatus.FLAGGED if existing or implausible_pace else ReviewStatus.OK
                 ),
+                calories_burned=cmd.calories_burned,
+                steps=cmd.steps,
             )
             uow.runs.add(run)
 

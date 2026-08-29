@@ -22,6 +22,14 @@ MAX_DISTANCE_KM = Decimal("200")
 MAX_DURATION_SECONDS = 86_400
 DISTANCE_PRECISION = Decimal("0.001")
 
+# Upper bounds on the two optional counts a screenshot may carry. Wide enough that no
+# real run touches them — an ultramarathon is nowhere near 10,000 kcal or 200,000 steps —
+# because their job is to catch a misread digit or a units mix-up, not to referee anyone's
+# training. Deliberately the same numbers as the DB CHECK constraints, so a value the
+# domain accepts can never be rejected by the database.
+MAX_CALORIES_BURNED = 10_000
+MAX_STEPS = 200_000
+
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -257,6 +265,19 @@ def _age_on(birth_date: date, today: date) -> int:
     return today.year - birth_date.year - (0 if had_birthday else 1)
 
 
+def _check_count(field_name: str, value: int | None, maximum: int) -> None:
+    """An optional count is either absent or a plausible positive number.
+
+    Zero is rejected rather than accepted as "none burned": a run that burned nothing
+    did not happen, so a zero here is a parsing accident or an empty field that turned
+    into a number somewhere. Absent is how "not recorded" is said (golden rule #4).
+    """
+    if value is None:
+        return
+    if value <= 0 or value > maximum:
+        raise InvalidRunError(f"{field_name} must be between 0 and {maximum}")
+
+
 def _validate_phone(field_name: str, value: str) -> str:
     """Stored as digits only, so the same number typed three ways is one number.
 
@@ -307,6 +328,12 @@ class RunEntry:
     source: RunSource
     review_status: ReviewStatus
     created_at: datetime
+    # What the running app happened to show beside the distance. Optional because most
+    # screenshots do not carry them and a member is not made to type them: absent means
+    # "not recorded", never zero (golden rule #4). Counts, not money-like numbers, so
+    # `int` rather than Decimal — nothing is owed on the strength of them.
+    calories_burned: int | None = None
+    steps: int | None = None
 
     @property
     def is_rejected(self) -> bool:
@@ -332,6 +359,8 @@ class RunEntry:
         source: RunSource,
         now: datetime,
         review_status: ReviewStatus = ReviewStatus.OK,
+        calories_burned: int | None = None,
+        steps: int | None = None,
     ) -> RunEntry:
         if not isinstance(distance_km, Decimal):
             # Guarding the type here is the point: a float would silently lose precision
@@ -347,6 +376,8 @@ class RunEntry:
             raise InvalidRunError("evidence_key is required")
         if not _SHA256_RE.match(evidence_sha256):
             raise InvalidRunError("evidence_sha256 must be 64 lowercase hex characters")
+        _check_count("calories_burned", calories_burned, MAX_CALORIES_BURNED)
+        _check_count("steps", steps, MAX_STEPS)
 
         return cls(
             id=uuid4(),
@@ -359,4 +390,6 @@ class RunEntry:
             source=source,
             review_status=review_status,
             created_at=now,
+            calories_burned=calories_burned,
+            steps=steps,
         )

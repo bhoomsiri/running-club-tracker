@@ -25,7 +25,12 @@ from app.application.use_cases.get_club_overview import (
     MemberOverview,
 )
 from app.application.use_cases.get_leaderboard import Leaderboard, LeaderboardEntry
-from app.application.use_cases.get_my_summary import CampaignSummary, MemberSummary
+from app.application.use_cases.get_my_summary import (
+    ActivityTotals,
+    CampaignSummary,
+    LatestRun,
+    MemberSummary,
+)
 from app.application.use_cases.get_onboarding_status import OnboardingStatus
 from app.application.use_cases.list_pending_redemptions import PendingRedemption
 from app.application.use_cases.list_rewards import CampaignRewards
@@ -37,6 +42,8 @@ from app.domain.announcement import Announcement
 from app.domain.campaign import Campaign, CampaignType
 from app.domain.consent import Consent
 from app.domain.entities import (
+    MAX_CALORIES_BURNED,
+    MAX_STEPS,
     Member,
     MemberRole,
     ReviewStatus,
@@ -174,12 +181,65 @@ class HealthComparisonResponse(BaseModel):
         )
 
 
+class LatestRunResponse(BaseModel):
+    run_date: date
+    distance_km: Decimal
+    pace_min_per_km: Decimal
+    calories_burned: int | None
+    steps: int | None
+
+    @classmethod
+    def from_latest(cls, latest: LatestRun) -> LatestRunResponse:
+        return cls(
+            run_date=latest.run_date,
+            distance_km=latest.distance_km,
+            pace_min_per_km=latest.pace_min_per_km,
+            calories_burned=latest.calories_burned,
+            steps=latest.steps,
+        )
+
+
+class ActivityTotalsResponse(BaseModel):
+    """Lifetime, over every run that still counts — not the current campaign's window.
+    The campaign numbers live in `campaigns`, and a screen showing both should say which
+    is which."""
+
+    run_count: int
+    active_seconds: int
+    avg_pace_min_per_km: Decimal | None
+    total_calories: int
+    # How many runs that total is actually made of. Sent so a screen can say "from 3 of
+    # 12 runs" rather than presenting a partial sum as a complete one.
+    calories_from_runs: int
+    total_steps: int
+    steps_from_runs: int
+    latest_run: LatestRunResponse | None
+
+    @classmethod
+    def from_totals(cls, totals: ActivityTotals) -> ActivityTotalsResponse:
+        return cls(
+            run_count=totals.run_count,
+            active_seconds=totals.active_seconds,
+            avg_pace_min_per_km=totals.avg_pace_min_per_km,
+            total_calories=totals.total_calories,
+            calories_from_runs=totals.calories_from_runs,
+            total_steps=totals.total_steps,
+            steps_from_runs=totals.steps_from_runs,
+            latest_run=(
+                LatestRunResponse.from_latest(totals.latest_run) if totals.latest_run else None
+            ),
+        )
+
+
 class MemberSummaryResponse(BaseModel):
     member: MemberResponse
     total_distance_km: Decimal
     campaigns: list[CampaignProgressResponse]
     redemptions: list[RedemptionResponse]
+    # Empty when the member's consent for health data is not active — withdrawn or never
+    # granted. The use case decides that; this is only the shape.
     health: list[HealthComparisonResponse]
+    activity: ActivityTotalsResponse
 
     @classmethod
     def from_summary(cls, summary: MemberSummary) -> MemberSummaryResponse:
@@ -189,6 +249,7 @@ class MemberSummaryResponse(BaseModel):
             campaigns=[CampaignProgressResponse.from_summary(c) for c in summary.campaigns],
             redemptions=[RedemptionResponse.from_entity(r) for r in summary.redemptions],
             health=[HealthComparisonResponse.from_comparison(h) for h in summary.health],
+            activity=ActivityTotalsResponse.from_totals(summary.activity),
         )
 
 
@@ -263,6 +324,8 @@ class ExtractResultResponse(BaseModel):
                 distance_km=draft.distance_km,
                 duration_seconds=draft.duration_seconds,
                 run_date=draft.run_date,
+                calories_burned=draft.calories_burned,
+                steps=draft.steps,
             ),
             confidence=draft.confidence,
             warnings=draft.warnings,
@@ -274,6 +337,9 @@ class RunDraftResponse(BaseModel):
     distance_km: Decimal | None
     duration_seconds: int | None
     run_date: date | None
+    # Extras most screenshots do not carry. Null here is ordinary, not a failure.
+    calories_burned: int | None = None
+    steps: int | None = None
 
 
 class SubmitRunRequest(BaseModel):
@@ -286,6 +352,10 @@ class SubmitRunRequest(BaseModel):
     run_date: date
     image_key: str
     source: RunSource
+    # Optional, and bounded here as well as in the domain so a nonsense value is a 422
+    # with a field name on it rather than an InvalidRunError with a sentence.
+    calories_burned: int | None = Field(default=None, gt=0, lt=MAX_CALORIES_BURNED)
+    steps: int | None = Field(default=None, gt=0, lt=MAX_STEPS)
 
 
 class RunResponse(BaseModel):

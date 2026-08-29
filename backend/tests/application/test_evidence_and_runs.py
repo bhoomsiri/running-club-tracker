@@ -513,3 +513,52 @@ class TestRunDateMustBelongToACampaign:
 
         with pytest.raises(InvalidRunError, match="outside"):
             SubmitRun(uow).execute(self.command(date(2026, 10, 1)))
+
+
+class TestOptionalActivityCounts:
+    """Calories and steps ride along with the run. Optional everywhere, and absent is a
+    real answer rather than a missing one."""
+
+    def command(self, **extra: int | None) -> SubmitRunCommand:
+        return SubmitRunCommand(
+            member_id=ALICE, distance_km=Decimal("5.25"), duration_seconds=1800,
+            run_date=date(2026, 6, 1), image_key=key_for(ALICE),
+            source=RunSource.APP_SCREENSHOT, **extra,
+        )
+
+    def test_they_are_stored_when_given(self) -> None:
+        runs = FakeRunRepository()
+
+        run = SubmitRun(submission_uow(runs)).execute(
+            self.command(calories_burned=412, steps=7100)
+        )
+
+        assert run.calories_burned == 412
+        assert run.steps == 7100
+        assert runs.list_by_member(ALICE)[0].steps == 7100
+
+    def test_leaving_them_out_stores_nothing_rather_than_zero(self) -> None:
+        """A run with no calorie figure did not burn zero calories — it was not
+        recorded, and the two must not look the same (golden rule #4)."""
+        run = SubmitRun(submission_uow()).execute(self.command())
+
+        assert run.calories_burned is None
+        assert run.steps is None
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [("calories_burned", 0), ("calories_burned", 99_999), ("steps", 0), ("steps", 999_999)],
+    )
+    def test_an_impossible_count_is_refused(self, field: str, value: int) -> None:
+        """The same bounds the database CHECK enforces, so a value the domain accepts is
+        never one the database rejects."""
+        with pytest.raises(InvalidRunError):
+            SubmitRun(submission_uow()).execute(self.command(**{field: value}))
+
+    def test_they_do_not_affect_the_pace_flag(self) -> None:
+        """A calorie figure says nothing about whether 5–11 min/km was plausible."""
+        run = SubmitRun(submission_uow()).execute(
+            self.command(calories_burned=412, steps=7100)
+        )
+
+        assert run.review_status is ReviewStatus.OK

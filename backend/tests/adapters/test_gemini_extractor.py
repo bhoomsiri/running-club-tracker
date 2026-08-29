@@ -320,3 +320,52 @@ class TestRetries:
         assert http_options.retry_options is not None
         assert http_options.retry_options.attempts == 1
         assert http_options.timeout == REQUEST_TIMEOUT_MS
+
+
+class TestOptionalActivityCounts:
+    """Calories and steps are extras. Most screenshots do not carry them, which makes
+    "absent" the ordinary answer rather than a failure — and means nothing about them may
+    ever be guessed or warned about."""
+
+    def test_they_come_through_when_the_screenshot_shows_them(self) -> None:
+        draft = extractor(response(calories_burned=412, steps=7100)).extract(b"image", "jpeg")
+
+        assert draft.calories_burned == 412
+        assert draft.steps == 7100
+
+    def test_a_screenshot_without_them_yields_none_and_no_warning(self) -> None:
+        """The common case. A warning here would train members to ignore warnings."""
+        draft = extractor(response()).extract(b"image", "jpeg")
+
+        assert draft.calories_burned is None
+        assert draft.steps is None
+        assert draft.warnings == []
+
+    def test_the_run_itself_is_still_read_when_they_are_absent(self) -> None:
+        """Adding fields to the prompt changes what the model returns for the old ones
+        too, so the fields that matter are re-checked here rather than assumed."""
+        draft = extractor(response()).extract(b"image", "jpeg")
+
+        assert draft.distance_km == Decimal("5.25")
+        assert draft.duration_seconds == 1800
+        assert draft.run_date == date(2026, 6, 1)
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("calories_burned", 99_999),  # a misread digit
+            ("calories_burned", 0),
+            ("calories_burned", -50),
+            ("steps", 5_000_000),
+            ("steps", 0),
+            ("steps", "seven thousand"),
+        ],
+    )
+    def test_an_implausible_count_is_dropped_silently(self, field: str, value: Any) -> None:
+        """Dropped without a warning, unlike an absurd distance. Distance is what the
+        member came to submit so a rejected one has to be said out loud; an extra nobody
+        asked for is worth the same attention absent as it is wrong — none."""
+        draft = extractor(response(**{field: value})).extract(b"image", "jpeg")
+
+        assert getattr(draft, field) is None
+        assert draft.warnings == []

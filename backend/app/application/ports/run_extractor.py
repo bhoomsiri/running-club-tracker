@@ -16,6 +16,11 @@ class RunDraft:
     distance_km: Decimal | None = None
     duration_seconds: int | None = None
     run_date: date | None = None
+    # Shown by some apps and not others. None here is the ordinary case, not a failure,
+    # and it must not produce a warning — "this screenshot has no calorie figure" is not
+    # something the member needs telling.
+    calories_burned: int | None = None
+    steps: int | None = None
     confidence: Decimal = Decimal("0")
     warnings: list[str] = field(default_factory=list)
 

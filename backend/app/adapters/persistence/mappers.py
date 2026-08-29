@@ -116,6 +116,8 @@ def run_to_domain(row: models.RunEntry) -> RunEntry:
         source=RunSource(row.source),
         review_status=ReviewStatus(row.review_status),
         created_at=row.created_at,
+        calories_burned=row.calories_burned,
+        steps=row.steps,
     )
 
 
@@ -131,6 +133,8 @@ def run_to_orm(run: RunEntry) -> models.RunEntry:
         source=run.source.value,
         review_status=run.review_status.value,
         created_at=run.created_at,
+        calories_burned=run.calories_burned,
+        steps=run.steps,
     )
 
 

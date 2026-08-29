@@ -231,7 +231,10 @@ def require_member(session: Session, member_id: UUID) -> Member:
 
 def get_my_summary_uc(
     session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings_dep)],
 ) -> GetMySummary:
+    # Consents and the current version, because the health half of this response is
+    # gated on the member's own consent being active — see the use case.
     return GetMySummary(
         members=SqlAlchemyMemberRepository(session),
         runs=SqlAlchemyRunRepository(session),
@@ -239,6 +242,8 @@ def get_my_summary_uc(
         ledger=SqlAlchemyPointsLedgerRepository(session),
         redemptions=SqlAlchemyRedemptionRepository(session),
         health=SqlAlchemyHealthRepository(session),
+        consents=SqlAlchemyConsentRepository(session),
+        consent_version=settings.consent_version,
     )
 
 
