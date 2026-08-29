@@ -11,6 +11,8 @@
 > **rev 4:** เพิ่ม §11 — รูปโปรไฟล์จาก Clerk (`image_url`) สำหรับ dashboard/leaderboard
 >
 > **rev 5:** เพิ่ม §12 — ขอบเขต UI redesign (dashboard เท่านั้น) + reference mockup
+>
+> **rev 6:** เพิ่ม §13 — backfill re-scan รูปเก่าด้วย Gemini เติม calories/steps ให้ run เดิม
 
 ---
 
@@ -277,3 +279,30 @@ feat: personal health record dashboard
   ไม่ redesign รอบนี้ (ค่อยทยอยปรับตามสไตล์ทีหลังถ้าต้องการ)
 - **reference:** `phr-dashboard-mockup.html` (visual target ของ branch b) — ข้อมูลใน mockup เป็น mock
   แต่ทุก field ผูกกับ `/me/summary` / leaderboard จริง
+
+---
+
+## 13. Backfill: re-scan รูปเก่าด้วย Gemini (เติม calories/steps ให้ run เดิม) — rev 6
+
+**Forward (มีใน §5 แล้ว):** หน้าส่งผลวิ่งเพิ่มช่อง calories/steps · Gemini สกัดเพิ่ม → **auto-fill ถ้าเจอ
+ในรูป** ผู้ใช้แก้/เว้นว่างได้ (backend พร้อมแล้วบน prod)
+
+**Backfill (ของใหม่):** run เดิมที่ `calories_burned`/`steps` = NULL และ **มีรูป evidence** →
+สคริปต์ re-scan รูปด้วย Gemini (ตัวสกัด + clamp ตัวเดียวกับ forward) เจอก็ `UPDATE` เติมค่า
+→ dashboard โชว์ผ่าน aggregate เดิม (`total_*` + `*_from_runs`)
+
+**Guardrails (แพตเทิร์นเดียวกับ `flag_implausible_pace.py`):**
+
+- `--expect-host` prod guard · **dry-run default** · batch · idempotent
+- **เฉพาะ NULL → ค่า เท่านั้น** — ห้ามทับค่าที่ผู้ใช้กรอก/ยืนยันเอง
+- **แตะแค่ `calories_burned` / `steps`** — ❌ ห้าม re-extract distance/duration (ผู้ใช้ยืนยันตอนส่งแล้ว
+  เขียนทับ = เปลี่ยนผล/แต้ม/pace) · ❌ ไม่แตะ `review_status` / points / pace
+- เจอไม่ครบ / อ่านไม่ได้ = ปล่อย NULL (rule #4 ไม่เดา) · clamp ช่วง CHECK (untrusted output)
+- **rule #8:** ไม่ log รูปหรือค่าที่สกัดได้
+- รายงานท้ายรัน: สแกนกี่รูป · เติม calories กี่แถว · steps กี่แถว · อ่านไม่เจอกี่แถว
+
+**PDPA:** re-process รูป evidence เดิมเพื่อดึง activity เพิ่ม (แคลอรี่/ก้าว = ไม่ sensitive) เพื่อ dashboard
+ของเจ้าตัว = วัตถุประสงค์เดียวกับตอนเก็บรูป (ติดตามการวิ่ง) → อยู่ในขอบ consent v2 · ไม่ใช่ข้อมูลสุขภาพ
+
+**ขอบเขต:** backend script + Gemini batch (ราว ~145 รูปเดิม) — แตก branch ย่อย เช่น
+`chore-backfill-activity` ทำหลัง (b) ได้ (ไม่บล็อก UI) · รันจริงครั้งเดียว (run ใหม่ได้ค่าตอนส่งอยู่แล้ว)
