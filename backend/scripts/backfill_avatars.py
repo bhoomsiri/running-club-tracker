@@ -25,12 +25,14 @@ Narrow on purpose:
     running it twice writes nothing the second time.
   - a member Clerk no longer knows is counted and left exactly as they are.
 
-The key is read from the environment for the length of one run and is never added to
-`Settings`. The running service authenticates members against Clerk's JWKS and verifies
-webhooks with svix; neither needs a Backend API key, and a key that can read every user
-in the instance has no business sitting in the config of a service that does not use it.
+The key is read for the length of one run and is never added to `Settings`. The running
+service authenticates members against Clerk's JWKS and verifies webhooks with svix;
+neither needs a Backend API key, and a key that can read every user in the instance has
+no business sitting in the config of a service that does not use it.
 
-    export CLERK_SECRET_KEY=sk_live_...
+It is taken from the environment or from `backend/.env`, whichever has it — the same file
+`Settings` reads DATABASE_URL out of, so both live in one place.
+
     python scripts/backfill_avatars.py --expect-host ep-xxxx.neon.tech
     python scripts/backfill_avatars.py --expect-host ep-xxxx.neon.tech --commit
 """
@@ -47,11 +49,17 @@ import urllib.request
 import uuid
 from typing import Any, NamedTuple
 
+from dotenv import load_dotenv
 from sqlalchemy import Connection, create_engine, make_url, text
+from sqlalchemy.exc import OperationalError
 
 from app.config import get_settings
 
 CLERK_API = "https://api.clerk.com/v1/users"
+# Not optional. api.clerk.com sits behind Cloudflare, which refuses the default
+# `Python-urllib/3.x` outright — every request comes back 403 with Cloudflare's error
+# 1010 and never reaches Clerk, whatever the key is. Naming the client fixes it.
+USER_AGENT = "ptrh-runclub-backfill/1.0"
 # Clerk's published limit is far above this; ~40 members at 7/second is nowhere near it
 # and costs twelve seconds in total. Being a polite client is cheaper than being retried.
 PAUSE_SECONDS = 0.15
@@ -74,9 +82,18 @@ class Row(NamedTuple):
 def main() -> int:
     args = _parse_args()
 
+    # pydantic-settings reads .env into `Settings` and not into the process environment,
+    # so a key sitting beside DATABASE_URL in that file would be invisible here. Loading
+    # it explicitly means both live in one place; an exported variable still wins, which
+    # is what `override=False` is for.
+    load_dotenv(override=False)
+
     key = os.environ.get("CLERK_SECRET_KEY", "").strip()
     if not key:
-        print("REFUSED: CLERK_SECRET_KEY is not set. Nothing was run.")
+        print(
+            "REFUSED: CLERK_SECRET_KEY is not set — not in the environment and not in"
+            " backend/.env. Nothing was run."
+        )
         return 2
 
     url = make_url(get_settings().database_url)
@@ -92,7 +109,17 @@ def main() -> int:
     print(f"clerk    : key loaded from CLERK_SECRET_KEY ({len(key)} chars)\n")
 
     engine = create_engine(url, pool_pre_ping=True, future=True)
-    with engine.connect() as connection, connection.begin() as transaction:
+    try:
+        connection = engine.connect()
+    except OperationalError as error:
+        # A wrong password buries one useful line under sixty of driver stack. The
+        # message is the server's own and carries no credential — psycopg reports the
+        # user it was refused for, which is the thing worth seeing.
+        print(f"\nCould not connect: {_first_line(error)}")
+        print("Check DATABASE_URL in backend/.env — user, password and database name.")
+        return 2
+
+    with connection, connection.begin() as transaction:
         before = _avatars(connection)
         rows = _members(connection)
         print(f"members  : {len(rows)} to ask Clerk about\n")
@@ -150,6 +177,35 @@ def main() -> int:
     return 0
 
 
+def _reason(error: urllib.error.HTTPError) -> str:
+    """What the responder said, in one short line.
+
+    Clerk answers with `{"errors": [{"code", "message"}]}`; Cloudflare, when it refuses
+    the request before Clerk sees it, answers with an RFC-7807 `title`. Falling back to
+    the raw start of the body covers anything else.
+    """
+    try:
+        body = error.read()[:400].decode("utf-8", "replace")
+    except Exception:
+        return "no body"
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return body.strip()[:120] or "no body"
+    if isinstance(parsed, dict):
+        errors = parsed.get("errors")
+        if isinstance(errors, list) and errors and isinstance(errors[0], dict):
+            return str(errors[0].get("message") or errors[0].get("code") or body)[:120]
+        if parsed.get("title"):
+            return str(parsed["title"])[:120]
+    return body.strip()[:120]
+
+
+def _first_line(error: Exception) -> str:
+    """Postgres puts the reason on line one and its connection attempts on the rest."""
+    return str(error).strip().splitlines()[0]
+
+
 class VerificationFailed(RuntimeError):
     pass
 
@@ -176,7 +232,11 @@ def _fetch(clerk_user_id: str, key: str) -> Avatar:
 def _get(endpoint: str, key: str) -> dict[str, Any]:
     request = urllib.request.Request(
         endpoint,
-        headers={"Authorization": f"Bearer {key}", "Accept": "application/json"},
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Accept": "application/json",
+            "User-Agent": USER_AGENT,
+        },
     )
     for attempt in range(len(RETRY_BACKOFF_SECONDS) + 1):
         try:
@@ -190,9 +250,11 @@ def _get(endpoint: str, key: str) -> dict[str, Any]:
                 raise NotFoundAtClerk("no such user at Clerk") from error
             transient = error.code == 429 or error.code >= 500
             if not transient or attempt == len(RETRY_BACKOFF_SECONDS):
-                # The status only. A Clerk error body can echo the request, and the
-                # request carries the key.
-                raise ClerkError(f"HTTP {error.code}") from error
+                # The status and whatever the body says went wrong. A response body
+                # carries no request header, so nothing here can leak the key — and
+                # reporting the status alone once hid a Cloudflare block behind forty
+                # identical "HTTP 403" lines that looked like a bad key.
+                raise ClerkError(f"HTTP {error.code}: {_reason(error)}") from error
             time.sleep(RETRY_BACKOFF_SECONDS[attempt])
         except urllib.error.URLError as error:
             if attempt == len(RETRY_BACKOFF_SECONDS):
