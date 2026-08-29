@@ -2,30 +2,36 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
+
+import { BottomNav } from "@/components/bottom-nav";
 
 /**
- * The shell every signed-in screen sits in: a sidebar that collapses on a desktop and
- * slides in as a drawer on a phone.
+ * The shell every signed-in screen sits in.
  *
- * Three things it is built around.
+ * **Two navigations, split by screen, not one navigation that transforms.** From `lg` up
+ * there is a rail that collapses to icons. Below it there is the bottom tab bar the app
+ * has always had — members are on phones, one-handed, and a thumb bar is within reach
+ * where a hamburger in the top-left corner is not. A drawer would have been one
+ * component instead of two, and it would have moved the primary navigation of a
+ * phone-first app to the far corner of the screen to save that.
  *
- * **ส่งผลวิ่ง is the primary action**, styled as a filled button inside the nav rather
- * than another grey row. Submitting a run is the only thing most members open the app to
- * do, and a menu where it looks like "โปรไฟล์" makes them hunt for it.
+ * **ส่งผลวิ่ง is the primary action**, a filled button in the rail rather than another
+ * grey row, and the middle tab on a phone. Submitting a run is the only thing most
+ * members open the app to do.
  *
- * **The admin link is separate**, below a divider and a caption, and only for staff. It
- * goes to /admin, which has its own layout and its own menu — mixing admin destinations
- * into a member's menu is how someone ends up on a screen they did not mean to open.
- * Navigation only: /admin checks the role again and the backend refuses regardless.
- *
- * **Collapsed is remembered, open is not.** Whether the desktop rail shows labels is a
- * preference and survives a reload; whether the phone drawer is open is a transient
- * state and must not, or a member returns to a screen with a menu over it.
+ * **The admin link is separate**, under its own divider in the rail and beside the
+ * avatar on a phone — never mixed into the member tabs. It goes to /admin, which has its
+ * own layout and its own menu. Navigation only: /admin checks the role again and the
+ * backend refuses regardless.
  */
 
 type Item = { href: string; label: string; icon: React.ReactNode };
 
+/**
+ * The rail's list. Longer than the phone's five tabs on purpose — a desktop has the room
+ * for ข่าวประชาสัมพันธ์, and BottomNav's five are what fit across a phone at 48px each.
+ */
 const ITEMS: Item[] = [
   { href: "/dashboard", label: "แดชบอร์ด", icon: <IconGrid /> },
   { href: "/runs", label: "ผลวิ่ง", icon: <IconList /> },
@@ -41,11 +47,10 @@ const COLLAPSED_EVENT = "runclub:rail-collapsed-changed";
 
 /**
  * The collapse preference lives in localStorage, which makes it an external store rather
- * than React state — so it is read through `useSyncExternalStore`, which is the hook
- * built for exactly that. Reading it in an effect and calling setState would work and is
- * what this started as, but it renders once with the wrong rail and then again with the
- * right one; the server snapshot below is what lets React reconcile it in one pass
- * instead.
+ * than React state — so it is read through `useSyncExternalStore`, the hook built for
+ * exactly that. Reading it in an effect and calling setState would work and is what this
+ * started as, but it renders once with the wrong rail and then again with the right one;
+ * the server snapshot below is what lets React reconcile it in one pass instead.
  *
  * Every failure mode falls back to expanded: private browsing, storage switched off, a
  * value somebody edited by hand. A rail showing its labels is the safe wrong answer.
@@ -105,42 +110,11 @@ export function AppShell({
     collapsedOnServer,
   );
 
-  // The drawer is stored as the path it was opened on, not as a boolean. Navigating
-  // changes the pathname, which closes it — no effect watching for the change, and the
-  // back button and a server redirect are covered for free.
-  const [openedOn, setOpenedOn] = useState<string | null>(null);
-  const drawerOpen = openedOn === pathname;
-  const closeDrawer = useCallback(() => setOpenedOn(null), []);
-
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeDrawer();
-    };
-    window.addEventListener("keydown", onEscape);
-    return () => window.removeEventListener("keydown", onEscape);
-  }, [drawerOpen, closeDrawer]);
-
-  const railWidth = collapsed ? "lg:w-[4.75rem]" : "lg:w-60";
-
   return (
     <div className="flex min-h-screen">
-      {/* Only on phones, and only while open — a backdrop that is always in the tree
-          would swallow taps on the page behind it. */}
-      {drawerOpen ? (
-        <button
-          type="button"
-          aria-label="ปิดเมนู"
-          onClick={closeDrawer}
-          className="fixed inset-0 z-30 bg-black/45 lg:hidden"
-        />
-      ) : null}
-
       <aside
-        // Off-canvas below lg and slid in by the drawer state; a static rail from lg up,
-        // where the collapse toggle takes over.
-        className={`fixed inset-y-0 left-0 z-40 flex w-60 shrink-0 flex-col gap-1 border-r border-border bg-background p-3 transition-transform duration-200 lg:static lg:h-screen lg:translate-x-0 lg:transition-[width] ${railWidth} ${
-          drawerOpen ? "translate-x-0" : "-translate-x-[110%]"
+        className={`hidden shrink-0 flex-col gap-1 border-r border-border bg-background p-3 lg:sticky lg:top-0 lg:flex lg:h-screen lg:transition-[width] ${
+          collapsed ? "lg:w-[4.75rem]" : "lg:w-60"
         }`}
       >
         <div className="mb-2 flex min-h-10 items-center gap-2.5 px-1">
@@ -150,29 +124,21 @@ export function AppShell({
           >
             <IconRunner />
           </span>
-          {/* Hidden when collapsed on a desktop; always shown in the phone drawer, which
-              is full width whatever the collapse preference says. */}
-          <span className={`min-w-0 flex-1 ${collapsed ? "lg:hidden" : ""}`}>
-            <span className="block truncate font-bold">ชมรมวิ่ง</span>
-            <span className="block truncate text-xs font-semibold text-muted">
-              PTRH RunClub
+          {collapsed ? null : (
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-bold">ชมรมวิ่ง</span>
+              <span className="block truncate text-xs font-semibold text-muted">
+                PTRH RunClub
+              </span>
             </span>
-          </span>
+          )}
           <button
             type="button"
             onClick={() => collapsedStore.set(!collapsed)}
             aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
-            className="hidden size-10 shrink-0 place-items-center rounded-control text-muted hover:bg-surface hover:text-foreground lg:grid"
+            className="grid size-10 shrink-0 place-items-center rounded-control text-muted hover:bg-surface hover:text-foreground"
           >
             <IconBars />
-          </button>
-          <button
-            type="button"
-            onClick={closeDrawer}
-            aria-label="ปิดเมนู"
-            className="grid size-10 shrink-0 place-items-center rounded-control text-muted hover:bg-surface hover:text-foreground lg:hidden"
-          >
-            <IconClose />
           </button>
         </div>
 
@@ -191,13 +157,11 @@ export function AppShell({
           {isStaff ? (
             <>
               <hr className="mx-2 my-2 border-border" />
-              <p
-                className={`px-3 pb-1 text-xs font-bold tracking-wide text-muted uppercase ${
-                  collapsed ? "lg:hidden" : ""
-                }`}
-              >
-                เฉพาะแอดมิน
-              </p>
+              {collapsed ? null : (
+                <p className="px-3 pb-1 text-xs font-bold tracking-wide text-muted uppercase">
+                  เฉพาะแอดมิน
+                </p>
+              )}
               <RailLink
                 item={{ href: "/admin", label: "แผงผู้ดูแล", icon: <IconShield /> }}
                 pathname={pathname}
@@ -209,23 +173,30 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/85 px-4 py-2 backdrop-blur-sm sm:px-6">
-          <button
-            type="button"
-            onClick={() => setOpenedOn(pathname)}
-            aria-label="เปิดเมนู"
-            aria-expanded={drawerOpen}
-            className="grid size-10 shrink-0 place-items-center rounded-control border border-border text-muted lg:hidden"
-          >
-            <IconBars />
-          </button>
+        <header className="sticky top-0 z-20 flex min-h-14 items-center gap-3 border-b border-border bg-background/85 px-4 py-2 backdrop-blur-sm sm:px-6 lg:border-b-0">
+          {/* The wordmark belongs to the rail from lg up, where the rail is showing it. */}
           <span className="font-bold lg:hidden">ชมรมวิ่ง</span>
           <span className="flex-1" />
+          {/* On a phone the rail is not there to hold the admin link, and it must not go
+              into the five member tabs. Beside the avatar is where it was and where staff
+              already look for it. */}
+          {isStaff ? (
+            <Link
+              href="/admin"
+              className="tap shrink-0 rounded-control border border-border px-3 font-medium lg:hidden"
+            >
+              แผงผู้ดูแล
+            </Link>
+          ) : null}
           {account}
         </header>
 
+        <BottomNav />
+
+        {/* pb-28 clears the tab bar, which is fixed to the bottom only on phones — from
+            sm it is a static row above this, and from lg it is gone. */}
         <main
-          className={`mx-auto w-full min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 ${
+          className={`mx-auto w-full min-w-0 flex-1 px-4 py-5 pb-28 sm:px-6 sm:py-6 sm:pb-8 ${
             WIDE_ROUTES.includes(pathname) ? "max-w-6xl" : "max-w-3xl"
           }`}
         >
@@ -260,21 +231,22 @@ function RailLink({
       aria-current={active ? "page" : undefined}
       // 48px tall, like every other tap target in the app.
       title={collapsed ? item.label : undefined}
-      className={`flex min-h-12 items-center gap-3 rounded-control px-3 ${tone} ${
-        collapsed ? "lg:justify-center lg:px-0" : ""
+      className={`flex min-h-12 items-center gap-3 rounded-control ${tone} ${
+        collapsed ? "justify-center px-0" : "px-3"
       }`}
     >
       <span aria-hidden className="shrink-0">
         {item.icon}
       </span>
-      <span className={`truncate ${collapsed ? "lg:hidden" : ""}`}>{item.label}</span>
+      {collapsed ? null : <span className="truncate">{item.label}</span>}
     </Link>
   );
 }
 
-/* Inline SVG rather than an icon package: eight icons at 20px do not justify a
-   dependency, and emoji — what the bottom bar used — render differently on every phone
-   and cannot take the current colour. */
+/* Inline SVG rather than an icon package: seven icons at 20px do not justify a
+   dependency. The bottom bar keeps its emoji — they are legible at tab size and were
+   chosen for it — but a rail label sitting beside one wants a stroke icon that takes the
+   current colour, which emoji cannot. */
 
 function svgProps(size = 20) {
   return {
@@ -368,14 +340,6 @@ function IconBars() {
   return (
     <svg {...svgProps(19)}>
       <path d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  );
-}
-
-function IconClose() {
-  return (
-    <svg {...svgProps(19)}>
-      <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
 }
