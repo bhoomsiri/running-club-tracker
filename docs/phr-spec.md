@@ -13,6 +13,8 @@
 > **rev 5:** เพิ่ม §12 — ขอบเขต UI redesign (dashboard เท่านั้น) + reference mockup
 >
 > **rev 6:** เพิ่ม §13 — backfill re-scan รูปเก่าด้วย Gemini เติม calories/steps ให้ run เดิม
+>
+> **rev 7:** เพิ่ม §14 — backfill avatar จาก Clerk Backend API ให้สมาชิกที่สมัครก่อน `0010`
 
 ---
 
@@ -306,3 +308,54 @@ feat: personal health record dashboard
 
 **ขอบเขต:** backend script + Gemini batch (ราว ~145 รูปเดิม) — แตก branch ย่อย เช่น
 `chore-backfill-activity` ทำหลัง (b) ได้ (ไม่บล็อก UI) · รันจริงครั้งเดียว (run ใหม่ได้ค่าตอนส่งอยู่แล้ว)
+
+---
+
+## 14. Backfill: avatar จาก Clerk ให้สมาชิกเดิม — rev 7
+
+**ปัญหา:** `member.image_url` / `has_image` มาพร้อม migration `0010` และเขียนโดย **webhook
+ที่ verify แล้วเท่านั้น** (`user.created` / `user.updated`) สมาชิกที่สมัครก่อนหน้านั้นจึงเป็น
+`NULL` / `false` และจะไม่มีอะไรไปเปลี่ยนจนกว่าเขาจะบังเอิญไปแก้โปรไฟล์ที่ Clerk
+
+**สคริปต์:** `backend/scripts/backfill_avatars.py` — ถาม Clerk ทีละคน
+`GET https://api.clerk.com/v1/users/{clerk_user_id}` แล้วเติม 2 คอลัมน์นั้น ครั้งเดียวจบ
+**หลังจากนี้ ongoing updates มาจาก webhook เหมือนเดิม** สคริปต์นี้ไม่ใช่ sync path ที่สอง
+
+**กฎเดียวกับ webhook เป๊ะ (ห้ามเขียนใหม่):**
+
+- `has_image = data.get("has_image") is True` — **strict** ไม่ใช่ truthy · อ่านไม่ออก = false
+  ("ไม่รู้" ต้องไม่กลายเป็น "ใช่ นั่นรูปเขา")
+- **เก็บ `image_url` เฉพาะเมื่อ `has_image=true`** — Clerk ให้ URL กับทุกบัญชี และชี้ไปที่รูป
+  default ของคนที่ไม่เคยตั้ง เก็บไว้ = เอาสไตล์คนอื่นไปแปะคนที่ไม่ได้เลือกอะไร (เหตุผลเดียวกับที่
+  `0010` แยกเป็น 2 คอลัมน์ และที่ `_avatar()` ใน `get_leaderboard.py` คืน None)
+
+**Guardrails (แพตเทิร์นเดียวกับ `flag_implausible_pace.py`):**
+
+- `--expect-host` prod guard · **dry-run default** · verification gate ต่อแถว → COMMIT/ROLLBACK
+- **แตะแค่ `image_url` / `has_image`** — ❌ ไม่แตะ `display_name` (เจ้าตัวเป็นเจ้าของ webhook เขียนได้
+  แค่ตอน INSERT) ❌ ไม่แตะ role/profile/อะไรอื่นบนแถว
+- **ถามทุกคน อัปเดตเฉพาะแถวที่ค่าต่าง** → idempotent จริง (รันซ้ำเขียน 0 แถว) และแก้เคสคนที่เปลี่ยนรูป
+  ไปก่อน webhook จะมีด้วย · ~40 คน ยังไงก็ ~40 request
+- Clerk 404 (ลบบัญชีไปแล้ว) = นับ "not found" ปล่อยแถวไว้เฉยๆ · 429/5xx retry 2 ครั้ง · error อื่น
+  นับแล้วไปต่อ (คนเดียวล่มต้องไม่ทำให้อีก 39 คนอด)
+- rate-limit friendly: หน่วง 0.15s/request
+- **ไม่ log URL และไม่ log key** — รายงานเป็นจำนวน ไม่ใช่ว่าใครหน้าตายังไง · error จาก Clerk print
+  แค่ status code (body อาจ echo request ซึ่งมี key ติดไปด้วย)
+
+**⚠️ secret ที่ต้องใช้ ยังไม่มีในระบบ:** ที่ migrate เข้า Secret Manager คือ
+`clerk-webhook-secret` = **svix signing secret** ใช้ verify webhook — **เรียก Backend API ไม่ได้**
+สคริปต์ต้องใช้ **Clerk Secret Key (`sk_live_...`)** คนละตัว
+
+สคริปต์อ่านจาก env `CLERK_SECRET_KEY` ตอนรัน **ไม่ใส่ใน `Settings` และไม่ต้องเข้า Secret Manager** —
+service ตอนรันใช้ JWKS verify token + svix verify webhook ไม่ได้ต้องการ Backend API key เลย
+และ key ที่อ่าน user ได้ทั้ง instance ไม่ควรนั่งอยู่ใน config ของ service ที่ไม่ได้ใช้มัน
+(one-off script รันจากเครื่อง maintainer แบบเดียวกับ `clear_test_data.py`)
+
+**รายงานท้ายรัน:** ถามกี่คน · ตอบกลับกี่คน · มีรูปจริงกี่คน · default กี่คน · ไม่พบที่ Clerk กี่คน ·
+อ่านไม่ได้กี่คน · จะเปลี่ยนกี่แถว
+
+**PDPA:** ดึงรูปที่สมาชิกตั้งไว้เองที่ Clerk มาแสดงในแอปชมรม = วัตถุประสงค์เดียวกับฟีเจอร์ avatar
+(§11) ที่ launch ไปแล้ว ไม่ใช่หมวดข้อมูลใหม่ ไม่ใช่ข้อมูลอ่อนไหว · ยังค้าง fast-follow เดิมจาก §11:
+**opt-out ซ่อนรูปตัวเองบน leaderboard**
+
+**ขอบเขต:** `chore-backfill-avatars` — script อย่างเดียว ไม่มี migration ไม่แตะโค้ดแอป
