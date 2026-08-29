@@ -1,14 +1,22 @@
 """An admin reading ONE member's pre-exercise screening.
 
-The same three conditions as reading someone's health data, for the same reasons:
+The same conditions as reading someone's health data, for the same reasons:
 
   1. the actor's role permits it — checked here as well as at the router, because the
      router gate is convenience and this is the control;
-  2. the answers exist. A member who has not been screened yields nothing rather than a
+  2. the subject's consent is currently active. A screening is a cardiac and medication
+     history: it is health data under มาตรา 26 in the same way a weight is, so the same
+     basis governs it. Withdrawn consent closes this door even though the answers still
+     exist — and even though their owner can still see them;
+  3. the answers exist. A member who has not been screened yields nothing rather than a
      row of assumed "no"s;
-  3. the access is written to audit_log AND COMMITTED before anything is returned. If
+  4. the access is written to audit_log AND COMMITTED before anything is returned. If
      the audit write fails, the whole thing fails and the caller gets nothing: an access
      that cannot be accounted for must not happen.
+
+Condition 2 arrived later than the rest. Until then a member could withdraw consent, be
+refused at `/admin/members/{id}/health`, and have their screening answers read on the
+next endpoint along — which made withdrawal mean rather less than it appeared to.
 
 Admins may read it, on the same terms as health data: this is a member's cardiac and
 medication history, so the price of access is a row in audit_log with the reader's name
@@ -24,10 +32,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from app.application.ports.sensitive_view_unit_of_work import SensitiveViewUnitOfWork
+from app.application.ports.screening_view_unit_of_work import ScreeningViewUnitOfWork
 from app.domain.audit import AuditAction, AuditEntry
+from app.domain.consent import ConsentPurpose
 from app.domain.entities import Member
-from app.domain.errors import MemberNotFound, NotAuthorized
+from app.domain.errors import ConsentRequired, MemberNotFound, NotAuthorized
 from app.domain.screening import Screening
 
 
@@ -44,8 +53,9 @@ class MemberScreeningView:
 
 
 class ViewMemberScreening:
-    def __init__(self, uow: SensitiveViewUnitOfWork) -> None:
+    def __init__(self, uow: ScreeningViewUnitOfWork, consent_version: str) -> None:
         self._uow = uow
+        self._consent_version = consent_version
 
     def execute(self, cmd: ViewMemberScreeningCommand) -> MemberScreeningView:
         with self._uow as uow:
@@ -58,6 +68,15 @@ class ViewMemberScreening:
             subject = uow.members.get(cmd.subject_id)
             if subject is None:
                 raise MemberNotFound(str(cmd.subject_id))
+
+            consent = uow.consents.get_current(cmd.subject_id, ConsentPurpose.HEALTH_DATA)
+            if consent is None or not consent.is_active(self._consent_version):
+                # Refused BEFORE the audit row is written, exactly as the health read
+                # refuses: an access that did not happen must not appear in the log as
+                # though it did.
+                raise ConsentRequired(
+                    "this member's consent for health_data is not active"
+                )
 
             screening = uow.screenings.get_for_member(cmd.subject_id)
 

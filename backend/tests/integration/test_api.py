@@ -24,6 +24,7 @@ from svix.webhooks import Webhook
 from app.adapters.persistence import models
 from app.api import deps
 from app.config import Settings
+from app.domain.screening import QUESTION_KEYS as SCREENING_KEYS
 from app.main import create_app
 from tests.integration.conftest import BOSS_CLERK_ID, WEBHOOK_SECRET, StubVerifier
 
@@ -342,6 +343,54 @@ class TestAdminHealthAccess:
         response = client.get(f"/admin/members/{uuid4()}/health", headers=auth("user_admin"))
 
         assert response.status_code == 404
+
+
+class TestWhatWithdrawingActuallyCloses:
+    """Two lawful bases, two answers — end to end, through the real dependency graph.
+
+    Health and screening rest on the member's consent. The emergency contact rests on the
+    club's interest in the safety of people running for it (มาตรา 24), so it stays
+    readable: the number was collected against somebody collapsing on a run, and consent
+    for holding measurements is not what makes it dialable.
+    """
+
+    def withdrawn_dao(self, client: TestClient) -> None:
+        grant_consent(client, "user_dao")
+        client.post(
+            "/screening",
+            headers=auth("user_dao"),
+            json={
+                "answers": dict.fromkeys(SCREENING_KEYS, False),
+                "risk_acknowledged": True,
+                "screened_on": "2026-06-01",
+            },
+        )
+        client.delete("/consent", headers=auth("user_dao"))
+
+    def test_the_screening_is_closed(
+        self, client: TestClient, seeded: dict[str, UUID], session_factory: sessionmaker[Session]
+    ) -> None:
+        self.withdrawn_dao(client)
+
+        response = client.get(
+            f"/admin/members/{seeded['dao']}/screening", headers=auth("user_admin")
+        )
+
+        assert response.status_code == 403
+        assert audit_rows(session_factory) == []
+
+    def test_the_contact_details_are_not(
+        self, client: TestClient, seeded: dict[str, UUID], session_factory: sessionmaker[Session]
+    ) -> None:
+        self.withdrawn_dao(client)
+
+        response = client.get(
+            f"/admin/members/{seeded['dao']}/contact", headers=auth("user_admin")
+        )
+
+        assert response.status_code == 200
+        # Ungated is not unwatched.
+        assert [row.action for row in audit_rows(session_factory)] == ["view_contact"]
 
 
 class TestWebhook:

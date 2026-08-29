@@ -22,14 +22,17 @@ from app.adapters.auth.clerk_webhook import ClerkWebhookVerifier
 from app.adapters.export.xlsx_workbook import XlsxWorkbookRenderer
 from app.adapters.extraction.gemini_extractor import GeminiExtractor
 from app.adapters.persistence.admin_unit_of_work import SqlAlchemyAdminUnitOfWork
+from app.adapters.persistence.contact_view_unit_of_work import (
+    SqlAlchemyContactViewUnitOfWork,
+)
 from app.adapters.persistence.export_unit_of_work import SqlAlchemyExportUnitOfWork
 from app.adapters.persistence.health_unit_of_work import SqlAlchemyHealthUnitOfWork
 from app.adapters.persistence.run_review_unit_of_work import SqlAlchemyRunReviewUnitOfWork
 from app.adapters.persistence.run_submission_unit_of_work import (
     SqlAlchemyRunSubmissionUnitOfWork,
 )
-from app.adapters.persistence.sensitive_view_unit_of_work import (
-    SqlAlchemySensitiveViewUnitOfWork,
+from app.adapters.persistence.screening_view_unit_of_work import (
+    SqlAlchemyScreeningViewUnitOfWork,
 )
 from app.adapters.persistence.sqlalchemy_announcement_repository import (
     SqlAlchemyAnnouncementRepository,
@@ -448,16 +451,21 @@ def get_view_member_progress_uc(
 def get_view_member_screening_uc(
     factory: Annotated[sessionmaker[Session], Depends(get_session_factory_dep)],
     clock: Annotated[SystemClock, Depends(get_clock)],
+    settings: Annotated[Settings, Depends(get_settings_dep)],
 ) -> ViewMemberScreening:
-    # Its own UnitOfWork: the audit row and the read commit together, audit first.
-    return ViewMemberScreening(SqlAlchemySensitiveViewUnitOfWork(factory, clock))
+    # Its own UnitOfWork: the audit row and the read commit together, audit first. The
+    # consent version comes along because a screening is health data — see the use case.
+    return ViewMemberScreening(
+        SqlAlchemyScreeningViewUnitOfWork(factory, clock), settings.consent_version
+    )
 
 
 def get_view_member_contact_uc(
     factory: Annotated[sessionmaker[Session], Depends(get_session_factory_dep)],
     clock: Annotated[SystemClock, Depends(get_clock)],
 ) -> ViewMemberContact:
-    return ViewMemberContact(SqlAlchemySensitiveViewUnitOfWork(factory, clock))
+    # No consent version: the emergency contact rests on safety, not on that consent.
+    return ViewMemberContact(SqlAlchemyContactViewUnitOfWork(factory, clock))
 
 
 def get_redeem_reward_uc(

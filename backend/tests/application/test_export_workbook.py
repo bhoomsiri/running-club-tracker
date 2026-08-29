@@ -294,21 +294,51 @@ class TestTheFlag:
 
 
 class TestConsentGatesTheSensitiveSheets:
-    def test_a_member_without_consent_is_not_in_the_file(self) -> None:
-        use_case, uow, renderer = build(
+    """Health and screening ride on consent; the emergency contact does not.
+
+    Two different lawful bases, so two different answers to "what does withdrawing do".
+    The club stops holding the measurements and stops reading the screening; the phone
+    number stays reachable, because it was collected against somebody collapsing on a
+    run (PDPA มาตรา 24) rather than under the health-data consent. Same split as
+    /admin/members/{id}/screening and .../contact.
+    """
+
+    def test_a_member_without_consent_has_no_health_row(self) -> None:
+        use_case, _, renderer = build(
             members=[member(BOSS, MemberRole.SUPERUSER, "หัวหน้า"), member(DAO, name="ดาว")],
             health_enabled=True,
             consents=[consent_for(BOSS)],  # Dao never consented
             health=[health_for(BOSS), health_for(DAO)],
+            screenings=[screening_for(BOSS), screening_for(DAO)],
         )
 
         use_case.execute(BOSS)
-        names = [row[0] for row in renderer.sheet("health").rows]
 
-        assert names == ["หัวหน้า"]
-        assert not any(e.subject_member_id == DAO for e in uow.audit.committed_entries())
+        assert [row[0] for row in renderer.sheet("health").rows] == ["หัวหน้า"]
+        assert [row[0] for row in renderer.sheet("screening").rows] == ["หัวหน้า"]
 
-    def test_withdrawn_consent_closes_the_door_too(self) -> None:
+    def test_that_member_is_still_on_the_contact_sheet(self) -> None:
+        """The half withdrawal does not close. A member who wants nothing to do with the
+        health side is still someone the club must be able to phone for."""
+        use_case, uow, renderer = build(
+            members=[member(BOSS, MemberRole.SUPERUSER, "หัวหน้า"), member(DAO, name="ดาว")],
+            health_enabled=True,
+            consents=[consent_for(BOSS)],
+        )
+
+        use_case.execute(BOSS)
+        contacts = [row[0] for row in renderer.sheet("contact").rows]
+        audited = {
+            e.subject_member_id
+            for e in uow.audit.committed_entries()
+            if e.action is AuditAction.VIEW_CONTACT
+        }
+
+        assert contacts == ["หัวหน้า", "ดาว"]
+        # And still audited per member — reading it is an event whatever the basis.
+        assert audited == {BOSS, DAO}
+
+    def test_withdrawn_consent_closes_health_and_screening(self) -> None:
         """Withdrawal stops processing without deleting anything. An export is
         processing."""
         use_case, _, renderer = build(
@@ -316,12 +346,14 @@ class TestConsentGatesTheSensitiveSheets:
             health_enabled=True,
             consents=[consent_for(BOSS, withdrawn=True)],
             health=[health_for(BOSS)],
+            screenings=[screening_for(BOSS)],
         )
 
         use_case.execute(BOSS)
 
         assert renderer.sheet("health").rows == []
-        assert renderer.sheet("contact").rows == []
+        assert renderer.sheet("screening").rows == []
+        assert renderer.sheet("contact").rows != []
 
 
 class TestEveryReadIsAccountedFor:

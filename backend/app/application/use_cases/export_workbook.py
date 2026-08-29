@@ -147,9 +147,26 @@ class ExportWorkbook:
         consent_rows: list[list[Cell]] = []
 
         for member in members:
+            # The contact sheet is not gated on this. It rests on the club's safety
+            # interest (มาตรา 24), not on consent for health data, and a member who
+            # withdraws must stay reachable if they collapse on a run — the same reading
+            # that leaves /admin/members/{id}/contact ungated. Still audited per member,
+            # because opening someone's emergency contact is an event either way.
+            contact_rows.append(_contact_row(member))
+            uow.audit.record(
+                AuditEntry.create(
+                    actor_member_id=actor.id,
+                    action=AuditAction.VIEW_CONTACT,
+                    subject_member_id=member.id,
+                    detail={"via": "export"},
+                    now=now,
+                )
+            )
+
             consent = uow.consents.get_current(member.id, ConsentPurpose.HEALTH_DATA)
-            # Consent is the club's basis for processing this at all. Its absence is not
-            # an error here — the export simply does not carry that member.
+            # Consent is the club's basis for processing the health half at all. Its
+            # absence is not an error — the export simply carries no health data or
+            # screening for that member.
             if consent is None or not consent.is_active(self._consent_version):
                 continue
 
@@ -161,17 +178,6 @@ class ExportWorkbook:
                     consent.withdrawn_at,
                     consent.is_active(self._consent_version),
                 ]
-            )
-
-            contact_rows.append(_contact_row(member))
-            uow.audit.record(
-                AuditEntry.create(
-                    actor_member_id=actor.id,
-                    action=AuditAction.VIEW_CONTACT,
-                    subject_member_id=member.id,
-                    detail={"via": "export"},
-                    now=now,
-                )
             )
 
             screening = uow.screenings.get_for_member(member.id)
