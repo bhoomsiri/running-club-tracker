@@ -58,6 +58,7 @@ BATCH_SIZE = 20
 
 class Candidate(NamedTuple):
     id: uuid.UUID
+    member_id: uuid.UUID
     evidence_key: str
     calories_burned: int | None
     steps: int | None
@@ -133,7 +134,9 @@ def main() -> int:
             print(f"batch {number}/{total} ({len(batch)} run(s))")
 
             with connection.begin() as transaction:
-                written = _process(batch, connection, storage, extractor, tally)
+                written = _process(
+                    batch, connection, storage, extractor, tally, args.show_values
+                )
 
                 failures = _verify(before, _snapshot(connection), written)
                 if failures:
@@ -170,6 +173,7 @@ def _process(
     storage: ImageStorage,
     extractor: RunExtractor,
     tally: Tally,
+    show_values: bool,
 ) -> dict[uuid.UUID, tuple[int | None, int | None]]:
     """Read each image and write back only the columns that were NULL.
 
@@ -222,9 +226,23 @@ def _process(
             )
             if changed
         ]
-        print(f"  {candidate.id}  filled {' + '.join(filled_names)}")
+        if show_values:
+            # The deliberate exception to "no extracted values in the output" (§13): a
+            # supervised dry run, where the whole point is that a person compares these
+            # against the screenshots before 115 uncheckable numbers reach production.
+            # member_id travels with them so a run can be found in the admin screens.
+            print(
+                f"  {candidate.id}  member={candidate.member_id}"
+                f"  calories={_shown(calories)}  steps={_shown(steps)}"
+            )
+        else:
+            print(f"  {candidate.id}  filled {' + '.join(filled_names)}")
 
     return written
+
+
+def _shown(value: int | None) -> str:
+    return "-" if value is None else str(value)
 
 
 class Unreadable(RuntimeError):
@@ -266,7 +284,7 @@ def _candidates(connection: Connection, limit: int | None) -> list[Candidate]:
     """
     rows = connection.execute(
         text(
-            "SELECT id, evidence_key, calories_burned, steps FROM run_entry"
+            "SELECT id, member_id, evidence_key, calories_burned, steps FROM run_entry"
             " WHERE review_status <> 'rejected'"
             "   AND (calories_burned IS NULL OR steps IS NULL)"
             " ORDER BY created_at"
@@ -275,7 +293,8 @@ def _candidates(connection: Connection, limit: int | None) -> list[Candidate]:
         {"limit": limit} if limit is not None else {},
     ).all()
     return [
-        Candidate(row.id, row.evidence_key, row.calories_burned, row.steps) for row in rows
+        Candidate(row.id, row.member_id, row.evidence_key, row.calories_burned, row.steps)
+        for row in rows
     ]
 
 
@@ -361,6 +380,12 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="stop after this many runs. Worth using for a first dry run: every image "
         "costs a Gemini call whether or not the result is kept.",
+    )
+    parser.add_argument(
+        "--show-values",
+        action="store_true",
+        help="print the calories and steps read from each image. For a supervised dry "
+        "run only — these values are otherwise deliberately kept out of the output.",
     )
     parser.add_argument(
         "--batch-size",
