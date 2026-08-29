@@ -15,6 +15,9 @@
 > **rev 6:** เพิ่ม §13 — backfill re-scan รูปเก่าด้วย Gemini เติม calories/steps ให้ run เดิม
 >
 > **rev 7:** เพิ่ม §14 — backfill avatar จาก Clerk Backend API ให้สมาชิกที่สมัครก่อน `0010`
+>
+> **rev 8:** เพิ่ม §15 — ผลการรันจริง §13/§14 บน production + ข้อสรุปว่า**ห้าม**ทำ plausibility
+> guard กับ calories/steps
 
 ---
 
@@ -359,3 +362,64 @@ service ตอนรันใช้ JWKS verify token + svix verify webhook ไ�
 **opt-out ซ่อนรูปตัวเองบน leaderboard**
 
 **ขอบเขต:** `chore-backfill-avatars` — script อย่างเดียว ไม่มี migration ไม่แตะโค้ดแอป
+## 15. ผลการรันจริง + ข้อสรุปที่ได้ — rev 8
+
+### §14 avatar (รันแล้ว 29 ส.ค. 2569)
+
+```
+asked 40 · answered 39 · has a picture 35 · default only 4 · not found at Clerk 1
+updated 35 rows · verification passed
+invariant (has_image=false AND image_url IS NOT NULL) = 0
+```
+
+**ค้าง:** 1 member row ที่ Clerk ไม่รู้จักแล้ว → คนนั้นล็อกอินไม่ได้ ควรตามว่าเป็นใครและตั้งใจไหม
+(ถ้าเป็นคนที่ลบบัญชีเอง = PDPA erasure ที่ทำไม่ครบ)
+
+**บั๊กที่เจอตอนรันจริง (แก้แล้ว ควรจำไว้ใช้กับสคริปต์ตัวอื่น):**
+
+- `.env` **ไม่เข้า `os.environ`** — pydantic-settings อ่านเข้า `Settings` เท่านั้น สคริปต์ที่อ่าน
+  `os.environ` ตรงๆ ต้องเรียก `load_dotenv()` เอง
+- **`api.clerk.com` อยู่หลัง Cloudflare และบล็อก `User-Agent: Python-urllib/*` ทิ้ง** → 403 (error 1010)
+  ทุก request ก่อนถึง Clerk ต้องตั้ง UA ชื่อจริงเสมอ
+- **อย่าปิดบัง error body** — เดิมพิมพ์แค่ status code เพราะกลัว body echo key (ซึ่ง**เป็นไปไม่ได้** —
+  response ไม่มี request header) ผลคือ 403 ×40 ที่ดูเหมือน key พัง ทั้งที่คำตอบอยู่ใน body
+
+### §13 activity (รันแล้ว 30 ส.ค. 2569)
+
+```
+candidates 115 (147 runs − 32 rejected) · scanned 115 · calories 86 · steps 37
+nothing in the image 27 · could not be read 0 · 6 batches, all committed
+rejected rows touched 0 · values outside CHECK 0 · run_entry total unchanged
+```
+
+**บั๊ก:** SQLAlchemy 2.0 **autobegin** — statement แรกเปิด transaction เอง สคริปต์ที่อ่าน baseline
+ก่อนเข้าลูป batch ต้อง `connection.rollback()` ปิดก่อน ไม่งั้น `connection.begin()` ของ batch แรกชน
+
+### ⚠️ ข้อสรุปสำคัญ: **ห้ามทำ plausibility guard สำหรับ calories/steps**
+
+หลังรันเสร็จพบค่าที่ดู "เป็นไปไม่ได้ทางสรีระ" 7 ใบ:
+
+| | ค่า | ที่ควรเป็น |
+|---|---|---|
+| ก้าว 1 ใบ | 4.20 กม. / 2,978 ก้าว = stride **141 ซม.** | 70–80 ซม. ที่เพซ 7:22 |
+| kcal 3 ใบ (คนเดียวกัน) | **20–29** kcal/km | ~55–80 |
+| kcal 3 ใบ (คนเดียวกัน) | **117–130** kcal/km | ~55–80 |
+
+**เปิดรูปเทียบทุกใบแล้ว — Gemini อ่านถูกหมด** ตัวเลขพวกนั้นคือสิ่งที่แอปของสมาชิกแสดงจริง
+(ตัวนับก้าวจับไม่ครบ / แอปคนละยี่ห้อรายงาน active vs total calories)
+
+จึง **ห้ามเพิ่ม guard แบบ `domain/pace.py` กับ 2 ฟิลด์นี้** เหตุผล:
+
+> **pace flag ได้เพราะมีตัวตรวจสอบไขว้** — ระยะกับเวลาสมาชิกยืนยันมาทั้งคู่ อัตราส่วนเพี้ยน =
+> ตัวใดตัวหนึ่งผิดแน่นอน
+> **calories/steps เป็นค่าเดี่ยวที่อุปกรณ์รายงานมา ไม่มีอะไรให้ไขว้** — การ flag มันคือการที่แอปเรา
+> ไปเถียงกับนาฬิกาของสมาชิก ซึ่งผิดกว่าปล่อยผ่าน
+
+CHECK เดิม (0–10000, 0–200000) กว้างพอดีแล้ว: กันค่าเพี้ยนสุดขั้วโดยไม่ตัดสินสรีระของใคร
+
+### ⚠️ ยังค้าง: golden rule #3
+
+backfill **auto-commit ค่าที่ AI อ่าน** ซึ่งขัดกฎข้อ 3 ("Never auto-commit AI-read values") ตรงๆ
+เจ้าของอนุมัติเป็นราย ๆ ไป และรอบนี้ผ่านการ spot-check ด้วยตาแล้ว **แต่ยังไม่มีทางแก้ค่าย้อนหลัง** —
+ไม่มี use case ไหนอัปเดต `calories_burned`/`steps` หลังส่ง สมาชิกและแอดมินแก้เองไม่ได้ ต้องแก้ผ่าน SQL
+ถ้าจะ backfill ด้วย AI อีกในอนาคต ควรมีทางแก้ก่อน
