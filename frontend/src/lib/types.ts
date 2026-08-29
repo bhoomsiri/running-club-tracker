@@ -108,10 +108,20 @@ export type ActivityTotals = {
   total_steps: number;
   steps_from_runs: number;
   latest_run: LatestRun | null;
-  /** Always seven entries, oldest first, ending on today in the club's timezone. */
-  last_seven_days: DayDistance[];
-  /** Up to eight, oldest first. Empty when the member has never run. */
-  recent_paces: RunPace[];
+  /**
+   * Seven entries, oldest first, ending on today in the club's timezone.
+   *
+   * Optional only because the two halves of the app do not deploy together: Vercel
+   * builds the frontend from the same push that Cloud Run is still building an image
+   * for, so for a few minutes a new screen can be talking to the previous API. Absent
+   * therefore means "this backend is older than this page", which is a thing to render
+   * around rather than throw on. Safe to make required once a revision carrying it has
+   * been serving for a while.
+   */
+  last_seven_days?: DayDistance[];
+  /** Up to eight, oldest first. Empty when the member has never run — and absent for the
+   * same deploy-window reason as above. */
+  recent_paces?: RunPace[];
 };
 
 export type MemberSummary = {

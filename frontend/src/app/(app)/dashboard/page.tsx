@@ -57,6 +57,11 @@ export default async function DashboardPage() {
   // records were made, and a member has at most one screening per campaign.
   const health = summary.health[0] ?? null;
   const hasRuns = activity.run_count > 0;
+  // Absent rather than empty means the API predates this page — see the note on the
+  // type. The cards below simply do not draw, which is what they already do for a member
+  // with no runs, so the screen stays whole either way.
+  const week = activity.last_seven_days ?? [];
+  const recentPaces = activity.recent_paces ?? [];
 
   return (
     <>
@@ -127,9 +132,11 @@ export default async function DashboardPage() {
             </MetricCard>
           </div>
 
-          {hasRuns ? (
-            <WeekChart days={activity.last_seven_days} />
-          ) : (
+          {week.length > 0 ? <WeekChart days={week} /> : null}
+          {/* Only for a member who really has no runs. An older API sending no window at
+              all is the other way to get here, and telling somebody with twenty runs that
+              they have none would be worse than showing them nothing. */}
+          {!hasRuns ? (
             <EmptyState
               action={
                 <ButtonLink href="/submit" tone="secondary" fullWidth={false}>
@@ -139,7 +146,7 @@ export default async function DashboardPage() {
             >
               ยังไม่มีผลวิ่ง — ส่งรูปหลักฐานครั้งแรกแล้วกราฟจะขึ้นที่นี่
             </EmptyState>
-          )}
+          ) : null}
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
@@ -160,7 +167,7 @@ export default async function DashboardPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <PaceCard
               averagePace={activity.avg_pace_min_per_km}
-              recentPaces={activity.recent_paces}
+              recentPaces={recentPaces}
             />
             {activity.latest_run ? (
               <LatestRunCard run={activity.latest_run} />
