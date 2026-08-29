@@ -116,6 +116,11 @@ def main() -> int:
         # before the first batch.
         before = _snapshot(connection)
         candidates = _candidates(connection, args.limit)
+        # Those two reads autobegan a transaction, as any statement does in SQLAlchemy
+        # 2.0. Closing it here is what lets each batch below open one of its own — they
+        # read nothing that a rollback could undo.
+        connection.rollback()
+
         print(f"runs     : {len(candidates)} with a NULL to fill\n")
         if not candidates:
             print("Nothing to do.")
