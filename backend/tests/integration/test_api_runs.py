@@ -1,7 +1,7 @@
 """The submission flow over HTTP: upload -> (extract) -> confirm, and who sees images.
 
 Storage and the extractor are the in-memory fakes here — they have their own tests
-against real MinIO and real hostile payloads. What this file exercises is the wiring:
+against a real S3 stand-in and real hostile payloads. What this file exercises is the wiring:
 the auth gates, the ownership checks, and the status codes.
 """
 

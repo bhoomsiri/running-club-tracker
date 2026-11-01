@@ -5,6 +5,18 @@ on:
   # Called by deploy.yml as its test gate, so main is tested by exactly one workflow
   # instead of two running the same suite side by side.
   workflow_call:
+  # A weekly run on main, because the two triggers above only fire when somebody is
+  # already working. Between 29 Aug and 1 Nov 2026 nothing was pushed to main, and in
+  # that gap the MinIO service image was withdrawn from Docker Hub — this job had been
+  # failing for seven weeks and the first anyone knew of it was opening an unrelated PR.
+  # The things that break a green pipeline while you are not looking are not your code:
+  # they are base images, registries and advisory databases.
+  schedule:
+    - cron: "17 2 * * 1" # Mondays, 02:17 UTC
+
+# Read-only by default; nothing in this workflow writes to the repository.
+permissions:
+  contents: read
 
 jobs:
   backend:
@@ -25,18 +37,45 @@ jobs:
           --health-cmd "pg_isready -U club -d running_club"
           --health-interval 5s --health-timeout 3s --health-retries 10
 
-      minio:
-        image: minio/minio:edge-cicd
+      # LocalStack, not MinIO. `minio/minio` was withdrawn from Docker Hub — it resolves
+      # for nobody now, tag or no tag — and this job sat broken for seven weeks because
+      # nothing was pushed to main to notice (hence the schedule above).
+      #
+      # The replacements that look obvious are worse fits for a service container, which
+      # can set an image and env but cannot pass a command: `quay.io/minio/minio` answers
+      # 401, and Chainguard's build needs `server /data` as an argument.
+      #
+      # LocalStack over the lighter adobe/s3mock (223MB against 1.75GB, which is paid on
+      # every run) for one reason, measured rather than assumed: **s3mock validates no
+      # signatures at all.** A presigned URL minted for one key fetches a different key,
+      # and an expired one keeps working. Two of the three storage tests in
+      # test_s3_storage.py exist to catch exactly that, and on s3mock they fail — not
+      # because the adapter is wrong, but because the server never checks. Paying 1.5GB
+      # of pull time to keep those two tests meaningful is the better trade.
+      #
+      # S3_SKIP_SIGNATURE_VALIDATION=0 is what turns the checking on; LocalStack skips it
+      # by default too. With it, an expired presigned URL and a wrong-key presigned URL
+      # both come back 403, as they do from R2.
+      s3:
+        image: localstack/localstack:4.9
         env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        ports: ["9000:9000"]
+          SERVICES: s3
+          S3_SKIP_SIGNATURE_VALIDATION: 0
+        ports: ["4566:4566"]
+        # The image ships its own healthcheck; this makes the job wait on it rather than
+        # race the container, which the MinIO service never did — it only passed because
+        # installing Python took longer than LocalStack takes to boot.
+        options: >-
+          --health-cmd "curl -fsS http://localhost:4566/_localstack/health || exit 1"
+          --health-interval 5s --health-timeout 5s --health-retries 30
 
     env:
       DATABASE_URL: postgresql+psycopg://club:club@localhost:5432/running_club
-      S3_ENDPOINT_URL: http://localhost:9000
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
+      S3_ENDPOINT_URL: http://localhost:4566
+      # LocalStack accepts any key pair and checks the signature against whatever it is
+      # given, which is all these tests need. boto3 refuses to sign without something.
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
 
     steps:
       - uses: actions/checkout@v4
@@ -115,3 +154,44 @@ jobs:
         with:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
+
+  # The check we believed we had for months and did not.
+  #
+  # test_s3_storage.py used to assert that an unsigned GET to the evidence bucket is
+  # refused, and it asserted that against MinIO's defaults — a local stand-in, never
+  # against R2. The thing being tested was the bucket's configuration, which is not
+  # something any mock can speak for: both s3mock and LocalStack serve unsigned reads
+  # happily. So the assertion was comfort, not coverage, and it would have stayed green
+  # through a bucket accidentally made public.
+  #
+  # This asks the real bucket. No credentials: an unsigned request is the whole point, so
+  # there is nothing to leak and nothing to rotate. R2 must answer 401 or 403.
+  #
+  # Weekly only, deliberately — it reaches outside the repo, and a PR must not go red
+  # because Cloudflare had a bad minute.
+  bucket-is-private:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: An unsigned read of production evidence must be refused
+        env:
+          # A full URL to any object path in the evidence bucket. The object need not
+          # exist: a bucket that is closed answers 401/403 before it looks, and one that
+          # is open answers 404 for a missing key — which is itself a failure here,
+          # because it means the request was authorised.
+          PROBE_URL: ${{ vars.R2_PROBE_URL }}
+        run: |
+          if [ -z "$PROBE_URL" ]; then
+            echo "::error::vars.R2_PROBE_URL is not set, so nothing was checked."
+            echo "Set it to an object URL in the production evidence bucket, e.g."
+            echo "  https://<account>.r2.cloudflarestorage.com/running-club-evidence/probe"
+            echo "It holds no secret — the request is deliberately unsigned."
+            exit 1
+          fi
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$PROBE_URL" || echo 000)
+          echo "unsigned GET -> HTTP $code"
+          case "$code" in
+            401|403) echo "Bucket is closed to unsigned reads." ;;
+            000)     echo "::error::Could not reach the bucket at all."; exit 1 ;;
+            *)       echo "::error::Expected 401/403, got $code. The evidence bucket may be readable without a signature."; exit 1 ;;
+          esac

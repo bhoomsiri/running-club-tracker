@@ -495,7 +495,7 @@ def get_sync_member_uc(
 def get_image_storage(
     settings: Annotated[Settings, Depends(get_settings_dep)],
 ) -> ImageStorage:
-    # MinIO locally, R2 in production: same class, different endpoint from env.
+    # LocalStack locally, R2 in production: same class, different endpoint from env.
     return S3ImageStorage(
         bucket=settings.s3_bucket,
         endpoint_url=settings.s3_endpoint_url,

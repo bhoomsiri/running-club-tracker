@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     clerk_jwks_url: str = ""
     clerk_webhook_secret: str = ""
 
-    # Object storage: MinIO locally, Cloudflare R2 in production. Same code, different
+    # Object storage: LocalStack locally, Cloudflare R2 in production. Same code, different
     # endpoint. The bucket must be private in both.
     s3_bucket: str = "running-club-evidence"
     s3_endpoint_url: str | None = None

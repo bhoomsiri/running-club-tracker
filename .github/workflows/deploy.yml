@@ -16,6 +16,12 @@ on:
       - "docs/**"
   workflow_dispatch:
 
+# Read-only by default. Any job needing more says so for itself — `deploy` adds
+# id-token: write for Workload Identity Federation, and a job block replaces this one
+# wholesale rather than merging with it, so declaring a default cannot take that away.
+permissions:
+  contents: read
+
 # One deploy at a time. Two overlapping runs could push images in one order and reach
 # `gcloud run deploy` in the other, leaving production on the older commit.
 concurrency:
