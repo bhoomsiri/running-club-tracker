@@ -209,11 +209,13 @@ jobs:
           #
           # The obvious version of this check asserts `HTTP 403`, and it is wrong.
           # R2 is S3-compatible in its API, not in its error mapping: an unsigned GET
-          # comes back as
+          # comes back as this, copied from an actual run of this job rather than
+          # from a browser, which renders the Code and Message together and makes the
+          # message look longer than it is —
           #
           #     HTTP 400
           #     <Error><Code>InvalidArgument</Code>
-          #            <Message>Invalid Argument: Authorization</Message></Error>
+          #            <Message>Authorization</Message></Error>
           #
           # not the 403 AccessDenied that S3 itself would send. The first version of
           # this job asserted 401/403 and would have failed on a bucket that is
