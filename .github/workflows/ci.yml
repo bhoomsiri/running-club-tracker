@@ -13,6 +13,10 @@ on:
   # they are base images, registries and advisory databases.
   schedule:
     - cron: "17 2 * * 1" # Mondays, 02:17 UTC
+  # So the weekly checks can be run on demand instead of waiting up to seven days.
+  # Mainly for `bucket-is-private`: after touching the R2 bucket's permissions you
+  # want the answer now, not next Monday.
+  workflow_dispatch:
 
 # Read-only by default; nothing in this workflow writes to the repository.
 permissions:
@@ -165,25 +169,34 @@ jobs:
   # through a bucket accidentally made public.
   #
   # This asks the real bucket. No credentials: an unsigned request is the whole point, so
-  # there is nothing to leak and nothing to rotate. R2 must answer 401 or 403.
+  # there is nothing to leak and nothing to rotate. What counts as a refusal is decided
+  # inside the step, and the note there is worth reading before changing any of it.
   #
-  # Weekly only, deliberately — it reaches outside the repo, and a PR must not go red
-  # because Cloudflare had a bad minute.
+  # Never on a PR, deliberately — it reaches outside the repo, and a PR must not go red
+  # because Cloudflare had a bad minute. Weekly, plus on demand via workflow_dispatch.
   bucket-is-private:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: An unsigned read of production evidence must be refused
         env:
           # A full URL to any object path in the evidence bucket. The object need not
           # exist — see the note below on why a missing object is the interesting case.
-          PROBE_URL: ${{ vars.R2_PROBE_URL }}
+          #
+          # Read from either place. It carries no credential — the request is unsigned
+          # by design, so there is nothing in it to authenticate with — but the URL does
+          # name the R2 account and bucket, so holding it as a secret is reasonable and
+          # has one small benefit: Actions will mask it if a future change ever echoes
+          # it into a log. A repository variable works just as well, and accepting both
+          # means the job does not sit there silently un-run because the value went into
+          # the other box. Which is exactly what happened the first time.
+          PROBE_URL: ${{ secrets.R2_PROBE_URL || vars.R2_PROBE_URL }}
         run: |
           if [ -z "$PROBE_URL" ]; then
-            echo "::error::vars.R2_PROBE_URL is not set, so nothing was checked."
-            echo "Set it to an object URL in the production evidence bucket, e.g."
+            echo "::error::R2_PROBE_URL is not set, so nothing was checked."
+            echo "Set it as either a repository secret or a repository variable, to an"
+            echo "object URL in the production evidence bucket, e.g."
             echo "  https://<account>.r2.cloudflarestorage.com/running-club-evidence/probe"
-            echo "It holds no secret — the request is deliberately unsigned."
             exit 1
           fi
 
