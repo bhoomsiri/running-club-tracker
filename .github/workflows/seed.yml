@@ -5,6 +5,11 @@ name: Seed
 on:
   workflow_dispatch:
 
+# Nothing here writes to the repository or mints a cloud token; it reads the code and
+# talks to Neon over a secret.
+permissions:
+  contents: read
+
 jobs:
   seed:
     runs-on: ubuntu-latest

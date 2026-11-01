@@ -1,4 +1,4 @@
-"""S3-compatible object storage: MinIO locally, Cloudflare R2 in production.
+"""S3-compatible object storage: LocalStack locally, Cloudflare R2 in production.
 
 One code path, two environments — the only difference is `S3_ENDPOINT_URL` and the
 credentials in the env. Nothing here knows which one it is talking to.
@@ -40,7 +40,7 @@ class S3ImageStorage:
             region_name=region,
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
-            # SigV4 is what R2 requires; MinIO accepts it too.
+            # SigV4 is what R2 requires; the local stand-in accepts it too.
             config=Config(signature_version="s3v4"),
         )
 

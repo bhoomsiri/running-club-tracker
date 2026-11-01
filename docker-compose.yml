@@ -17,18 +17,31 @@ services:
 
   # Local stand-in for Cloudflare R2. Bucket stays private; objects are served
   # through short-lived presigned URLs, same code path as prod.
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
+  #
+  # Was MinIO until Nov 2026, when `minio/minio` stopped resolving on Docker Hub for
+  # anybody — so `docker compose up` on a fresh clone had quietly stopped working too,
+  # not just CI. LocalStack is the same image CI uses, which is the point: one S3
+  # stand-in, not two to keep in step.
+  #
+  # S3_SKIP_SIGNATURE_VALIDATION=0 matters here as much as in CI. Without it LocalStack
+  # hands over any object to any request, so a bug that drops the signature — or signs
+  # the wrong key — would work perfectly on your machine and fail against R2.
+  #
+  # Objects live in the container and are gone when it is removed. For local development
+  # that is usually a feature; it does mean an evidence image uploaded yesterday 404s
+  # after a `docker compose down`.
+  s3:
+    image: localstack/localstack:4.9
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      SERVICES: s3
+      S3_SKIP_SIGNATURE_VALIDATION: 0
     ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - miniodata:/data
+      - "4566:4566"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:4566/_localstack/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
 
 volumes:
   pgdata:
-  miniodata:
