@@ -13,6 +13,10 @@ on:
   # they are base images, registries and advisory databases.
   schedule:
     - cron: "17 2 * * 1" # Mondays, 02:17 UTC
+  # So the weekly checks can be run on demand instead of waiting up to seven days.
+  # Mainly for `bucket-is-private`: after touching the R2 bucket's permissions you
+  # want the answer now, not next Monday.
+  workflow_dispatch:
 
 # Read-only by default; nothing in this workflow writes to the repository.
 permissions:
@@ -165,33 +169,120 @@ jobs:
   # through a bucket accidentally made public.
   #
   # This asks the real bucket. No credentials: an unsigned request is the whole point, so
-  # there is nothing to leak and nothing to rotate. R2 must answer 401 or 403.
+  # there is nothing to leak and nothing to rotate. What counts as a refusal is decided
+  # inside the step, and the note there is worth reading before changing any of it.
   #
-  # Weekly only, deliberately — it reaches outside the repo, and a PR must not go red
-  # because Cloudflare had a bad minute.
+  # Never on a PR, deliberately — it reaches outside the repo, and a PR must not go red
+  # because Cloudflare had a bad minute. Weekly, plus on demand via workflow_dispatch.
   bucket-is-private:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: An unsigned read of production evidence must be refused
         env:
           # A full URL to any object path in the evidence bucket. The object need not
-          # exist: a bucket that is closed answers 401/403 before it looks, and one that
-          # is open answers 404 for a missing key — which is itself a failure here,
-          # because it means the request was authorised.
-          PROBE_URL: ${{ vars.R2_PROBE_URL }}
+          # exist — see the note below on why a missing object is the interesting case.
+          #
+          # Read from either place, because the value went into the other box the first
+          # time and the job would have sat there un-run rather than say so. It carries
+          # no credential — the request is unsigned by design, so there is nothing in it
+          # to authenticate with — though the URL does name the R2 account and bucket,
+          # which makes holding it as a secret reasonable too: Actions would then mask it
+          # if a future change ever echoed it into a log.
+          #
+          # The variable wins when both exist, and that order matters. A variable can be
+          # read back and checked; a secret cannot. If a stale secret took precedence, it
+          # would quietly override a correct, visible variable and the only symptom would
+          # be a probe aimed somewhere unexpected. Better that the value anyone can
+          # actually inspect is the one in force.
+          PROBE_URL: ${{ vars.R2_PROBE_URL || secrets.R2_PROBE_URL }}
         run: |
           if [ -z "$PROBE_URL" ]; then
-            echo "::error::vars.R2_PROBE_URL is not set, so nothing was checked."
-            echo "Set it to an object URL in the production evidence bucket, e.g."
+            echo "::error::R2_PROBE_URL is not set, so nothing was checked."
+            echo "Set it as either a repository secret or a repository variable, to an"
+            echo "object URL in the production evidence bucket, e.g."
             echo "  https://<account>.r2.cloudflarestorage.com/running-club-evidence/probe"
-            echo "It holds no secret — the request is deliberately unsigned."
             exit 1
           fi
-          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$PROBE_URL" || echo 000)
-          echo "unsigned GET -> HTTP $code"
+
+          # READ THIS BEFORE SIMPLIFYING THIS STEP.
+          #
+          # The obvious version of this check asserts `HTTP 403`, and it is wrong.
+          # R2 is S3-compatible in its API, not in its error mapping: an unsigned GET
+          # comes back as
+          #
+          #     HTTP 400
+          #     <Error><Code>InvalidArgument</Code>
+          #            <Message>Invalid Argument: Authorization</Message></Error>
+          #
+          # not the 403 AccessDenied that S3 itself would send. The first version of
+          # this job asserted 401/403 and would have failed on a bucket that is
+          # correctly closed — the worst kind of failure, because it reads as "the
+          # bucket is public" and the natural fix is to relax the assertion until it
+          # passes, at which point the job proves nothing.
+          #
+          # So the verdict comes from the MEANING of the refusal, not its number:
+          #
+          #   pass — refused on authorization grounds, however it is spelled.
+          #   fail — HTTP 200: the object was served to a request carrying no signature.
+          #   fail — NoSuchKey: worse than it looks. It means R2 went and checked
+          #          whether the key exists and told us, which it only does once the
+          #          caller is authorised. Answering a question about our objects'
+          #          existence to an anonymous caller is the leak, even though no
+          #          image came back. This is why the probe URL may point at a key
+          #          that does not exist: a closed bucket refuses before it looks,
+          #          so "not found" and "forbidden" distinguish the two states.
+          #   fail — anything else, loudly. An answer we do not recognise is not
+          #          evidence of privacy, and silence here is how a real regression
+          #          would slip past.
+          #
+          # If this starts failing after a Cloudflare change, read the printed Code
+          # and Message and decide which of the three buckets above it belongs in.
+          # Do not widen the pass list to make the build green.
+          body="$RUNNER_TEMP/r2-probe.xml"
+          status=$(curl -sS --max-time 20 -o "$body" -w '%{http_code}' "$PROBE_URL" || echo 000)
+          code=$(tr -d '\n' < "$body" | sed -n 's#.*<Code>\([^<]*\)</Code>.*#\1#p')
+          message=$(tr -d '\n' < "$body" | sed -n 's#.*<Message>\([^<]*\)</Message>.*#\1#p')
+          echo "unsigned GET -> HTTP $status  Code=${code:-<none>}  Message=${message:-<none>}"
+
+          if [ "$status" = "000" ]; then
+            echo "::error::Could not reach the bucket at all, so privacy was not tested."
+            exit 1
+          fi
+
+          if [ "$status" = "200" ]; then
+            echo "::error::The evidence bucket served an object to an UNSIGNED request."
+            exit 1
+          fi
+
           case "$code" in
-            401|403) echo "Bucket is closed to unsigned reads." ;;
-            000)     echo "::error::Could not reach the bucket at all."; exit 1 ;;
-            *)       echo "::error::Expected 401/403, got $code. The evidence bucket may be readable without a signature."; exit 1 ;;
+            AccessDenied | Unauthorized | AuthorizationHeaderMalformed)
+              echo "Refused on authorization grounds ($code). Bucket is closed."
+              ;;
+            InvalidArgument)
+              # R2's spelling. Only counts when the argument it objected to is the
+              # authorization itself — `InvalidArgument` about anything else (a bad
+              # query parameter, a malformed probe URL) says nothing about access.
+              case "$message" in
+                *Authorization* | *authorization*)
+                  echo "Refused on authorization grounds ($code: $message). Bucket is closed."
+                  ;;
+                *)
+                  echo "::error::InvalidArgument, but not about authorization: $message"
+                  echo "The probe URL is probably malformed, so nothing was tested."
+                  exit 1
+                  ;;
+              esac
+              ;;
+            NoSuchKey | NoSuchBucket)
+              echo "::error::The bucket answered a question about whether our objects exist"
+              echo "($code) without asking for a signature. It is readable anonymously."
+              exit 1
+              ;;
+            *)
+              echo "::error::Unrecognised answer: HTTP $status, Code=${code:-<none>}."
+              echo "This is not proof the bucket is private. Read the note in this step"
+              echo "before changing the assertion."
+              exit 1
+              ;;
           esac
