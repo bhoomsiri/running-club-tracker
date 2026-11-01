@@ -183,14 +183,19 @@ jobs:
           # A full URL to any object path in the evidence bucket. The object need not
           # exist — see the note below on why a missing object is the interesting case.
           #
-          # Read from either place. It carries no credential — the request is unsigned
-          # by design, so there is nothing in it to authenticate with — but the URL does
-          # name the R2 account and bucket, so holding it as a secret is reasonable and
-          # has one small benefit: Actions will mask it if a future change ever echoes
-          # it into a log. A repository variable works just as well, and accepting both
-          # means the job does not sit there silently un-run because the value went into
-          # the other box. Which is exactly what happened the first time.
-          PROBE_URL: ${{ secrets.R2_PROBE_URL || vars.R2_PROBE_URL }}
+          # Read from either place, because the value went into the other box the first
+          # time and the job would have sat there un-run rather than say so. It carries
+          # no credential — the request is unsigned by design, so there is nothing in it
+          # to authenticate with — though the URL does name the R2 account and bucket,
+          # which makes holding it as a secret reasonable too: Actions would then mask it
+          # if a future change ever echoed it into a log.
+          #
+          # The variable wins when both exist, and that order matters. A variable can be
+          # read back and checked; a secret cannot. If a stale secret took precedence, it
+          # would quietly override a correct, visible variable and the only symptom would
+          # be a probe aimed somewhere unexpected. Better that the value anyone can
+          # actually inspect is the one in force.
+          PROBE_URL: ${{ vars.R2_PROBE_URL || secrets.R2_PROBE_URL }}
         run: |
           if [ -z "$PROBE_URL" ]; then
             echo "::error::R2_PROBE_URL is not set, so nothing was checked."
