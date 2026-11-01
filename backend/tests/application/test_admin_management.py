@@ -27,6 +27,7 @@ from app.application.use_cases.manage_rewards import (
 )
 from app.domain.audit import AuditAction
 from app.domain.campaign import Campaign, CampaignType
+from app.domain.campaigns import policy_for
 from app.domain.entities import (
     Member,
     MemberRole,
@@ -66,6 +67,15 @@ CAMPAIGN = Campaign.create(
     code="daily-10km-2026", name="วันละ 10 กม.", type=CampaignType.DAILY_THRESHOLD_REWARD,
     starts_on=date(2026, 8, 15), ends_on=date(2026, 9, 30),
     config={"qualifying_km": 10, "points_per_qualifying_day": 1, "submit_within_days": 1},
+)
+
+
+# A second format, so the widening guarantee is checked against a policy whose stake is
+# a target rather than points.
+HUNDRED_KM = Campaign.create(
+    code="hundred-km-2026", name="100 กม.", type=CampaignType.CUMULATIVE_DISTANCE,
+    starts_on=date(2026, 8, 15), ends_on=date(2026, 9, 30),
+    config={"target_km": 100},
 )
 
 
@@ -117,6 +127,27 @@ def a_run(status: ReviewStatus = ReviewStatus.OK) -> RunEntry:
         run_date=date(2026, 8, 20), evidence_key="k", evidence_sha256="a" * 64,
         source=RunSource.APP_SCREENSHOT, review_status=status, created_at=NOW,
     )
+
+
+def a_timely_run(on: date, km: str = "11") -> RunEntry:
+    """A run submitted the same evening it was run, so `submit_within_days` lets it earn.
+
+    `a_run()` above cannot be used for anything that measures points: its run_date is
+    2026-08-20 and its created_at is NOW (2026-09-01), which is twelve days late, so the
+    policy counts it as worth nothing.
+    """
+    return RunEntry(
+        id=uuid4(), member_id=ALICE, distance_km=Decimal(km), duration_seconds=1800,
+        run_date=on, evidence_key="k", evidence_sha256="a" * 64,
+        source=RunSource.APP_SCREENSHOT, review_status=ReviewStatus.OK,
+        created_at=datetime(on.year, on.month, on.day, 18, 0, tzinfo=UTC),
+    )
+
+
+def points_in(campaign: Campaign, runs: list[RunEntry]) -> Decimal:
+    """What the campaign's own policy says these runs are worth — computed live from the
+    window, which is the reason widening it is safe."""
+    return policy_for(campaign.type).progress(campaign, runs).value
 
 
 def a_reward(stock: int = 3, cost: str = "5") -> Reward:
@@ -236,27 +267,135 @@ class TestCampaignCrud:
 
         assert updated.is_active is False
 
-    def test_moving_the_dates_after_points_were_awarded_is_refused(self) -> None:
+    def test_pulling_the_end_date_in_after_points_were_awarded_is_refused(self) -> None:
         """Narrowing the window later is how a member loses points they were told they
-        had."""
+        had — so this direction stays forbidden."""
         harness = Harness(ledger=[earned("2")])
 
-        with pytest.raises(InvalidCampaignError, match="points have already"):
+        with pytest.raises(
+            InvalidCampaignError, match="cannot narrow dates: points have already"
+        ):
             UpdateCampaign(harness.uow()).execute(
                 UpdateCampaignCommand(
                     actor_id=BOSS, campaign_id=CAMPAIGN.id, ends_on=date(2026, 9, 1)
                 )
             )
 
-    def test_moving_the_dates_after_runs_were_submitted_is_refused(self) -> None:
+    def test_pushing_the_start_date_out_after_runs_were_submitted_is_refused(self) -> None:
+        """The other way of narrowing it: runs that were inside the window fall out."""
         harness = Harness(runs=[a_run()])
 
-        with pytest.raises(InvalidCampaignError, match="runs have already"):
+        with pytest.raises(
+            InvalidCampaignError, match="cannot narrow dates: runs have already"
+        ):
             UpdateCampaign(harness.uow()).execute(
                 UpdateCampaignCommand(
                     actor_id=BOSS, campaign_id=CAMPAIGN.id, starts_on=date(2026, 8, 25)
                 )
             )
+
+    def test_extending_the_end_date_is_allowed_even_with_history(self) -> None:
+        """Widening takes nothing from anyone, so history does not block it.
+
+        The reason it is safe is that progress is computed live by filtering run_date
+        against the window — there is no stored running total to go stale. This asserts
+        both halves of that: what was already earned is untouched, and the days the
+        extension newly admits can now earn.
+        """
+        ran = a_timely_run(date(2026, 8, 20))
+        harness = Harness(ledger=[earned("2")], runs=[ran])
+        before = points_in(CAMPAIGN, [ran])
+        assert before == Decimal("1.00")  # the fixture earns, or the rest proves nothing
+
+        updated = UpdateCampaign(harness.uow()).execute(
+            UpdateCampaignCommand(
+                actor_id=BOSS, campaign_id=CAMPAIGN.id, ends_on=date(2026, 10, 31)
+            )
+        )
+
+        assert updated.ends_on == date(2026, 10, 31)
+        assert updated.starts_on == CAMPAIGN.starts_on  # the other end did not move
+        assert harness.actions() == [AuditAction.UPDATE_CAMPAIGN]
+
+        # Nothing already earned moved.
+        assert points_in(updated, [ran]) == before
+        # And a run in the stretch that was just added now counts.
+        later = a_timely_run(date(2026, 10, 5))
+        assert points_in(updated, [ran, later]) == before + Decimal("1")
+        # It is the extension that admitted it: under the old window it was worth nothing.
+        assert points_in(CAMPAIGN, [ran, later]) == before
+
+    def test_extending_carries_cumulative_distance_over(self) -> None:
+        """The same guarantee on a distance campaign, where what is at stake is the 100 km
+        target rather than points: widening must not reset the kilometres already banked,
+        and the days it adds have to be able to finish the job.
+        """
+        banked = [
+            a_timely_run(date(2026, 8, 20), km="50"),
+            a_timely_run(date(2026, 9, 10), km="48"),
+        ]
+        harness = Harness(campaigns=[HUNDRED_KM], runs=banked)
+        policy = policy_for(HUNDRED_KM.type)
+        assert policy.progress(HUNDRED_KM, banked).value == Decimal("98.000")
+
+        updated = UpdateCampaign(harness.uow()).execute(
+            UpdateCampaignCommand(
+                actor_id=BOSS, campaign_id=HUNDRED_KM.id, ends_on=date(2026, 10, 31)
+            )
+        )
+
+        # Not a kilometre lost, and still short of the target.
+        carried = policy.progress(updated, banked)
+        assert carried.value == Decimal("98.000")
+        assert carried.completed is False
+
+        # And the stretch that was just added can carry them over the line.
+        finisher = a_timely_run(date(2026, 10, 5), km="2")
+        done = policy.progress(updated, [*banked, finisher])
+        assert done.value == Decimal("100.000")
+        assert done.completed is True
+
+        # It is the extension that did it: under the old window that run was outside.
+        assert policy.progress(HUNDRED_KM, [*banked, finisher]).completed is False
+
+    def test_pulling_the_start_date_earlier_is_allowed_even_with_history(self) -> None:
+        harness = Harness(ledger=[earned("2")], runs=[a_run()])
+
+        updated = UpdateCampaign(harness.uow()).execute(
+            UpdateCampaignCommand(
+                actor_id=BOSS, campaign_id=CAMPAIGN.id, starts_on=date(2026, 8, 1)
+            )
+        )
+
+        assert updated.starts_on == date(2026, 8, 1)
+        assert updated.ends_on == CAMPAIGN.ends_on
+        assert harness.actions() == [AuditAction.UPDATE_CAMPAIGN]
+
+    def test_editing_another_field_never_reaches_the_history_check(self) -> None:
+        """The campaign has both kinds of history — points paid and runs submitted — so
+        if the check ran at all this would raise. Succeeding is the assertion."""
+        harness = Harness(ledger=[earned("2")], runs=[a_run()])
+
+        updated = UpdateCampaign(harness.uow()).execute(
+            UpdateCampaignCommand(actor_id=BOSS, campaign_id=CAMPAIGN.id, name="ชื่อใหม่")
+        )
+
+        assert updated.name == "ชื่อใหม่"
+        assert (updated.starts_on, updated.ends_on) == (CAMPAIGN.starts_on, CAMPAIGN.ends_on)
+
+    def test_resending_the_same_dates_is_not_narrowing(self) -> None:
+        """The comparison is strict on both ends, so a no-op edit is allowed to pass
+        through a campaign that could never be narrowed."""
+        harness = Harness(ledger=[earned("2")], runs=[a_run()])
+
+        updated = UpdateCampaign(harness.uow()).execute(
+            UpdateCampaignCommand(
+                actor_id=BOSS, campaign_id=CAMPAIGN.id,
+                starts_on=CAMPAIGN.starts_on, ends_on=CAMPAIGN.ends_on,
+            )
+        )
+
+        assert (updated.starts_on, updated.ends_on) == (CAMPAIGN.starts_on, CAMPAIGN.ends_on)
 
     def test_an_inverted_window_is_refused(self) -> None:
         harness = Harness()
