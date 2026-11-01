@@ -123,9 +123,12 @@ class UpdateCampaign:
                 raise InvalidCampaignError("ends_on cannot be before starts_on")
             validate_config_for(updated)
 
-            # Narrowing the window after people have run is how a member loses points
-            # they were told they had, so it is refused once the campaign has history.
-            if (updated.starts_on, updated.ends_on) != (campaign.starts_on, campaign.ends_on):
+            # Widening the window takes nothing from anyone: every run that counted still
+            # counts, because progress is computed live by filtering run_date against the
+            # window and there is no stored total to go stale. Narrowing is the direction
+            # that costs a member points they were already told they had, and it is
+            # therefore the only direction refused.
+            if updated.starts_on > campaign.starts_on or updated.ends_on < campaign.ends_on:
                 self._refuse_if_it_has_history(uow, campaign, "dates")
 
             uow.campaigns.save(updated)
@@ -145,9 +148,9 @@ class UpdateCampaign:
     ) -> None:
         if uow.ledger.has_entries_for_campaign(campaign.id):
             raise InvalidCampaignError(
-                f"cannot change {what}: points have already been awarded in this campaign"
+                f"cannot narrow {what}: points have already been awarded in this campaign"
             )
         if uow.runs.count_in_window(campaign.starts_on, campaign.ends_on) > 0:
             raise InvalidCampaignError(
-                f"cannot change {what}: runs have already been submitted in this window"
+                f"cannot narrow {what}: runs have already been submitted in this window"
             )
