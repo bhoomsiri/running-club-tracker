@@ -21,7 +21,22 @@ dependencies = [
     "slowapi>=0.1.9",
     "boto3>=1.34",
     "pillow>=10.3",
-    "google-genai>=1.0",
+    # Capped below 3.0 deliberately, not out of caution about major versions in general.
+    # 3.0.0 appeared on 9 Nov 2026 and broke the Monday CI run on a commit that had been
+    # green the week before, without a line of our code changing — it depends on `httpx2`,
+    # which starlette's TestClient then prefers over `httpx`, which changed the types the
+    # test suite is checked against. That was only the visible half. The invisible half is
+    # that this is a major version of the SDK that talks to Gemini, and `generate_content`
+    # is how every submitted run gets read; nothing has tested our nine call sites in
+    # `adapters/extraction/gemini_extractor.py` against it. With no lock file anywhere and
+    # `pip install .` resolving afresh inside the Dockerfile, the next deploy of anything
+    # at all would have carried it into production untested.
+    #
+    # The floor is 2.34 because that is what production is actually running and what CI
+    # was last green with, so this pins the build back to a combination we have evidence
+    # for rather than to a guess. Moving to 3.x is its own piece of work with its own
+    # tests — not something to inherit from whatever PyPI served that morning.
+    "google-genai>=2.34,<3",
     # The one xlsx writer that takes a Decimal and writes it as a number, without a
     # float in between (openpyxl.cell.cell.NUMERIC_TYPES includes Decimal). Golden rule
     # #6 is the reason this is the library and not one of the faster ones.

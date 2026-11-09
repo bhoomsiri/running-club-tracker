@@ -146,8 +146,17 @@ def test_a_non_ascii_header_is_refused_rather_than_crashing(guarded: TestClient)
     Sent as raw bytes because that is the only way it can arrive: HTTP headers are bytes
     on the wire, Starlette decodes them latin-1, and no client will encode a str like
     this for you.
+
+    As a sequence of byte pairs rather than the dict every other test here uses, because
+    a dict of `str` to `bytes` is not a header type httpx accepts — it takes a mapping
+    whose keys and values are both `str` or both `bytes`. It went unnoticed for as long
+    as it did only because mypy could not resolve the client's types and fell back to
+    `Any`; the moment it could, this line was the one error in the suite. Please do not
+    tidy it back into a dict: the bytes are the point of the test.
     """
-    response = guarded.get("/me/summary", headers={ORIGIN_SECRET_HEADER: b"caf\xe9"})
+    response = guarded.get(
+        "/me/summary", headers=[(ORIGIN_SECRET_HEADER.encode(), b"caf\xe9")]
+    )
 
     assert response.status_code == 403
 
